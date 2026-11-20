@@ -8,6 +8,8 @@ import type { I18nTranslations } from '../generated/i18n.generated.js';
 import { toLanguage } from '../common/utils/language.js';
 import { localize } from '../menus/menus-public.service.js';
 
+import { BreakEvenReportService } from './break-even-report.service.js';
+import type { BreakEvenReportQueryDto } from './dto/break-even-report.dto.js';
 import type { ReportRangeQueryDto } from './dto/report-range-query.dto.js';
 import type { SalesReportQueryDto } from './dto/sales-report.dto.js';
 import { InventoryReportService } from './inventory-report.service.js';
@@ -38,6 +40,7 @@ export const toCsv = (rows: CsvCell[][]): string =>
 @Injectable()
 export class ReportCsvService {
   constructor(
+    private readonly breakEvenReportService: BreakEvenReportService,
     private readonly i18n: I18nService<I18nTranslations>,
     private readonly inventoryReportService: InventoryReportService,
     private readonly personnelCostReportService: PersonnelCostReportService,
@@ -179,6 +182,49 @@ export class ReportCsvService {
       ],
       ...rows.map((row) => [row.jobTitle ?? t('noJobTitle'), ...amounts(row)]),
       [t('total'), ...amounts(totals)],
+    ]);
+  }
+
+  async breakEven(
+    organizationSlug: string,
+    query: BreakEvenReportQueryDto,
+  ): Promise<string> {
+    const { costOfGoodsSold, rows } =
+      await this.breakEvenReportService.getBreakEvenReport(
+        organizationSlug,
+        query,
+      );
+    const lang = toLanguage(I18nContext.current()?.lang);
+    const t = (key: CsvColumn) =>
+      this.i18n.t(`common.reports.csv.${key}`, { lang });
+    const sum = (values: number[]) =>
+      Math.round(values.reduce((total, value) => total + value, 0) * 100) / 100;
+
+    return toCsv([
+      [
+        t('menuItem'),
+        t('quantity'),
+        t('revenueExcludingTax'),
+        t('standardCost'),
+        t('grossProfit'),
+        t('grossMarginRate'),
+      ],
+      ...rows.map((row) => [
+        row.name,
+        row.quantity,
+        row.revenue,
+        row.cost,
+        row.grossProfit,
+        row.grossMarginRate,
+      ]),
+      [
+        t('total'),
+        sum(rows.map(({ quantity }) => quantity)),
+        sum(rows.map(({ revenue }) => revenue)),
+        costOfGoodsSold,
+        null,
+        null,
+      ],
     ]);
   }
 }

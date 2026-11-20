@@ -12,6 +12,7 @@ import { Roles } from '../menus/decorators/roles.decorator.js';
 import { BreakEvenReportService } from './break-even-report.service.js';
 import {
   BreakEvenReportPageQueryDto,
+  BreakEvenReportQueryDto,
   BreakEvenReportResponseDto,
 } from './dto/break-even-report.dto.js';
 import {
@@ -148,5 +149,19 @@ export class ReportsController {
       organizationSlug,
       query,
     );
+  }
+
+  @Get('break-even/export.csv')
+  @Roles({ operatingCost: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '匯出損益平衡報表的品項毛利 CSV' })
+  @ApiProduces('text/csv')
+  @ApiOkResponse({ schema: { type: 'string' } })
+  exportBreakEven(
+    @Param('organizationSlug') organizationSlug: string,
+    @Query() query: BreakEvenReportQueryDto,
+  ): Promise<StreamableFile> {
+    return this.reportCsvService
+      .breakEven(organizationSlug, query)
+      .then((csv) => csvFile(csv, 'break-even-report.csv'));
   }
 }
