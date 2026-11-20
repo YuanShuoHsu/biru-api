@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import {
   and,
   asc,
@@ -25,9 +25,11 @@ import {
 } from '../common/utils/data-grid-filters.js';
 import {
   ingredient,
+  inventoryReceipt,
   inventoryTransaction,
   recipe,
   recipeIngredient,
+  supplier,
   type InventoryTransaction,
   type WasteReason,
 } from '../db/schema/inventory.js';
@@ -48,6 +50,7 @@ import { notFoundError as menuNotFoundError } from '../menus/menu-errors.js';
 
 import { CreateIngredientBatchDto } from './dto/create-ingredient-batch.dto.js';
 import { CreateIngredientWasteDto } from './dto/create-ingredient-waste.dto.js';
+import { CreateInventoryReceiptDto } from './dto/create-inventory-receipt.dto.js';
 import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto.js';
 import { CreateProductWasteDto } from './dto/create-product-waste.dto.js';
 import {
@@ -58,13 +61,18 @@ import {
   InventoryTransactionExportQueryDto,
   InventoryTransactionPaginationQueryDto,
 } from './dto/inventory-transaction-pagination-query.dto.js';
+import { InventoryReceiptResponseDto } from './dto/inventory-receipt-response.dto.js';
 import {
   InventoryTransactionResponseDto,
   type InventoryTransactionReason,
 } from './dto/inventory-transaction-response.dto.js';
-import { badRequestError, notFoundError } from './inventory-errors.js';
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+} from './inventory-errors.js';
 import { QUANTITY_TOLERANCE } from './menu-stock.service.js';
-import { unitPriceSql } from './pricing.js';
+import { baseQuantityOf, unitPriceSql } from './pricing.js';
 
 type Tx = Pick<DrizzleDB, 'insert' | 'select' | 'update'>;
 
@@ -147,6 +155,7 @@ export class InventoryTransactionsService {
     const reason = sql<InventoryTransactionReason>`case
       when ${inventoryTransaction.productionBatchId} is not null then 'batch'
       when ${inventoryTransaction.wasteReason} is not null then 'waste'
+      when ${inventoryTransaction.receiptId} is not null then 'receive'
       when ${inventoryTransaction.orderId} is null then 'count'
       when ${inventoryTransaction.quantity} <= 0 then 'consume'
       else 'restore'
@@ -691,6 +700,199 @@ export class InventoryTransactionsService {
     }));
   }
 
+  async receive(
+    organizationId: string,
+    dto: CreateInventoryReceiptDto,
+    idempotencyKey: string | null,
+    canReadPurchasing = true,
+    createdBy?: string,
+  ): Promise<InventoryReceiptResponseDto> {
+    const idempotencyFingerprint = idempotencyKey
+      ? createHash('sha256').update(JSON.stringify(dto)).digest('hex')
+      : null;
+    const findReplay = async () => {
+      if (!idempotencyKey) return undefined;
+      const [existing] = await this.db
+        .select({
+          id: inventoryReceipt.id,
+          idempotencyFingerprint: inventoryReceipt.idempotencyFingerprint,
+        })
+        .from(inventoryReceipt)
+        .where(
+          and(
+            eq(inventoryReceipt.organizationId, organizationId),
+            eq(inventoryReceipt.idempotencyKey, idempotencyKey),
+          ),
+        );
+      if (
+        existing &&
+        existing.idempotencyFingerprint !== idempotencyFingerprint
+      )
+        throw conflictError('idempotencyConflict');
+      return existing;
+    };
+
+    const replayed = await findReplay();
+    if (replayed) return this.receiptOf(replayed.id, canReadPurchasing);
+
+    const { items, note, receivedAt, supplierId } = dto;
+    if (
+      items.some(
+        ({ packages, quantity }) => (packages == null) === (quantity == null),
+      )
+    )
+      throw badRequestError('receiptQuantityRequired');
+
+    const receiptId = await this.db.transaction(async (tx) => {
+      if (supplierId) {
+        const [found] = await tx
+          .select({ id: supplier.id })
+          .from(supplier)
+          .where(
+            and(
+              eq(supplier.id, supplierId),
+              eq(supplier.organizationId, organizationId),
+            ),
+          );
+        if (!found) throw notFoundError('supplierNotFound');
+      }
+
+      const specs = await tx
+        .select({
+          id: ingredient.id,
+          eligibleQuantity: ingredient.eligibleQuantity,
+          eligibleQuantityUnitCode: ingredient.eligibleQuantityUnitCode,
+          unitPrice: unitPriceSql,
+        })
+        .from(ingredient)
+        .where(
+          and(
+            inArray(
+              ingredient.id,
+              items.map(({ ingredientId }) => ingredientId),
+            ),
+            eq(ingredient.organizationId, organizationId),
+          ),
+        );
+
+      const entries = items.map(({ ingredientId, packages, quantity }) => {
+        const spec = specs.find(({ id }) => id === ingredientId);
+        if (!spec) throw notFoundError('ingredientNotFound');
+
+        const packageBaseQuantity = baseQuantityOf(spec);
+        if (packages != null && !packageBaseQuantity)
+          throw badRequestError('receiptPackageMissing');
+
+        return {
+          ingredientId,
+          quantity: Number(
+            (packages != null
+              ? Number(packages) * packageBaseQuantity!
+              : Number(quantity)
+            ).toFixed(3),
+          ),
+          unitCost: spec.unitPrice?.toString() ?? null,
+        };
+      });
+
+      const [receipt] = await tx
+        .insert(inventoryReceipt)
+        .values({
+          id: randomUUID(),
+          createdBy,
+          idempotencyFingerprint,
+          idempotencyKey,
+          note,
+          organizationId,
+          receivedAt: receivedAt ? new Date(receivedAt) : new Date(),
+          supplierId,
+        })
+        .onConflictDoNothing({
+          target: [
+            inventoryReceipt.organizationId,
+            inventoryReceipt.idempotencyKey,
+          ],
+        })
+        .returning({ id: inventoryReceipt.id });
+      if (!receipt) return null;
+
+      await this.record(
+        entries,
+        { createdBy, organizationId, receiptId: receipt.id },
+        tx,
+      );
+
+      return receipt.id;
+    });
+
+    return this.receiptOf(
+      receiptId ?? (await findReplay())!.id,
+      canReadPurchasing,
+    );
+  }
+
+  private async receiptOf(
+    receiptId: string,
+    canReadPurchasing: boolean,
+  ): Promise<InventoryReceiptResponseDto> {
+    const inReceipt = eq(inventoryTransaction.receiptId, receiptId);
+    const ledger = this.db
+      .select({
+        id: inventoryTransaction.id,
+        balance: sql<string>`sum(${inventoryTransaction.quantity}) over (
+          partition by ${inventoryTransaction.ingredientId}
+          order by ${inventoryTransaction.createdAt}, ${inventoryTransaction.id}
+        )`.as('balance'),
+      })
+      .from(inventoryTransaction)
+      .where(
+        inArray(
+          inventoryTransaction.ingredientId,
+          this.db
+            .select({ id: inventoryTransaction.ingredientId })
+            .from(inventoryTransaction)
+            .where(inReceipt),
+        ),
+      )
+      .as('ledger');
+
+    const [[receipt], rows] = await Promise.all([
+      this.db
+        .select({
+          id: inventoryReceipt.id,
+          createdAt: inventoryReceipt.createdAt,
+          createdBy: inventoryReceipt.createdBy,
+          note: inventoryReceipt.note,
+          organizationId: inventoryReceipt.organizationId,
+          receivedAt: inventoryReceipt.receivedAt,
+          supplierId: inventoryReceipt.supplierId,
+          updatedAt: inventoryReceipt.updatedAt,
+        })
+        .from(inventoryReceipt)
+        .where(eq(inventoryReceipt.id, receiptId)),
+      this.db
+        .select({ inventoryTransaction, balance: ledger.balance })
+        .from(inventoryTransaction)
+        .innerJoin(ledger, eq(ledger.id, inventoryTransaction.id))
+        .where(inReceipt)
+        .orderBy(
+          asc(inventoryTransaction.createdAt),
+          asc(inventoryTransaction.id),
+        ),
+    ]);
+
+    return {
+      ...receipt,
+      inventoryTransactions: rows.map((row) =>
+        this.toLedgerRow(canReadPurchasing)({
+          ...row,
+          orderNumber: null,
+          reason: 'receive',
+        }),
+      ),
+    };
+  }
+
   async consume(
     orderId: string,
     tx: Tx,
@@ -1014,6 +1216,7 @@ export class InventoryTransactionsService {
       note,
       orderId,
       organizationId,
+      receiptId,
       wasteBatchId,
       wasteMenuItemId,
       wasteReason,
@@ -1025,6 +1228,7 @@ export class InventoryTransactionsService {
       note?: string | null;
       orderId?: string;
       organizationId: string;
+      receiptId?: string;
       wasteBatchId?: string;
       wasteMenuItemId?: string;
       wasteReason?: WasteReason;
@@ -1078,6 +1282,7 @@ export class InventoryTransactionsService {
           orderId,
           organizationId,
           quantity: String(quantity),
+          receiptId,
           unitCost,
           wasteBatchId,
           wasteMenuItemId,

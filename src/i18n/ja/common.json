@@ -202,6 +202,7 @@
     "lookupUnavailable": "現在、会社登記の照会を利用できません。名称と住所を入力してください"
   },
   "inventory": {
+    "idempotencyConflict": "この入荷は別の内容ですでに送信されています。フォームを閉じてもう一度操作してください",
     "ingredientInUse": "この食材はまだレシピで使われています。先にレシピから外してください",
     "ingredientNotFound": "食材が見つかりません。削除された可能性があります",
     "insufficientStock": "このバッチに必要な食材の在庫が足りません。先に仕入れるか棚卸ししてください",
@@ -209,6 +210,8 @@
     "packageRequired": "元レシピのない食材には、包装の価格・内容量・単位を入力してください",
     "packageUnitIncompatible": "内容量の単位と在庫単位に互換性がありません",
     "purchaseFieldsOnSourcedIngredient": "元レシピから作る食材には、包装の価格・内容量・仕入先を設定できません",
+    "receiptPackageMissing": "この食材には包装規格が設定されていません。数量で入力してください",
+    "receiptQuantityRequired": "各品目に包装数または数量のどちらか一方を入力してください",
     "recipeInUseAsSource": "次の自家製食材がまだこのレシピを元レシピにしています：{names}。先にこれらの食材から元レシピを外してください",
     "recipeIngredientExists": "この材料はすでに追加されています",
     "recipeIngredientNotFound": "レシピの材料が見つかりません。削除された可能性があります",
@@ -482,6 +485,7 @@
       "batch": "仕込み",
       "consume": "注文消費",
       "count": "棚卸",
+      "receive": "入荷",
       "restore": "返品戻し",
       "waste": "廃棄"
     },

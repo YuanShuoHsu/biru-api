@@ -202,6 +202,7 @@
     "lookupUnavailable": "The company registry lookup is unavailable right now. Please enter the name and address."
   },
   "inventory": {
+    "idempotencyConflict": "This delivery was already submitted with different details. Close the form and try again",
     "ingredientInUse": "This ingredient is still used in a recipe. Remove it from the recipe first",
     "ingredientNotFound": "The ingredient wasn't found. It may have been deleted",
     "insufficientStock": "Not enough stock of some ingredients for this batch. Restock or recount them first",
@@ -209,6 +210,8 @@
     "packageRequired": "Enter the package price, quantity and unit for an ingredient without a source recipe",
     "packageUnitIncompatible": "The quantity unit isn't compatible with the stock unit",
     "purchaseFieldsOnSourcedIngredient": "An ingredient made from a source recipe can't have a package price, quantity or supplier",
+    "receiptPackageMissing": "This ingredient has no package size set. Enter the quantity instead",
+    "receiptQuantityRequired": "Enter either the number of packages or the quantity for each item",
     "recipeInUseAsSource": "These house-made ingredients still use this recipe as their source recipe: {names}. Unlink it from them first",
     "recipeIngredientExists": "This ingredient has already been added",
     "recipeIngredientNotFound": "This recipe ingredient wasn't found. It may have been removed",
@@ -482,6 +485,7 @@
       "batch": "Batch made",
       "consume": "Order usage",
       "count": "Stock count",
+      "receive": "Delivery received",
       "restore": "Order refund",
       "waste": "Waste"
     },

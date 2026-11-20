@@ -17,10 +17,10 @@ type Package = Pick<
   'eligibleQuantity' | 'eligibleQuantityUnitCode' | 'price'
 >;
 
-const baseQuantityOf = ({
+export const baseQuantityOf = ({
   eligibleQuantity,
   eligibleQuantityUnitCode,
-}: Package): number | null =>
+}: Omit<Package, 'price'>): number | null =>
   eligibleQuantity && eligibleQuantityUnitCode
     ? Number(eligibleQuantity) * UNIT_FACTORS[eligibleQuantityUnitCode]
     : null;

@@ -2066,6 +2066,13 @@
       "when": 1795152156295,
       "tag": "0294_shared_cart_fk_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 295,
+      "version": "7",
+      "when": 1795159486404,
+      "tag": "0295_inventory_receipts",
+      "breakpoints": true
     }
   ]
 }

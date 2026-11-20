@@ -11,6 +11,7 @@ export const INVENTORY_TRANSACTION_REASONS = [
   'restore',
   'batch',
   'waste',
+  'receive',
 ] as const;
 
 export type InventoryTransactionReason =
@@ -43,6 +44,8 @@ export class InventoryTransactionResponseDto {
   wasteMenuItemId: string | null;
   @ApiPropertyOptional({ nullable: true, type: Number })
   wasteServings: number | null;
+  @ApiPropertyOptional({ nullable: true, type: String })
+  receiptId: string | null;
   @ApiPropertyOptional() orderId: string | null;
   @ApiPropertyOptional() orderNumber: string | null;
   @ApiPropertyOptional() note: string | null;
