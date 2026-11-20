@@ -152,6 +152,23 @@
       "detail": "{holdUntil}까지 매장 카운터로 와 주세요. 아래 버튼으로 방문 여부를 알려 주세요. 제시간에 오지 않으시면 순서가 넘어갈 수 있습니다.",
       "action": "방문 여부 회신하기"
     },
+    "cancelled": {
+      "subject": "{organizationName}: 대기 번호 {ticketNumber}이(가) 취소되었습니다",
+      "title": "대기가 취소되었습니다",
+      "intro": "{organizationName}은(는) 특별 영업시간으로 오늘 영업을 종료하여 대기 번호 {ticketNumber}({partySize}명)이(가) 취소되었습니다. 불편을 드려 죄송합니다.",
+      "detail": "매장 안내: {note}",
+      "action": "대기 상태 보기"
+    },
+    "salutation": "감사합니다.<br>{productName} 팀",
+    "trouble_hint": "위 버튼을 클릭할 수 없는 경우 아래 URL을 복사하여 브라우저에 붙여 넣으세요."
+  },
+  "order_store_closed": {
+    "subject": "{organizationName}: 주문 {orderNumber}이(가) 취소 및 환불되었습니다",
+    "title": "주문이 취소 및 환불되었습니다",
+    "intro": "{organizationName}은(는) 예약하신 픽업 시간 {pickupTime}에 영업하지 않아 주문 {orderNumber}이(가) 취소되었으며, {amount}이(가) 원래 결제 수단으로 환불되었습니다. 불편을 드려 죄송합니다.",
+    "note": "매장 안내: {note}",
+    "refund_hint": "환불 반영 시점은 카드 발급사에 따라 다릅니다. 계속 주문을 원하시면 다시 주문해 주세요.",
+    "action": "다시 주문하기",
     "salutation": "감사합니다.<br>{productName} 팀",
     "trouble_hint": "위 버튼을 클릭할 수 없는 경우 아래 URL을 복사하여 브라우저에 붙여 넣으세요."
   },

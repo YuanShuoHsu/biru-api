@@ -497,6 +497,7 @@ export type I18nTranslations = {
                 "consumed": string;
                 "createdAt": string;
                 "day": string;
+                "description": string;
                 "discount": string;
                 "employerInsurance": string;
                 "employerPension": string;
@@ -514,10 +515,12 @@ export type I18nTranslations = {
                 "noJobTitle": string;
                 "note": string;
                 "opening": string;
+                "options": string;
                 "orderNumber": string;
                 "orders": string;
                 "paymentMethod": string;
                 "personnelCost": string;
+                "price": string;
                 "quantity": string;
                 "quantityChange": string;
                 "reason": string;
@@ -803,6 +806,23 @@ export type I18nTranslations = {
                 "detail": string;
                 "action": string;
             };
+            "cancelled": {
+                "subject": string;
+                "title": string;
+                "intro": string;
+                "detail": string;
+                "action": string;
+            };
+            "salutation": string;
+            "trouble_hint": string;
+        };
+        "order_store_closed": {
+            "subject": string;
+            "title": string;
+            "intro": string;
+            "note": string;
+            "refund_hint": string;
+            "action": string;
             "salutation": string;
             "trouble_hint": string;
         };

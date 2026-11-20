@@ -679,4 +679,50 @@ describe('MailsService 語系', () => {
     ).rejects.toThrow(TypeError);
     expect(vi.mocked(sendMail).mock.calls).toHaveLength(calls);
   });
+
+  it('門市公休退款信用會員的語系，附上跳脫後的門市說明與退款金額；訪客用預設語系', async () => {
+    const order = {
+      amount: '120.00',
+      email: 'amy@example.com',
+      note: '<b>颱風</b>',
+      orderNumber: 'A-001',
+      organizationName: 'Biru',
+      pickupTime: new Date('2026-11-21T04:30:00Z'),
+    };
+
+    await service.sendOrderStoreClosed({ ...order, lang: 'en' });
+    await service.sendOrderStoreClosed({ ...order, lang: null, note: null });
+
+    expect(sent[0].subject).toBe(
+      'Biru: order A-001 has been cancelled and refunded',
+    );
+    expect(sent[0].html).toContain('NT$120');
+    expect(sent[0].html).toContain('&lt;b&gt;颱風&lt;/b&gt;');
+    expect(sent[0].html).toContain('href="http://localhost:3000/en"');
+    expect(sent[1].subject).toBe('Biru：訂單 A-001 已取消並退款');
+    expect(sent[1].html).not.toContain('門市說明');
+  });
+
+  it('候位取消信沒有門市說明時不留空白段落', async () => {
+    const ticket = {
+      email: 'amy@example.com',
+      holdUntil: null,
+      kind: 'cancelled' as const,
+      lang: 'zh-TW' as const,
+      organizationName: 'Biru',
+      partySize: 2,
+      path: '/waitlist/biru/t1',
+      ticketNumber: 'A001',
+    };
+
+    await service.sendWaitlistNotification({ ...ticket, note: '颱風停業' });
+    await service.sendWaitlistNotification(ticket);
+
+    expect(sent[0].subject).toBe('Biru：候位號碼 A001 已取消');
+    const paragraphs = (html: string) => html.match(/<p\b[^>]*>/g)?.length;
+    expect(sent[0].html).toContain('門市說明：颱風停業');
+    expect(sent[1].html).not.toContain('門市說明');
+    expect(sent[1].html).not.toMatch(/<p\b[^>]*>\s*<\/p>/);
+    expect(paragraphs(sent[1].html)).toBe(paragraphs(sent[0].html)! - 1);
+  });
 });

@@ -7,7 +7,12 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
 import {
   AllowAnonymous,
   Session,
@@ -84,6 +89,7 @@ export class OrganizationsController {
     summary:
       '設定成員是否顯示在官網的團隊介紹；只有本人能開啟，owner／admin 只能關閉其他成員',
   })
+  @ApiParam({ name: 'organizationSlug', type: String })
   @ApiOkResponse({ type: MemberShowcaseResponseDto })
   setMemberShowcase(
     @Param('memberId') memberId: string,

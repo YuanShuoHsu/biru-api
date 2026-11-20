@@ -8,6 +8,7 @@ export type AuditIdSource =
   | { id: string }
   | { param: string }
   | { body: string }
+  | { body: string; key: string }
   | { response: true }
   | { column: string; param: string }
   | { column: string; body: string }

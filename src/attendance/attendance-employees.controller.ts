@@ -8,7 +8,12 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import { ApiExtraModels, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiExtraModels,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
@@ -38,6 +43,7 @@ import { SaveAttendanceSettingsDto } from './dto/save-attendance-settings.dto.js
 
 @ApiTags('attendance')
 @ApiExtraModels(AttendanceErrorResponseDto)
+@ApiParam({ name: 'organizationSlug', type: String })
 @Controller('organizations/:organizationSlug/attendance')
 export class AttendanceEmployeesController {
   constructor(

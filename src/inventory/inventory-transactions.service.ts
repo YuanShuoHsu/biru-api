@@ -885,6 +885,7 @@ export class InventoryTransactionsService {
 
     return {
       ...receipt,
+      supplierId: canReadPurchasing ? receipt.supplierId : undefined,
       inventoryTransactions: rows.map((row) =>
         this.toLedgerRow(canReadPurchasing)({
           ...row,

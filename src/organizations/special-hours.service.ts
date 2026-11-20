@@ -1,7 +1,19 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { HttpException, Inject, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 
-import { and, asc, eq, gte, inArray, lte, ne, notExists } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lte,
+  ne,
+  notExists,
+  or,
+} from 'drizzle-orm';
 
 import { PICKUP_MAX_ADVANCE_DAYS } from '../common/constants/pickup.js';
 import {
@@ -9,6 +21,7 @@ import {
   platformDateString,
   platformMidnight,
 } from '../common/constants/timezone.js';
+import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
 import {
   openingCalendar,
   specialHoursOn,
@@ -30,16 +43,23 @@ import {
   waitlistTicket,
 } from '../db/schema/waitlist.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
+import { EcpayOrderRefundService } from '../ecpay/services/ecpay-order-refund.service.js';
 import { getRefundChannel } from '../orders/order-transitions.js';
+import { OrdersService } from '../orders/orders.service.js';
 import { pickupHoursError } from '../orders/pickup-hours.js';
+import { WaitlistService } from '../waitlist/waitlist.service.js';
 import {
   formatTicketNumber,
   isClosedTodayBySpecialHours,
 } from '../waitlist/waitlist-rules.js';
 
 import type {
+  ProcessSpecialHoursAffectedDto,
   SpecialHoursAffectedDto,
   SpecialHoursAffectedOrderDto,
+  SpecialHoursProcessResponseDto,
+  SpecialHoursProcessResultDto,
+  SpecialHoursProcessStatus,
 } from './dto/special-hours-affected.dto.js';
 
 import type {
@@ -53,9 +73,46 @@ import {
   notFoundError,
 } from './organization-errors.js';
 
+type AffectingOrganization = {
+  id: string;
+  openingHours: string | null;
+  pickupCutoffMinutes: number;
+};
+
+const codeOf = (error: unknown): string | undefined => {
+  if (!(error instanceof HttpException)) return undefined;
+
+  const response = error.getResponse();
+  const code =
+    typeof response === 'object' && (response as { code?: unknown }).code;
+
+  return typeof code === 'string' ? code : undefined;
+};
+
+type SpecialHoursRows = Awaited<ReturnType<typeof findSpecialHours>>;
+
+const closedPickup = (
+  org: AffectingOrganization,
+  specialHours: SpecialHoursRows,
+) => {
+  const calendar = openingCalendar(org.openingHours, specialHours);
+
+  return (pickupTime: Date) =>
+    [pickupTime, new Date(pickupTime.getTime() - DAY_MS)].some(
+      (date) => specialHoursOn(specialHours, platformDateString(date)).length,
+    ) && !!pickupHoursError(calendar, org.pickupCutoffMinutes, pickupTime);
+};
+
 @Injectable()
 export class SpecialHoursService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  private readonly logger = new Logger(SpecialHoursService.name);
+
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly ordersService: OrdersService,
+    private readonly refundService: EcpayOrderRefundService,
+    private readonly waitlistService: WaitlistService,
+  ) {}
 
   async findUpcoming(organizationSlug: string): Promise<SpecialHoursDto[]> {
     const organizationId = await getOrganizationIdBySlug(
@@ -79,6 +136,202 @@ export class SpecialHoursService {
     organizationSlug: string,
     { orders, waitlist }: { orders: boolean; waitlist: boolean },
   ): Promise<SpecialHoursAffectedDto> {
+    const { org, specialHours } = await this.findAffecting(organizationSlug);
+    const now = new Date();
+
+    return {
+      ...(orders && (await this.findAffectedOrders(org, specialHours, now))),
+      ...(waitlist && {
+        waitlistTickets: await this.findAffectedTickets(org, specialHours, now),
+      }),
+    };
+  }
+
+  async processAffected(
+    organizationSlug: string,
+    { orderIds = [], ticketIds = [] }: ProcessSpecialHoursAffectedDto,
+    { orders, waitlist }: { orders: boolean; waitlist: boolean },
+    operatorId: string | undefined,
+    idempotencyKey: string | null,
+  ): Promise<SpecialHoursProcessResponseDto> {
+    if ((orderIds.length && !orders) || (ticketIds.length && !waitlist))
+      throw accessForbiddenError();
+
+    const { org } = await this.findAffecting(organizationSlug);
+    const result: SpecialHoursProcessResponseDto = {
+      orders: [],
+      waitlistTickets: [],
+    };
+
+    for (const id of orderIds)
+      result.orders.push(
+        await this.settleFailure(id, () =>
+          this.processOrder(organizationSlug, id, operatorId),
+        ),
+      );
+
+    for (const id of ticketIds)
+      result.waitlistTickets.push(
+        await this.settleFailure(id, async () => {
+          const { org, specialHours } =
+            await this.findAffecting(organizationSlug);
+          const [ticket] = await this.findAffectedTickets(
+            org,
+            specialHours,
+            new Date(),
+            id,
+          );
+          if (!ticket) return this.previousTicketOutcome(org.id, id);
+
+          try {
+            await this.waitlistService.cancelForStoreClosed(
+              organizationSlug,
+              id,
+            );
+          } catch (error) {
+            if (codeOf(error) === 'waitlistTransitionInvalid')
+              return this.previousTicketOutcome(org.id, id);
+            throw error;
+          }
+
+          return 'cancelled';
+        }),
+      );
+
+    this.logger.log(
+      `特殊營業日批次處理 ${org.id}（Idempotency-Key ${idempotencyKey ?? '無'}）：${JSON.stringify(result)}`,
+    );
+
+    return result;
+  }
+
+  private async processOrder(
+    organizationSlug: string,
+    id: string,
+    operatorId: string | undefined,
+  ): Promise<SpecialHoursProcessStatus> {
+    const { org, specialHours } = await this.findAffecting(organizationSlug);
+    const { manualRefundOrders, refundOrders, unpaidOrders } =
+      await this.findAffectedOrders(org, specialHours, new Date(), id);
+
+    if (unpaidOrders.length) {
+      await this.ordersService.applyTransitions(
+        organizationSlug,
+        [id],
+        'OrderCancelled',
+      );
+
+      return 'cancelled';
+    }
+    if (manualRefundOrders.length) return 'manualRefundRequired';
+
+    if (!refundOrders.length)
+      return this.previousOrderOutcome(org, specialHours, id);
+
+    try {
+      const { status } = await this.refundService.refundOrder(
+        organizationSlug,
+        id,
+        { reasonCode: 'storeClosed' },
+        operatorId,
+      );
+
+      return status === 'settled' ? 'refunded' : 'refundPending';
+    } catch (error) {
+      const code = codeOf(error);
+      if (code === 'resultUnknown') return 'refundPending';
+      if (code === 'alreadyRefunded' || code === 'nothingToRefund')
+        return this.previousOrderOutcome(org, specialHours, id);
+      throw error;
+    }
+  }
+
+  private async previousOrderOutcome(
+    org: AffectingOrganization,
+    specialHours: SpecialHoursRows,
+    orderId: string,
+  ): Promise<SpecialHoursProcessStatus> {
+    const [previous] = await this.db
+      .select({ status: refund.status })
+      .from(refund)
+      .innerJoin(order, eq(order.id, refund.orderId))
+      .where(
+        and(
+          eq(refund.orderId, orderId),
+          eq(order.sellerId, org.id),
+          eq(refund.reasonCode, 'storeClosed'),
+        ),
+      )
+      .orderBy(desc(refund.createdAt))
+      .limit(1);
+    if (previous)
+      return previous.status === 'settled' ? 'refunded' : 'refundPending';
+
+    const cancelled = await this.db.query.order.findFirst({
+      where: and(
+        eq(order.id, orderId),
+        eq(order.sellerId, org.id),
+        eq(order.mode, 'pickup'),
+        eq(order.orderStatus, 'OrderCancelled'),
+        isNull(order.paymentDate),
+        gte(order.pickupTime, new Date(platformMidnight(Date.now()))),
+      ),
+      columns: { pickupTime: true },
+    });
+
+    return cancelled?.pickupTime &&
+      closedPickup(org, specialHours)(cancelled.pickupTime)
+      ? 'cancelled'
+      : 'skipped';
+  }
+
+  private async previousTicketOutcome(
+    organizationId: string,
+    ticketId: string,
+  ): Promise<SpecialHoursProcessStatus> {
+    const cancelled = await this.db.query.waitlistTicket.findFirst({
+      where: and(
+        eq(waitlistTicket.id, ticketId),
+        eq(waitlistTicket.organizationId, organizationId),
+        eq(waitlistTicket.status, 'cancelled'),
+        eq(waitlistTicket.cancelReason, 'storeClosed'),
+      ),
+      columns: { id: true },
+    });
+
+    return cancelled ? 'cancelled' : 'skipped';
+  }
+
+  private async settleFailure(
+    id: string,
+    process: () => Promise<SpecialHoursProcessStatus>,
+  ): Promise<SpecialHoursProcessResultDto> {
+    try {
+      return { id, status: await process() };
+    } catch (error) {
+      if (!(error instanceof HttpException)) {
+        this.logger.error(`特殊營業日批次處理 ${id} 失敗`, error);
+
+        return { id, status: 'failed' };
+      }
+
+      const response = error.getResponse();
+      const { message } =
+        typeof response === 'object'
+          ? (response as { message?: unknown })
+          : { message: response };
+      const code = codeOf(error);
+
+      return {
+        id,
+        status: 'failed',
+        ...(code && { code }),
+        ...(typeof message === 'string' && { message }),
+      };
+    }
+  }
+
+  private async findAffecting(organizationSlug: string) {
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, organizationSlug),
       columns: { id: true, openingHours: true, pickupCutoffMinutes: true },
@@ -93,52 +346,51 @@ export class SpecialHoursService {
       new Date(now.getTime() + (PICKUP_MAX_ADVANCE_DAYS + 2) * DAY_MS),
     );
 
-    return {
-      ...(orders && (await this.findAffectedOrders(org, specialHours, now))),
-      ...(waitlist && {
-        waitlistTickets: isClosedTodayBySpecialHours(
-          org.openingHours,
-          specialHours,
-          now,
-        )
-          ? (
-              await this.db.query.waitlistTicket.findMany({
-                where: and(
-                  eq(waitlistTicket.organizationId, org.id),
-                  eq(waitlistTicket.serviceDate, platformDateString(now)),
-                  inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
-                ),
-                columns: {
-                  calledAt: true,
-                  createdAt: true,
-                  email: true,
-                  id: true,
-                  name: true,
-                  number: true,
-                  partySize: true,
-                  phoneNumber: true,
-                  prefix: true,
-                  status: true,
-                },
-                orderBy: asc(waitlistTicket.createdAt),
-              })
-            ).map(({ number, prefix, ...ticket }) => ({
-              ...ticket,
-              ticketNumber: formatTicketNumber(prefix, number),
-            }))
-          : [],
-      }),
-    };
+    return { org, specialHours };
+  }
+
+  private async findAffectedTickets(
+    org: AffectingOrganization,
+    specialHours: SpecialHoursRows,
+    now: Date,
+    ticketId?: string,
+  ) {
+    if (!isClosedTodayBySpecialHours(org.openingHours, specialHours, now))
+      return [];
+
+    return (
+      await this.db.query.waitlistTicket.findMany({
+        where: and(
+          eq(waitlistTicket.organizationId, org.id),
+          eq(waitlistTicket.serviceDate, platformDateString(now)),
+          inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
+          ticketId ? eq(waitlistTicket.id, ticketId) : undefined,
+        ),
+        columns: {
+          calledAt: true,
+          createdAt: true,
+          email: true,
+          id: true,
+          name: true,
+          number: true,
+          partySize: true,
+          phoneNumber: true,
+          prefix: true,
+          status: true,
+        },
+        orderBy: asc(waitlistTicket.createdAt),
+      })
+    ).map(({ number, prefix, ...ticket }) => ({
+      ...ticket,
+      ticketNumber: formatTicketNumber(prefix, number),
+    }));
   }
 
   private async findAffectedOrders(
-    org: {
-      id: string;
-      openingHours: string | null;
-      pickupCutoffMinutes: number;
-    },
-    specialHours: Awaited<ReturnType<typeof findSpecialHours>>,
+    org: AffectingOrganization,
+    specialHours: SpecialHoursRows,
     now: Date,
+    orderId?: string,
   ) {
     const affected = {
       manualRefundOrders: [] as SpecialHoursAffectedOrderDto[],
@@ -150,6 +402,7 @@ export class SpecialHoursService {
     const pickups = await this.db.query.order.findMany({
       where: and(
         eq(order.sellerId, org.id),
+        orderId ? eq(order.id, orderId) : undefined,
         eq(order.mode, 'pickup'),
         inArray(order.orderStatus, [
           'OrderPaymentDue',
@@ -164,7 +417,13 @@ export class SpecialHoursService {
             .where(
               and(
                 eq(refund.orderId, order.id),
-                inArray(refund.status, ['pending', 'settling']),
+                or(
+                  inArray(refund.status, ['pending', 'settling']),
+                  and(
+                    eq(refund.status, 'refunded'),
+                    eq(refund.reasonCode, 'storeClosed'),
+                  ),
+                ),
               ),
             ),
         ),
@@ -182,19 +441,10 @@ export class SpecialHoursService {
       orderBy: asc(order.pickupTime),
     });
 
-    const calendar = openingCalendar(org.openingHours, specialHours);
-    const coveredBySpecialHours = (at: Date) =>
-      [at, new Date(at.getTime() - DAY_MS)].some(
-        (date) => specialHoursOn(specialHours, platformDateString(date)).length,
-      );
+    const closed = closedPickup(org, specialHours);
 
     for (const pickup of pickups) {
-      if (
-        !pickup.pickupTime ||
-        !coveredBySpecialHours(pickup.pickupTime) ||
-        !pickupHoursError(calendar, org.pickupCutoffMinutes, pickup.pickupTime)
-      )
-        continue;
+      if (!pickup.pickupTime || !closed(pickup.pickupTime)) continue;
 
       if (pickup.orderStatus === 'OrderPaymentDue')
         affected.unpaidOrders.push(pickup);

@@ -10,7 +10,7 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
@@ -52,6 +52,7 @@ import { SaveAttendanceLeaveBalanceDto } from './dto/save-attendance-leave-balan
 import { SaveAttendanceLeaveTypeDto } from './dto/save-attendance-leave-type.dto.js';
 
 @ApiTags('attendance')
+@ApiParam({ name: 'organizationSlug', type: String })
 @Controller('organizations/:organizationSlug/attendance')
 export class AttendanceLeavesController {
   constructor(

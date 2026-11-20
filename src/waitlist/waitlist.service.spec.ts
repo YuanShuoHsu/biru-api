@@ -573,7 +573,9 @@ describe('WaitlistService.transitionTicket', () => {
     const { result, set } = transition('cancelled', 'waiting');
 
     await expect(result).resolves.toMatchObject({ status: 'waiting' });
-    expect(set).toHaveBeenCalled();
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({ cancelReason: null, status: 'waiting' }),
+    );
   });
 
   it('reverts a ticket whose phone was erased without checking the queue', async () => {

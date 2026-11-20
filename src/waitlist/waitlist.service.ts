@@ -48,7 +48,7 @@ import {
 } from '../common/utils/organizations.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import { isUniqueViolation } from '../common/utils/pg-errors.js';
-import type { Language } from '../db/schema/enums.js';
+import type { CancelReason, Language } from '../db/schema/enums.js';
 import { organization } from '../db/schema/organizations.js';
 import { auditLog } from '../db/schema/audit.js';
 import {
@@ -587,6 +587,7 @@ export class WaitlistService {
     ticket: WaitlistTicket,
     status: WaitlistTicketStatus,
     audience: WaitlistAudience,
+    cancelReason?: CancelReason,
   ): Promise<WaitlistTicket> {
     if (!canTransition(ticket.status, status))
       throw badRequestError('waitlistTransitionInvalid', audience);
@@ -633,12 +634,18 @@ export class WaitlistService {
         .update(waitlistTicket)
         .set(
           status === 'waiting'
-            ? { calledAt: null, confirmedAt: null, endedAt: null, status }
+            ? {
+                calledAt: null,
+                cancelReason: null,
+                confirmedAt: null,
+                endedAt: null,
+                status,
+              }
             : revert
               ? { calledAt: now, endedAt: null, status }
               : status === 'called'
                 ? { calledAt: now, confirmedAt: null, status }
-                : { endedAt: now, status },
+                : { cancelReason, endedAt: now, status },
         )
         .where(
           and(
@@ -677,6 +684,18 @@ export class WaitlistService {
       await this.updateStatus(ticket, 'cancelled', 'guest'),
       0,
       holdMinutes,
+    );
+  }
+
+  async cancelForStoreClosed(
+    organizationSlug: string,
+    ticketId: string,
+  ): Promise<WaitlistTicket> {
+    return this.updateStatus(
+      await this.findTicket(organizationSlug, ticketId, 'staff'),
+      'cancelled',
+      'staff',
+      'storeClosed',
     );
   }
 
@@ -919,10 +938,9 @@ export class WaitlistService {
       endedAt: waitlistTicket.endedAt,
     };
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
       ? [
-          dir(fieldMap[sortBy]),
+          sql`${fieldMap[sortBy]} ${sql.raw(sortDirection === 'desc' ? 'desc' : 'asc')} nulls last`,
           desc(waitlistTicket.createdAt),
           desc(waitlistTicket.id),
         ]

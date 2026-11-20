@@ -13,6 +13,7 @@ import {
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
 
@@ -41,6 +42,7 @@ const itemsAudit = (idSource: AuditTarget['idSource']): AuditTarget => ({
 });
 
 @ApiTags('checklists')
+@ApiParam({ name: 'organizationSlug', type: String })
 @Controller('organizations/:organizationSlug/checklists/templates')
 export class ChecklistTemplatesController {
   constructor(private readonly templatesService: ChecklistTemplatesService) {}

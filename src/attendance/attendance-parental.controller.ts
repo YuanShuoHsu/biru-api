@@ -9,7 +9,7 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
@@ -40,6 +40,7 @@ import { ReviewAttendanceRequestDto } from './dto/review-attendance-request.dto.
 import { UpdateAttendanceParentalChildDto } from './dto/update-attendance-parental-child.dto.js';
 
 @ApiTags('attendance')
+@ApiParam({ name: 'organizationSlug', type: String })
 @Controller('organizations/:organizationSlug/attendance')
 export class AttendanceParentalController {
   constructor(

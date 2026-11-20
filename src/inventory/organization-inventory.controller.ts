@@ -135,6 +135,7 @@ export class OrganizationInventoryController {
 
   @Post('inventory/receipts')
   @Roles({ inventoryTransaction: ['create'] }, 'organizationSlug')
+  @Audit('ingredient', { body: 'items', key: 'ingredientId' })
   @ApiHeader({
     description: '同一張進貨單重試請帶同一把鍵，重送會回傳既有進貨單',
     name: 'Idempotency-Key',

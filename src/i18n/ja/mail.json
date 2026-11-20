@@ -152,6 +152,23 @@
       "detail": "{holdUntil} までに店内のカウンターへお越しください。下のボタンからご来店の可否をお知らせください。時間内にお越しいただけない場合、順番が飛ばされることがあります。",
       "action": "ご来店の可否を回答する"
     },
+    "cancelled": {
+      "subject": "{organizationName}：順番待ち番号 {ticketNumber} はキャンセルされました",
+      "title": "順番待ちがキャンセルされました",
+      "intro": "{organizationName} は特別営業時間のため本日の営業を終了いたしました。順番待ち番号 {ticketNumber}（{partySize} 名）はキャンセルとなりました。ご迷惑をおかけし申し訳ございません。",
+      "detail": "店舗からのお知らせ：{note}",
+      "action": "順番待ちの状況を確認"
+    },
+    "salutation": "よろしくお願いいたします。<br>{productName} チーム",
+    "trouble_hint": "上のボタンがクリックできない場合は、以下の URL をコピーしてブラウザに貼り付けてください。"
+  },
+  "order_store_closed": {
+    "subject": "{organizationName}：ご注文 {orderNumber} をキャンセルし返金しました",
+    "title": "ご注文をキャンセルし返金しました",
+    "intro": "{organizationName} はご予約の受け取り時間 {pickupTime} に営業しておりません。ご注文 {orderNumber} はキャンセルとなり、{amount} を元のお支払い方法へ返金いたしました。ご迷惑をおかけし申し訳ございません。",
+    "note": "店舗からのお知らせ：{note}",
+    "refund_hint": "返金が反映される時期はカード発行会社によって異なります。商品が必要な場合は、改めてご注文ください。",
+    "action": "改めて注文する",
     "salutation": "よろしくお願いいたします。<br>{productName} チーム",
     "trouble_hint": "上のボタンがクリックできない場合は、以下の URL をコピーしてブラウザに貼り付けてください。"
   },

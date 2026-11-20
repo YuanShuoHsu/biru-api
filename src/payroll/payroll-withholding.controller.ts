@@ -9,7 +9,7 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
@@ -34,6 +34,7 @@ import {
 import { PayrollWithholdingService } from './payroll-withholding.service.js';
 
 @ApiTags('payroll')
+@ApiParam({ name: 'organizationSlug', type: String })
 @Controller('organizations/:organizationSlug/payroll')
 export class PayrollWithholdingController {
   constructor(
