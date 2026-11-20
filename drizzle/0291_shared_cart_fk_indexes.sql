@@ -1,0 +1,2 @@
+CREATE INDEX "shared_cart_checkoutParticipantId_idx" ON "shared_cart" USING btree ("checkout_participant_id");--> statement-breakpoint
+CREATE INDEX "shared_cart_item_participantId_idx" ON "shared_cart_item" USING btree ("participant_id");

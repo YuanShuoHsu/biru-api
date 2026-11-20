@@ -2038,6 +2038,13 @@
       "when": 1795089671088,
       "tag": "0290_catalog_item_add_on_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 291,
+      "version": "7",
+      "when": 1795139414710,
+      "tag": "0291_shared_cart_fk_indexes",
+      "breakpoints": true
     }
   ]
 }

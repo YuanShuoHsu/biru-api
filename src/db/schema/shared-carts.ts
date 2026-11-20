@@ -78,6 +78,9 @@ export const sharedCart = pgTable(
       table.organizationId,
       table.code,
     ),
+    index('shared_cart_checkoutParticipantId_idx').on(
+      table.checkoutParticipantId,
+    ),
     foreignKey({
       name: 'shared_cart_checkoutParticipantId_fk',
       columns: [table.checkoutParticipantId],
@@ -169,6 +172,7 @@ export const sharedCartItem = pgTable(
   },
   (table) => [
     index('shared_cart_item_sharedCartId_idx').on(table.sharedCartId),
+    index('shared_cart_item_participantId_idx').on(table.participantId),
   ],
 );
 
