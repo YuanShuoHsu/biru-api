@@ -1,15 +1,24 @@
-import { HttpException } from '@nestjs/common';
+import {
+  type CallHandler,
+  type ExecutionContext,
+  HttpException,
+} from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
+import { from, lastValueFrom } from 'rxjs';
 
 import { createPGlite } from '../../test/pglite.js';
+import { AuditInterceptor } from '../common/interceptors/audit.interceptor.js';
+import { auditLog } from '../db/schema/audit.js';
 import * as schema from '../db/schema/index.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import { InventoryTransactionsService } from './inventory-transactions.service.js';
+import { OrganizationInventoryController } from './organization-inventory.controller.js';
 
 const ORG = 'org';
 const OTHER_ORG = 'other';
@@ -26,16 +35,15 @@ const codeOf = async (promise: Promise<unknown>) => {
 
 describe('進貨點收', () => {
   let client: PGlite;
+  let db: DrizzleDB;
   let service: InventoryTransactionsService;
 
   beforeAll(async () => {
     client = createPGlite();
     const pglite = drizzle(client, { schema });
     await migrate(pglite, { migrationsFolder: './drizzle' });
-    service = new InventoryTransactionsService(
-      pglite as unknown as DrizzleDB,
-      new EventEmitter2(),
-    );
+    db = pglite as unknown as DrizzleDB;
+    service = new InventoryTransactionsService(db, new EventEmitter2());
   }, 60_000);
 
   afterAll(async () => {
@@ -186,6 +194,68 @@ describe('進貨點收', () => {
 
     expect(await levels()).toEqual({ ice: 0, milk: 100 });
     expect(await receiptCount()).toBe(0);
+  });
+
+  it('每項點收的食材各記一筆異動紀錄', async () => {
+    const dto = {
+      items: [
+        { ingredientId: 'milk', quantity: '10' },
+        { ingredientId: 'ice', quantity: '500' },
+      ],
+    };
+    const request = {
+      body: dto,
+      method: 'POST',
+      organizationId: ORG,
+      params: { organizationSlug: ORG },
+      user: { id: 'staff', name: 'Staff', email: 'staff@example.com' },
+    };
+    const handler: unknown = Reflect.get(
+      OrganizationInventoryController.prototype,
+      'createInventoryReceipt',
+    );
+    const context = {
+      getClass: () => OrganizationInventoryController,
+      getHandler: () => handler,
+      getType: () => 'http',
+      switchToHttp: () => ({ getRequest: () => request }),
+    } as unknown as ExecutionContext;
+    const next: CallHandler = {
+      handle: () => from(service.receive(ORG, dto, null, true, 'staff')),
+    };
+
+    await lastValueFrom(
+      new AuditInterceptor(new Reflector(), db).intercept(context, next),
+    );
+
+    await vi.waitFor(async () =>
+      expect(
+        (await db.select().from(auditLog)).sort((a, b) =>
+          a.resourceId.localeCompare(b.resourceId),
+        ),
+      ).toEqual([
+        expect.objectContaining({
+          action: 'update',
+          actorId: 'staff',
+          organizationId: ORG,
+          resource: 'ingredient',
+          resourceId: 'ice',
+          changes: expect.objectContaining({
+            inventoryLevel: { before: '0.000', after: '500.000' },
+          }),
+        }),
+        expect.objectContaining({
+          action: 'update',
+          actorId: 'staff',
+          organizationId: ORG,
+          resource: 'ingredient',
+          resourceId: 'milk',
+          changes: expect.objectContaining({
+            inventoryLevel: { before: '100.000', after: '110.000' },
+          }),
+        }),
+      ]),
+    );
   });
 
   it('其他門市的供應商視為不存在', async () => {
