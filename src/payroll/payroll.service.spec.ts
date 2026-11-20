@@ -1,3 +1,5 @@
+import { BadRequestException } from '@nestjs/common';
+
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import type { PayrollEarningsService } from './payroll-earnings.service.js';
@@ -265,5 +267,61 @@ describe('Drafting a payslip', () => {
       }),
     ).rejects.toThrow('payrollLocked');
     expect(snapshot).not.toHaveBeenCalled();
+  });
+});
+
+describe('Estimating payslips for the break-even report', () => {
+  const estimateSetup = (snapshot: () => Promise<unknown>) => {
+    const update = vi.fn();
+    const transaction = vi.fn(
+      async <T>(fn: (tx: unknown) => Promise<T>, _config?: unknown) =>
+        fn({ select: vi.fn(() => ({ from: () => ({ where: () => [] }) })) }),
+    );
+    const service = new PayrollService(
+      { transaction, insert: vi.fn(), update } as unknown as DrizzleDB,
+      {} as PayrollRulesService,
+      {} as PayrollEarningsService,
+    );
+    Object.defineProperty(service, 'snapshot', { value: vi.fn(snapshot) });
+    return { service, transaction, update };
+  };
+
+  it('computes each employee in a read-only transaction and writes nothing', async () => {
+    const { service, transaction, update } = estimateSetup(() =>
+      Promise.resolve(row.snapshot),
+    );
+
+    await expect(
+      service.estimateSnapshots('org', '2026-02', ['employee']),
+    ).resolves.toEqual([{ employeeId: 'employee', snapshot: row.snapshot }]);
+    expect(transaction).toHaveBeenCalledWith(expect.any(Function), {
+      accessMode: 'read only',
+    });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('leaves out an employee whose payslip cannot be calculated but keeps other errors', async () => {
+    const missingTerms = estimateSetup(() =>
+      Promise.reject(new BadRequestException('payrollTermsRequired')),
+    );
+    await expect(
+      missingTerms.service.estimateSnapshots('org', '2026-02', ['employee']),
+    ).resolves.toEqual([{ employeeId: 'employee', snapshot: null }]);
+
+    const broken = estimateSetup(() => Promise.reject(new Error('db down')));
+    await expect(
+      broken.service.estimateSnapshots('org', '2026-02', ['employee']),
+    ).rejects.toThrow('db down');
+  });
+
+  it('does not open a transaction without employees', async () => {
+    const { service, transaction } = estimateSetup(() =>
+      Promise.resolve(row.snapshot),
+    );
+
+    await expect(
+      service.estimateSnapshots('org', '2026-02', []),
+    ).resolves.toEqual([]);
+    expect(transaction).not.toHaveBeenCalled();
   });
 });

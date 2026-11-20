@@ -19,10 +19,14 @@ import {
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import { isUniqueViolation } from '../common/utils/pg-errors.js';
-import { operatingCost } from '../db/schema/operating-costs.js';
+import {
+  operatingCost,
+  type OperatingCostCategory,
+} from '../db/schema/operating-costs.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import {
+  OPERATING_COST_BOOLEAN_FILTER_FIELDS,
   OPERATING_COST_DATE_FILTER_FIELDS,
   OPERATING_COST_ENUM_FILTER_FIELDS,
   OPERATING_COST_MONTH_FILTER_FIELDS,
@@ -36,7 +40,19 @@ import type {
   OperatingCostResponseDto,
   UpdateOperatingCostDto,
 } from './dto/operating-cost.dto.js';
-import { conflictError, notFoundError } from './operating-cost-errors.js';
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+} from './operating-cost-errors.js';
+
+const assertInputTaxAllowed = (
+  category: OperatingCostCategory,
+  inputTaxDeductible: boolean,
+) => {
+  if (category === 'personnel' && inputTaxDeductible)
+    throw badRequestError('personnelInputTax');
+};
 
 @Injectable()
 export class OperatingCostsService {
@@ -62,6 +78,7 @@ export class OperatingCostsService {
       category: operatingCost.category,
       effectiveFrom: operatingCost.effectiveFrom,
       monthlyAmount: operatingCost.monthlyAmount,
+      inputTaxDeductible: operatingCost.inputTaxDeductible,
       note: operatingCost.note,
       createdAt: operatingCost.createdAt,
       updatedAt: operatingCost.updatedAt,
@@ -90,7 +107,7 @@ export class OperatingCostsService {
             OPERATING_COST_NUMBER_FILTER_FIELDS,
             [],
             [],
-            [],
+            OPERATING_COST_BOOLEAN_FILTER_FIELDS,
             OPERATING_COST_MONTH_FILTER_FIELDS,
           )
         : undefined,
@@ -136,8 +153,16 @@ export class OperatingCostsService {
 
   async create(
     organizationId: string,
-    { category, effectiveFrom, monthlyAmount, note }: CreateOperatingCostDto,
+    {
+      category,
+      effectiveFrom,
+      inputTaxDeductible,
+      monthlyAmount,
+      note,
+    }: CreateOperatingCostDto,
   ): Promise<OperatingCostResponseDto> {
+    assertInputTaxAllowed(category, inputTaxDeductible);
+
     try {
       const [row] = await this.db
         .insert(operatingCost)
@@ -146,6 +171,7 @@ export class OperatingCostsService {
           organizationId,
           category,
           effectiveFrom,
+          inputTaxDeductible,
           monthlyAmount,
           note,
         })
@@ -161,30 +187,41 @@ export class OperatingCostsService {
   async update(
     organizationId: string,
     id: string,
-    { category, effectiveFrom, monthlyAmount, note }: UpdateOperatingCostDto,
+    {
+      category,
+      effectiveFrom,
+      inputTaxDeductible,
+      monthlyAmount,
+      note,
+    }: UpdateOperatingCostDto,
   ): Promise<OperatingCostResponseDto> {
     if (
-      [category, effectiveFrom, monthlyAmount, note].every(
+      [category, effectiveFrom, inputTaxDeductible, monthlyAmount, note].every(
         (value) => value === undefined,
       )
     )
       return this.findOne(organizationId, id);
 
     try {
-      const [row] = await this.db
-        .update(operatingCost)
-        .set({
-          category,
-          effectiveFrom,
-          monthlyAmount,
-          note,
-          updatedAt: new Date(),
-        })
-        .where(this.ownCost(organizationId, id))
-        .returning();
-      if (!row) throw notFoundError('operatingCostNotFound');
+      return await this.db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(operatingCost)
+          .set({
+            category,
+            effectiveFrom,
+            inputTaxDeductible,
+            monthlyAmount,
+            note,
+            updatedAt: new Date(),
+          })
+          .where(this.ownCost(organizationId, id))
+          .returning();
+        if (!row) throw notFoundError('operatingCostNotFound');
 
-      return row;
+        assertInputTaxAllowed(row.category, row.inputTaxDeductible);
+
+        return row;
+      });
     } catch (error) {
       if (isUniqueViolation(error)) throw conflictError('operatingCostExists');
       throw error;

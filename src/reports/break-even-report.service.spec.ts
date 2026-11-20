@@ -11,13 +11,15 @@ import {
   breakEvenRevenueOf,
 } from './break-even-report.service.js';
 import type { BreakEvenReportPageQueryDto } from './dto/break-even-report.dto.js';
+import type { PayrollService } from '../payroll/payroll.service.js';
+import type { PayrollSnapshot } from '../db/schema/payroll.js';
 import { PersonnelCostReportService } from './personnel-cost-report.service.js';
 import { SalesReportService } from './sales-report.service.js';
 
 describe('breakEvenRevenueOf', () => {
-  it('grosses the fixed cost up by the contribution left after tax, cost of goods and payment fees', () => {
+  it('grosses the fixed cost up by the contribution left after cost of goods, payment fees and tax', () => {
     expect(breakEvenRevenueOf(70000, 0.3, null)).toBe(105000);
-    expect(breakEvenRevenueOf(70000, 0.3, 0.2)).toBe(150000);
+    expect(breakEvenRevenueOf(70000, 0.3, 0.2)).toBe(147000);
   });
 
   it('is null without a cost of goods rate or without any contribution', () => {
@@ -31,6 +33,8 @@ describe('breakEvenRevenueOf', () => {
 describe('BreakEvenReportService', () => {
   let client: PGlite;
   let service: BreakEvenReportService;
+  let personnel: PersonnelCostReportService;
+  const payroll = { estimateSnapshots: vi.fn() };
 
   const now = new Date('2026-10-20T04:00:00Z');
   const october = { month: '2026-10' } as BreakEvenReportPageQueryDto;
@@ -41,9 +45,11 @@ describe('BreakEvenReportService', () => {
     await migrate(drizzle(client, { schema }), {
       migrationsFolder: './drizzle',
     });
+    personnel = new PersonnelCostReportService(db);
     service = new BreakEvenReportService(
       db,
-      new PersonnelCostReportService(db),
+      payroll as unknown as PayrollService,
+      personnel,
       new SalesReportService(db),
     );
 
@@ -51,7 +57,8 @@ describe('BreakEvenReportService', () => {
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address, opening_hours) values
          ('org', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段', 'Mo-Sa 08:00-17:00'),
          ('empty', 'Empty', 'empty', now(), 'TW', '桃園市', '大園區', '中正東路一段', null),
-         ('plan', 'Plan', 'plan', now(), 'TW', '桃園市', '大園區', '中正東路一段', null);
+         ('plan', 'Plan', 'plan', now(), 'TW', '桃園市', '大園區', '中正東路一段', null),
+         ('tax', 'Tax', 'tax', now(), 'TW', '桃園市', '大園區', '中正東路一段', null);
        insert into menu (id, organization_id, name) values ('menu', 'org', '{"zh-TW":"菜單"}');
        insert into menu_item (id, menu_id, name) values
          ('latte', 'menu', '{"zh-TW":"拿鐵"}'),
@@ -111,16 +118,40 @@ describe('BreakEvenReportService', () => {
          ('plan-steak-beans', 'plan-steak-recipe', 'plan-beans', 20),
          ('plan-soup-stock', 'plan-soup-recipe', 'plan-stock', 100),
          ('plan-tea-beans', 'plan-tea-recipe', 'plan-beans', 5);
-       insert into operating_cost (id, organization_id, category, effective_from, monthly_amount) values
-         ('rent-old', 'org', 'rent', '2026-01', 60000),
-         ('rent-new', 'org', 'rent', '2026-11', 70000),
-         ('power', 'org', 'electricity', '2026-10', 8000),
-         ('water-old', 'org', 'water', '2026-01', 1000),
-         ('water-stop', 'org', 'water', '2026-09', 0),
-         ('staff', 'org', 'personnel', '2026-09', 120000),
-         ('other-store', 'empty', 'rent', '2026-01', 50000),
-         ('plan-rent', 'plan', 'rent', '2026-01', 50000);`,
+       insert into operating_cost (id, organization_id, category, effective_from, monthly_amount, input_tax_deductible) values
+         ('rent-old', 'org', 'rent', '2026-01', 60000, false),
+         ('rent-new', 'org', 'rent', '2026-11', 70000, false),
+         ('power', 'org', 'electricity', '2026-10', 8000, false),
+         ('water-old', 'org', 'water', '2026-01', 1000, false),
+         ('water-stop', 'org', 'water', '2026-09', 0, false),
+         ('staff', 'org', 'personnel', '2026-09', 120000, false),
+         ('other-store', 'empty', 'rent', '2026-01', 50000, false),
+         ('plan-rent', 'plan', 'rent', '2026-01', 50000, false),
+         ('tax-rent', 'tax', 'rent', '2026-01', 30000, false),
+         ('tax-power', 'tax', 'electricity', '2026-01', 10500, true);
+       insert into supplier (id, organization_id, name, uniform_invoice) values ('tax-supplier', 'tax', '有發票的供應商', true);
+       insert into menu (id, organization_id, name) values ('tax-menu', 'tax', '{"zh-TW":"菜單"}');
+       insert into menu_item (id, menu_id, name) values ('tax-latte', 'tax-menu', '{"zh-TW":"拿鐵"}');
+       insert into ingredient (id, organization_id, name, unit_code, price, eligible_quantity, eligible_quantity_unit_code, supplier_id) values
+         ('tax-beans', 'tax', '{"zh-TW":"咖啡豆"}', 'GRM', 1050, 1000, 'GRM', 'tax-supplier');
+       insert into recipe (id, organization_id, menu_item_id, name, recipe_yield) values ('tax-latte-recipe', 'tax', 'tax-latte', '{"zh-TW":"拿鐵"}', 1);
+       insert into recipe_ingredient (id, recipe_id, ingredient_id, required_quantity) values ('tax-latte-beans', 'tax-latte-recipe', 'tax-beans', 20);
+       insert into "order" (id, customer, mode, order_number, order_status, payment_method, seller_id, subtotal, order_date, merchant_trade_no) values
+         ('o5', '{"name":"客人"}', 'counter', '5', 'OrderDelivered', 'Cash', 'tax', 210, '2026-10-08T02:00:00Z'::timestamptz at time zone 'UTC', null),
+         ('o6', '{"name":"客人"}', 'pickup', '6', 'OrderDelivered', 'Credit', 'tax', 105, '2026-10-08T03:00:00Z'::timestamptz at time zone 'UTC', 'm6');
+       insert into ecpay_payment_attempt (merchant_trade_no, order_id, charge_fee) values ('m6', 'o6', 10.5);
+       insert into order_item (id, order_id, menu_item_id, menu_item_name, order_quantity, unit_price, modifiers) values
+         ('o5-latte', 'o5', 'tax-latte', '拿鐵', 2, 105, null),
+         ('o6-latte', 'o6', 'tax-latte', '拿鐵', 1, 105, null);`,
     );
+  });
+
+  beforeEach(() => {
+    payroll.estimateSnapshots.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   afterAll(async () => {
@@ -130,15 +161,27 @@ describe('BreakEvenReportService', () => {
   it('uses the latest fixed cost of each category in force for the month and the personnel estimate without payslips', async () => {
     const report = await service.getBreakEvenReport('biru', october, now);
 
-    expect(report.fixedCosts).toEqual([
-      { category: 'rent', effectiveFrom: '2026-01', amount: 60000 },
-      { category: 'electricity', effectiveFrom: '2026-10', amount: 8000 },
-    ]);
     expect(report.personnel).toEqual({
       source: 'estimate',
       amount: 120000,
-      unpublishedEmployees: 0,
+      publishedEmployees: 0,
+      scheduledEmployees: 0,
+      unestimatedEmployees: 0,
     });
+    expect(report.fixedCosts).toEqual([
+      {
+        category: 'rent',
+        effectiveFrom: '2026-01',
+        amount: 60000,
+        inputTax: 0,
+      },
+      {
+        category: 'electricity',
+        effectiveFrom: '2026-10',
+        amount: 8000,
+        inputTax: 0,
+      },
+    ]);
     expect(report.fixedCostTotal).toBe(188000);
   });
 
@@ -147,15 +190,17 @@ describe('BreakEvenReportService', () => {
 
     expect(report).toMatchObject({
       revenue: 525,
-      businessTax: 25,
+      outputTax: 25,
+      inputTax: 0.15,
+      businessTaxPayable: 24.85,
       salesExcludingTax: 500,
       costOfGoodsSold: 80,
       unpricedItems: 1,
       paymentFees: 3.15,
       unknownFeeOrders: 1,
-      preTaxProfit: -187583.15,
+      preTaxProfit: -187583,
       incomeTax: 0,
-      afterTaxProfit: -187583.15,
+      afterTaxProfit: -187583,
       total: 2,
     });
     expect(report.rows).toEqual([
@@ -199,14 +244,74 @@ describe('BreakEvenReportService', () => {
       paymentFeeRate: 0.006,
       openDays: 27,
       remainingOpenDays: 11,
-      breakEvenRevenue: 265429.61,
-      dailyBreakEvenRevenue: 9830.73,
-      remainingDailyBreakEvenRevenue: 24082.24,
+      breakEvenRevenue: 265322.58,
+      dailyBreakEvenRevenue: 9826.76,
+      remainingDailyBreakEvenRevenue: 24072.51,
       targetProfit: 50000,
       targetPreTaxProfit: 62500,
-      targetRevenue: 353670.84,
-      dailyTargetRevenue: 13098.92,
+      targetRevenue: 353528.23,
+      dailyTargetRevenue: 13093.64,
     });
+  });
+
+  it('costs invoiced purchases, deductible fixed costs and payment fees without their input tax', async () => {
+    const report = await service.getBreakEvenReport('tax', october, now);
+
+    expect(report).toMatchObject({
+      fixedCostTotal: 40000,
+      revenue: 315,
+      outputTax: 15,
+      salesExcludingTax: 300,
+      costOfGoodsSold: 60,
+      paymentFees: 10.5,
+      inputTax: 503.5,
+      businessTaxPayable: -488.5,
+      preTaxProfit: -39770,
+      costOfGoodsSoldRate: 0.2,
+      paymentFeeRate: 0.0333,
+      breakEvenRevenue: 54780.23,
+    });
+    expect(report.fixedCosts).toContainEqual({
+      category: 'electricity',
+      effectiveFrom: '2026-01',
+      amount: 10500,
+      inputTax: 500,
+    });
+    expect(report.rows[0]).toMatchObject({ cost: 60, grossProfit: 240 });
+  });
+
+  it('adds the schedule estimates of employees without a published payslip to the published ones', async () => {
+    vi.spyOn(personnel, 'monthCosts').mockResolvedValue({
+      publishedCents: 3_000_000n,
+      publishedEmployees: 1,
+      unpublishedEmployeeIds: ['e2', 'e3'],
+    });
+    payroll.estimateSnapshots.mockResolvedValue([
+      {
+        employeeId: 'e2',
+        snapshot: {
+          grossCents: '2800000',
+          employerCosts: [{ code: 'laborInsurance', amountCents: '300000' }],
+          employerPensionCents: '168000',
+        } as unknown as PayrollSnapshot,
+      },
+      { employeeId: 'e3', snapshot: null },
+    ]);
+
+    const report = await service.getBreakEvenReport('biru', october, now);
+
+    expect(payroll.estimateSnapshots).toHaveBeenCalledWith('org', '2026-10', [
+      'e2',
+      'e3',
+    ]);
+    expect(report.personnel).toEqual({
+      source: 'schedule',
+      amount: 62680,
+      publishedEmployees: 1,
+      scheduledEmployees: 1,
+      unestimatedEmployees: 1,
+    });
+    expect(report.fixedCostTotal).toBe(60000 + 8000 + 62680);
   });
 
   it('estimates the cost rate from the menu recipes before there are sales', async () => {

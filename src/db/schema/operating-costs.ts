@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   numeric,
   pgEnum,
@@ -39,6 +40,7 @@ export const operatingCost = pgTable(
       precision: 12,
       scale: 2,
     }).notNull(),
+    inputTaxDeductible: boolean('input_tax_deductible').notNull(),
     note: text('note'),
     ...timestamps,
   },

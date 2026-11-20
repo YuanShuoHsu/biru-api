@@ -40,11 +40,19 @@ const emptyAccumulator = (): Accumulator => ({
   missingEmployerInsurance: 0,
 });
 
-const accumulate = (target: Accumulator, snapshot: PayrollSnapshot) => {
-  target.employerInsurance += (snapshot.employerCosts ?? []).reduce(
+const employerInsuranceCents = (snapshot: PayrollSnapshot) =>
+  (snapshot.employerCosts ?? []).reduce(
     (sum, { amountCents }) => sum + BigInt(amountCents),
     0n,
   );
+
+export const personnelCostCents = (snapshot: PayrollSnapshot): bigint =>
+  BigInt(snapshot.grossCents) +
+  employerInsuranceCents(snapshot) +
+  BigInt(snapshot.employerPensionCents);
+
+const accumulate = (target: Accumulator, snapshot: PayrollSnapshot) => {
+  target.employerInsurance += employerInsuranceCents(snapshot);
   target.employerPension += BigInt(snapshot.employerPensionCents);
   target.gross += BigInt(snapshot.grossCents);
   target.headcount += 1;
@@ -84,42 +92,7 @@ export class PersonnelCostReportService {
     });
     if (!org) throw organizationNotFoundError();
 
-    const { start, end } = payrollPeriod(month);
-
-    const [statements, employees] = await Promise.all([
-      this.db
-        .select({
-          employeeId: payrollStatement.employeeId,
-          jobTitle: attendanceEmployee.jobTitle,
-          snapshot: payrollStatement.snapshot,
-        })
-        .from(payrollStatement)
-        .innerJoin(
-          attendanceEmployee,
-          eq(attendanceEmployee.id, payrollStatement.employeeId),
-        )
-        .where(
-          and(
-            eq(payrollStatement.organizationId, org.id),
-            eq(payrollStatement.status, 'published'),
-            eq(payrollStatement.month, month),
-          ),
-        )
-        .orderBy(asc(attendanceEmployee.jobTitle)),
-      this.db
-        .select({ id: attendanceEmployee.id })
-        .from(attendanceEmployee)
-        .where(
-          and(
-            eq(attendanceEmployee.organizationId, org.id),
-            lt(attendanceEmployee.hiredAt, end),
-            or(
-              isNull(attendanceEmployee.terminatedAt),
-              gt(attendanceEmployee.terminatedAt, start),
-            ),
-          ),
-        ),
-    ]);
+    const { statements, employees } = await this.monthOf(org.id, month);
 
     const groups = new Map<string | null, Accumulator>();
     const totals = emptyAccumulator();
@@ -165,5 +138,71 @@ export class PersonnelCostReportService {
         ({ id }) => !publishedEmployeeIds.has(id),
       ).length,
     };
+  }
+
+  async monthCosts(
+    organizationId: string,
+    month: string,
+  ): Promise<{
+    publishedCents: bigint;
+    publishedEmployees: number;
+    unpublishedEmployeeIds: string[];
+  }> {
+    const { statements, employees } = await this.monthOf(organizationId, month);
+    const publishedEmployeeIds = new Set(
+      statements.map(({ employeeId }) => employeeId),
+    );
+
+    return {
+      publishedCents: statements.reduce(
+        (sum, { snapshot }) => sum + personnelCostCents(snapshot),
+        0n,
+      ),
+      publishedEmployees: statements.length,
+      unpublishedEmployeeIds: employees
+        .map(({ id }) => id)
+        .filter((id) => !publishedEmployeeIds.has(id)),
+    };
+  }
+
+  private async monthOf(organizationId: string, month: string) {
+    const { start, end } = payrollPeriod(month);
+
+    const [statements, employees] = await Promise.all([
+      this.db
+        .select({
+          employeeId: payrollStatement.employeeId,
+          jobTitle: attendanceEmployee.jobTitle,
+          snapshot: payrollStatement.snapshot,
+        })
+        .from(payrollStatement)
+        .innerJoin(
+          attendanceEmployee,
+          eq(attendanceEmployee.id, payrollStatement.employeeId),
+        )
+        .where(
+          and(
+            eq(payrollStatement.organizationId, organizationId),
+            eq(payrollStatement.status, 'published'),
+            eq(payrollStatement.month, month),
+          ),
+        )
+        .orderBy(asc(attendanceEmployee.jobTitle)),
+      this.db
+        .select({ id: attendanceEmployee.id })
+        .from(attendanceEmployee)
+        .where(
+          and(
+            eq(attendanceEmployee.organizationId, organizationId),
+            lt(attendanceEmployee.hiredAt, end),
+            or(
+              isNull(attendanceEmployee.terminatedAt),
+              gt(attendanceEmployee.terminatedAt, start),
+            ),
+          ),
+        ),
+    ]);
+
+    return { statements, employees };
   }
 }

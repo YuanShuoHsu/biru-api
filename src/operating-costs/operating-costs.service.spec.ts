@@ -1,4 +1,8 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 
 import type { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
@@ -42,26 +46,31 @@ describe('OperatingCostsService', () => {
       category: 'rent',
       effectiveFrom: '2026-01',
       monthlyAmount: '60000',
+      inputTaxDeductible: false,
     });
     const raised = await service.create('biru', {
       category: 'rent',
       effectiveFrom: '2026-11',
       monthlyAmount: '70000',
+      inputTaxDeductible: false,
       note: '續約調漲',
     });
     const power = await service.create('biru', {
       category: 'electricity',
       effectiveFrom: '2026-01',
       monthlyAmount: '8000',
+      inputTaxDeductible: false,
     });
     await service.create('cafe', {
       category: 'rent',
       effectiveFrom: '2026-01',
       monthlyAmount: '50000',
+      inputTaxDeductible: false,
     });
 
     expect(rent).toMatchObject({
       organizationId: 'biru',
+      inputTaxDeductible: false,
       monthlyAmount: '60000.00',
       note: null,
     });
@@ -86,11 +95,13 @@ describe('OperatingCostsService', () => {
       category: 'rent',
       effectiveFrom: '2026-01',
       monthlyAmount: '60000',
+      inputTaxDeductible: false,
     });
     const later = await service.create('biru', {
       category: 'rent',
       effectiveFrom: '2026-02',
       monthlyAmount: '60000',
+      inputTaxDeductible: false,
     });
 
     for (const attempt of [
@@ -98,6 +109,7 @@ describe('OperatingCostsService', () => {
         category: 'rent',
         effectiveFrom: '2026-01',
         monthlyAmount: '1',
+        inputTaxDeductible: false,
       }),
       service.update('biru', later.id, { effectiveFrom: '2026-01' }),
     ]) {
@@ -109,11 +121,42 @@ describe('OperatingCostsService', () => {
     }
   });
 
+  it('人事沒有統一發票，新增或改成可扣抵進項稅都回 400', async () => {
+    const attempt = await errorOf(
+      service.create('biru', {
+        category: 'personnel',
+        effectiveFrom: '2026-01',
+        monthlyAmount: '120000',
+        inputTaxDeductible: true,
+      }),
+    );
+    expect(attempt).toBeInstanceOf(BadRequestException);
+    expect((attempt as BadRequestException).getResponse()).toMatchObject({
+      code: 'personnelInputTax',
+    });
+
+    const power = await service.create('biru', {
+      category: 'electricity',
+      effectiveFrom: '2026-01',
+      monthlyAmount: '8000',
+      inputTaxDeductible: true,
+    });
+    const changed = await errorOf(
+      service.update('biru', power.id, { category: 'personnel' }),
+    );
+    expect(changed).toBeInstanceOf(BadRequestException);
+    await expect(service.findOne('biru', power.id)).resolves.toMatchObject({
+      category: 'electricity',
+      inputTaxDeductible: true,
+    });
+  });
+
   it('修改只動帶上的欄位，null 清空備註', async () => {
     const created = await service.create('biru', {
       category: 'water',
       effectiveFrom: '2026-01',
       monthlyAmount: '1000',
+      inputTaxDeductible: false,
       note: '估計',
     });
 
@@ -132,6 +175,7 @@ describe('OperatingCostsService', () => {
       category: 'rent',
       effectiveFrom: '2026-01',
       monthlyAmount: '50000',
+      inputTaxDeductible: false,
     });
 
     for (const attempt of [
@@ -154,6 +198,7 @@ describe('OperatingCostsService', () => {
       category: 'gas',
       effectiveFrom: '2026-01',
       monthlyAmount: '800',
+      inputTaxDeductible: false,
     });
 
     await service.remove('biru', created.id);

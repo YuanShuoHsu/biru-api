@@ -274,7 +274,8 @@
   },
   "operatingCosts": {
     "operatingCostExists": "这个类别在该生效月份已有一笔固定成本，请改为编辑那一笔",
-    "operatingCostNotFound": "找不到这笔固定成本，可能已被删除"
+    "operatingCostNotFound": "找不到这笔固定成本，可能已被删除",
+    "personnelInputTax": "人事成本没有统一发票，不能设为进项税可抵扣"
   },
   "orderTickets": {
     "modes": {

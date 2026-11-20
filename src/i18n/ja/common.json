@@ -274,7 +274,8 @@
   },
   "operatingCosts": {
     "operatingCostExists": "このカテゴリには同じ適用開始月の固定費がすでにあります。そちらを編集してください",
-    "operatingCostNotFound": "この固定費が見つかりません。削除された可能性があります"
+    "operatingCostNotFound": "この固定費が見つかりません。削除された可能性があります",
+    "personnelInputTax": "人件費には統一発票がないため、仕入税額控除の対象にできません"
   },
   "orderTickets": {
     "modes": {

@@ -13,6 +13,7 @@ describe('CreateOperatingCostDto', () => {
     category: 'rent',
     effectiveFrom: '2026-12',
     monthlyAmount: '60000.50',
+    inputTaxDeductible: false,
   };
 
   it('accepts a monthly amount of zero or more with at most two decimals', () => {
@@ -28,6 +29,7 @@ describe('CreateOperatingCostDto', () => {
     ['monthlyAmount', '-1'],
     ['monthlyAmount', '1.234'],
     ['monthlyAmount', 'abc'],
+    ['inputTaxDeductible', 'yes'],
   ])('rejects %s %s', (field, value) => {
     expect(errorsOf({ ...valid, [field]: value })).toContain(field);
   });

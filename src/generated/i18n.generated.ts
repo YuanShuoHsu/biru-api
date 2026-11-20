@@ -330,6 +330,7 @@ export type I18nTranslations = {
         "operatingCosts": {
             "operatingCostExists": string;
             "operatingCostNotFound": string;
+            "personnelInputTax": string;
         };
         "orderTickets": {
             "modes": {

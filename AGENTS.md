@@ -115,12 +115,12 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 - `invoices.ts` — `invoice`, `invoiceAllowance`, `invoicePrintJob`
 - `refunds.ts` — `refund`
 - `ecpay-payment-attempts.ts`, `ecpay-callback-logs.ts` — `ecpayPaymentAttempt` (with the ECPay `charge_fee` once paid), `ecpayCallbackLog`
-- `inventory.ts` — `supplier`, `ingredient`, `inventoryTransaction`, `recipe`, `recipeIngredient`
+- `inventory.ts` — `supplier` (`uniform_invoice`: issues 統一發票 to the store, see Break-Even), `ingredient`, `inventoryTransaction`, `recipe`, `recipeIngredient`
 - `waitlist.ts` — `waitlistSetting`, `waitlistTicket`
 - `printers.ts` — `printer`, `orderTicketJob`
 - `push.ts` — `pushSubscription`
 - `cash-devices.ts` — `cashDevice`, `cashDeviceEvent` (`(device_id, idempotency_key)` unique; a retried write must reuse its key)
-- `operating-costs.ts` — `operatingCost` (`(organization_id, category, effective_from)` unique; see Break-Even)
+- `operating-costs.ts` — `operatingCost` (`(organization_id, category, effective_from)` unique, `input_tax_deductible`; see Break-Even)
 - `checklists.ts` — `checklistTemplate`, `checklistTemplateItem`, `checklistRun`, `checklistRunItem`, `checklistSetting`
 - `store-layout.ts` — `storeLayout`
 - `audit.ts` — `auditLog`; `deleted-records.ts` — `deletedRecord`
@@ -347,10 +347,17 @@ owner only) works on the Taiwan calendar month.
 
 - Fixed costs are `operating_cost` rows: per category, the row with the latest `effective_from` not after the month applies,
   so a cost is entered once and carries forward; a later row with `0` ends it. Don't add per-month rows or a toggle.
-- Personnel comes from the month's published payslips (`PersonnelCostReportService`); only when the month has none does the
-  `personnel` row, an estimate, apply.
+- Personnel is the month's published payslips (`PersonnelCostReportService.monthCosts`) plus, for every employee in the
+  month without one, a payslip calculated from the schedule and terms (`PayrollService.estimateSnapshots`, a read-only
+  transaction that writes no statement); an employee whose payslip can't be calculated is counted in `unestimatedEmployees`.
+  Only when no employee can be costed does the `personnel` row, a manual estimate, apply.
 - Revenue is tax-inclusive (counted orders less confirmed refunds, as in the sales report); 營業稅 is split out at
-  `BUSINESS_TAX_RATE` (5%, 營業稅法 §10).
+  `BUSINESS_TAX_RATE` (5%, 營業稅法 §10, `src/common/constants/business-tax.ts`).
+- Costs are net of deductible input tax, the 5% in what the store pays against a 統一發票: fixed cost rows with
+  `input_tax_deductible` (never personnel), ingredients from a supplier with `uniform_invoice` (`netUnitPriceSql`, also
+  through homemade ingredients' materials) and ECPay fees. Whether a cost carries an invoice is recorded as a fact on the
+  row or supplier, not inferred from its category. The report's `businessTaxPayable` is output tax less this input tax, an
+  estimate from the month's costs; the filing goes by the actual purchase invoices.
 - Cost of goods is standard cost: sold servings (`orderItemMovements`) × each item's, add-on's and modifier's recipe cost at
   current ingredient prices, so unlimited-stock ingredients count. An item with no recipe, or a recipe with an unpriced
   ingredient, has an unknown cost and is left out of both the cost and the revenue that sets the rate; a modifier without a
@@ -362,7 +369,7 @@ owner only) works on the Taiwan calendar month.
 - The cost of goods and fee rates come from the `RATE_WINDOW_DAYS` (90) days of sales up to now or the month end, not the
   month alone, so early-month figures stay stable; before there are costed sales the cost rate is the average recipe cost
   over price of the store's menu items (`costRateSource: 'menu'`), and the fee rate stays null.
-- Break-even = fixed costs ÷ ((1 − cost rate) ÷ 1.05 − fee rate), divided over the open days of the month from the opening
+- Break-even = fixed costs ÷ ((1 − cost rate − fee rate) ÷ 1.05), divided over the open days of the month from the opening
   hours and special hours (`OpeningCalendar.isOpenOn`). `targetProfit` is after 營所稅: it is grossed up with
   `monthlyPreTaxProfitFor` before being added to the fixed costs, and `incomeTax` annualises the month (`src/reports/income-tax.ts`,
   所得稅法 §5: 12 萬 exempt, 20%, capped at half the excess), so both are estimates of a yearly tax.

@@ -66,7 +66,12 @@ export class BreakEvenReportPageQueryDto extends IntersectionType(
   sortBy?: BreakEvenItemField;
 }
 
-export const PERSONNEL_COST_SOURCES = ['payroll', 'estimate', 'none'] as const;
+export const PERSONNEL_COST_SOURCES = [
+  'payroll',
+  'schedule',
+  'estimate',
+  'none',
+] as const;
 export type PersonnelCostSource = (typeof PERSONNEL_COST_SOURCES)[number];
 
 export const COST_RATE_SOURCES = ['sales', 'menu'] as const;
@@ -85,7 +90,13 @@ export class BreakEvenFixedCostDto {
   })
   effectiveFrom: string | null;
 
-  @ApiProperty({ description: '當月金額' }) amount: number;
+  @ApiProperty({ description: '當月金額（實付，含稅）' }) amount: number;
+
+  @ApiProperty({
+    description:
+      '其中可扣抵的進項稅：設為有統一發票時為金額 ÷ 1.05 × 5%，否則 0',
+  })
+  inputTax: number;
 }
 
 export class BreakEvenPersonnelDto {
@@ -93,17 +104,27 @@ export class BreakEvenPersonnelDto {
     enum: PERSONNEL_COST_SOURCES,
     enumName: 'PersonnelCostSource',
     description:
-      'payroll：當月已發布薪資單的人事成本；estimate：沒有已發布薪資單，改用固定成本裡的人事預估；none：兩者皆無',
+      'payroll：當月在職員工都有已發布薪資單；schedule：沒有已發布薪資單的員工依班表與薪資設定試算；estimate：沒有任何員工算得出，改用固定成本裡的人事預估；none：三者皆無',
   })
   source: PersonnelCostSource;
 
-  @ApiProperty({ description: '應發薪資＋雇主勞健保＋雇主勞退提繳' })
+  @ApiProperty({
+    description:
+      '應發薪資＋雇主勞健保＋雇主勞退提繳；已發布薪資單用實際金額，其餘用試算',
+  })
   amount: number;
 
+  @ApiProperty({ description: '有已發布薪資單的員工數' })
+  publishedEmployees: number;
+
+  @ApiProperty({ description: '沒有已發布薪資單、依班表試算的員工數' })
+  scheduledEmployees: number;
+
   @ApiProperty({
-    description: '當月在職但沒有已發布薪資單、未計入的員工數',
+    description:
+      '沒有已發布薪資單、也試算不出（例如缺薪資設定或當月費率表）而未計入的員工數',
   })
-  unpublishedEmployees: number;
+  unestimatedEmployees: number;
 }
 
 export class BreakEvenItemRowDto {
@@ -156,19 +177,34 @@ export class BreakEvenReportResponseDto {
   @ApiProperty({ type: BreakEvenPersonnelDto })
   personnel: BreakEvenPersonnelDto;
 
-  @ApiProperty({ description: '固定成本合計，含人事' })
+  @ApiProperty({ description: '固定成本合計（扣除可扣抵進項稅後），含人事' })
   fixedCostTotal: number;
 
   @ApiProperty({ description: '含稅淨營業額（營收扣除退款）' })
   revenue: number;
 
-  @ApiProperty({ description: '銷項營業稅：含稅淨營業額 ÷ 1.05 × 5%' })
-  businessTax: number;
+  @ApiProperty({ description: '銷項稅額：含稅淨營業額 ÷ 1.05 × 5%' })
+  outputTax: number;
+
+  @ApiProperty({
+    description:
+      '可扣抵的進項稅額：有統一發票的固定成本、開立統一發票的供應商食材（依當月銷貨成本）與金流手續費所含的 5%',
+  })
+  inputTax: number;
+
+  @ApiProperty({
+    description:
+      '估計應納營業稅：銷項稅額 − 進項稅額；負數為留抵稅額。實際依進貨發票申報',
+  })
+  businessTaxPayable: number;
 
   @ApiProperty({ description: '未稅淨營業額' })
   salesExcludingTax: number;
 
-  @ApiProperty({ description: '當月可算出成本的品項的標準成本合計' })
+  @ApiProperty({
+    description:
+      '當月可算出成本的品項的標準成本合計；開立統一發票的供應商以未稅進價計算',
+  })
   costOfGoodsSold: number;
 
   @ApiProperty({
@@ -233,7 +269,7 @@ export class BreakEvenReportResponseDto {
 
   @ApiProperty({
     description:
-      '損益平衡點（含稅營業額）：固定成本 ÷ 每元含稅營業額的邊際貢獻（(1 − 變動成本率) ÷ 1.05 − 手續費率）；變動成本率未知或沒有邊際貢獻時為 null',
+      '損益平衡點（含稅營業額）：固定成本 ÷ 每元含稅營業額的邊際貢獻（(1 − 變動成本率 − 手續費率) ÷ 1.05）；變動成本率未知或沒有邊際貢獻時為 null',
     nullable: true,
     type: Number,
   })
@@ -280,7 +316,8 @@ export class BreakEvenReportResponseDto {
   dailyTargetRevenue: number | null;
 
   @ApiProperty({
-    description: '稅前淨利：未稅淨營業額 − 銷貨成本 − 手續費 − 固定成本',
+    description:
+      '稅前淨利：未稅淨營業額 − 銷貨成本 − 未稅手續費 − 固定成本（皆扣除可扣抵進項稅）',
   })
   preTaxProfit: number;
 

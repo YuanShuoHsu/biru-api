@@ -2042,15 +2042,22 @@
     {
       "idx": 291,
       "version": "7",
-      "when": 1795106117475,
+      "when": 1795142442908,
       "tag": "0291_operating_costs",
       "breakpoints": true
     },
     {
       "idx": 292,
       "version": "7",
-      "when": 1795109109265,
+      "when": 1795142444815,
       "tag": "0292_ecpay_charge_fee",
+      "breakpoints": true
+    },
+    {
+      "idx": 293,
+      "version": "7",
+      "when": 1795142446812,
+      "tag": "0293_supplier_uniform_invoice",
       "breakpoints": true
     }
   ]

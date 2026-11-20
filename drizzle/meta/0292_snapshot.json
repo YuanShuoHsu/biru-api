@@ -1,6 +1,6 @@
 {
-  "id": "31be0059-365b-44ec-a615-792fd4c84ded",
-  "prevId": "5b2237a9-013d-42c2-98f2-13db48cc87d0",
+  "id": "b07c5624-22f5-481b-9e5b-555fc986d450",
+  "prevId": "7a284d35-7195-4f90-9820-c6724cc757a7",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -7710,6 +7710,12 @@
         "monthly_amount": {
           "name": "monthly_amount",
           "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "input_tax_deductible": {
+          "name": "input_tax_deductible",
+          "type": "boolean",
           "primaryKey": false,
           "notNull": true
         },

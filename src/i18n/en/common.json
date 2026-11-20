@@ -274,7 +274,8 @@
   },
   "operatingCosts": {
     "operatingCostExists": "This category already has a fixed cost for that effective month. Edit that one instead.",
-    "operatingCostNotFound": "This fixed cost could not be found. It may have been deleted."
+    "operatingCostNotFound": "This fixed cost could not be found. It may have been deleted.",
+    "personnelInputTax": "Personnel costs have no tax invoice, so their input tax can't be deductible."
   },
   "orderTickets": {
     "modes": {

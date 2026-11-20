@@ -2,6 +2,7 @@ import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
 import {
+  IsBoolean,
   IsIn,
   IsNumberString,
   IsOptional,
@@ -42,6 +43,13 @@ export class CreateOperatingCostDto {
   @IsNumberString()
   monthlyAmount: string;
 
+  @ApiProperty({
+    description:
+      '這筆成本有開給本店的統一發票，5% 進項稅可扣抵，損益平衡以未稅金額計算；人事不能為 true',
+  })
+  @IsBoolean()
+  inputTaxDeductible: boolean;
+
   @ApiPropertyOptional({ nullable: true, type: String })
   @IsOptional()
   @IsString()
@@ -65,6 +73,7 @@ export class OperatingCostResponseDto {
   category: OperatingCostCategory;
   @ApiProperty() effectiveFrom: string;
   @ApiProperty() monthlyAmount: string;
+  @ApiProperty() inputTaxDeductible: boolean;
   @ApiPropertyOptional({ nullable: true, type: String }) note: string | null;
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;

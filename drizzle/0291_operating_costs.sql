@@ -6,6 +6,7 @@ CREATE TABLE "operating_cost" (
 	"category" "operating_cost_category" NOT NULL,
 	"effective_from" text NOT NULL,
 	"monthly_amount" numeric(12, 2) NOT NULL,
+	"input_tax_deductible" boolean NOT NULL,
 	"note" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,

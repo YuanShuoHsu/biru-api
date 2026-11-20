@@ -16,6 +16,7 @@ import { organization } from '../db/schema/organizations.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
+import { BUSINESS_TAX_RATE } from '../common/constants/business-tax.js';
 import {
   DAY_MS,
   platformDateString,
@@ -28,7 +29,7 @@ import {
   organizationNotFoundError,
 } from '../common/utils/organizations.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
-import { unitPriceSql } from '../inventory/pricing.js';
+import { netUnitPriceSql, unitPriceSql } from '../inventory/pricing.js';
 import { localize } from '../menus/menus-public.service.js';
 import {
   COUNTED_AT,
@@ -36,6 +37,7 @@ import {
   orderItemMovements,
 } from '../orders/counted-orders.js';
 import { payrollPeriod } from '../payroll/payroll-calculation.js';
+import { PayrollService } from '../payroll/payroll.service.js';
 
 import {
   BREAK_EVEN_ITEM_NUMBER_FILTER_FIELDS,
@@ -46,14 +48,13 @@ import {
   type BreakEvenReportResponseDto,
   type CostRateSource,
 } from './dto/break-even-report.dto.js';
-import type { PersonnelCostReportPageQueryDto } from './dto/personnel-cost-report.dto.js';
 import { monthlyIncomeTax, monthlyPreTaxProfitFor } from './income-tax.js';
-import { PersonnelCostReportService } from './personnel-cost-report.service.js';
+import {
+  PersonnelCostReportService,
+  personnelCostCents,
+} from './personnel-cost-report.service.js';
 import { pageReportRows } from './report-paging.js';
 import { SalesReportService } from './sales-report.service.js';
-
-// https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=G0340080&flno=10
-export const BUSINESS_TAX_RATE = 0.05;
 
 export const RATE_WINDOW_DAYS = 90;
 
@@ -63,6 +64,8 @@ const roundRate = (rate: number) => Math.round(rate * 10000) / 10000;
 
 const excludingTax = (amount: number) => amount / (1 + BUSINESS_TAX_RATE);
 
+const includedTax = (amount: number) => amount - excludingTax(amount);
+
 export const breakEvenRevenueOf = (
   fixedCost: number,
   costOfGoodsSoldRate: number | null,
@@ -70,8 +73,9 @@ export const breakEvenRevenueOf = (
 ): number | null => {
   if (costOfGoodsSoldRate === null) return null;
 
-  const contributionPerRevenue =
-    excludingTax(1 - costOfGoodsSoldRate) - (paymentFeeRate ?? 0);
+  const contributionPerRevenue = excludingTax(
+    1 - costOfGoodsSoldRate - (paymentFeeRate ?? 0),
+  );
   if (contributionPerRevenue <= 0) return null;
 
   return roundMoney(fixedCost / contributionPerRevenue);
@@ -80,16 +84,31 @@ export const breakEvenRevenueOf = (
 const perDay = (amount: number | null, days: number) =>
   amount === null || days === 0 ? null : roundMoney(amount / days);
 
+interface ItemCost {
+  cost: number | null;
+  grossCost: number | null;
+}
+
+interface CostedItem extends BreakEvenItemRowDto {
+  grossCost: number | null;
+}
+
 interface PaymentFees {
   fees: number;
   feeRevenue: number;
   unknownFeeOrders: number;
 }
 
+const toItemRow = ({
+  grossCost: _grossCost,
+  ...row
+}: CostedItem): BreakEvenItemRowDto => row;
+
 @Injectable()
 export class BreakEvenReportService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly payrollService: PayrollService,
     private readonly personnelCostReportService: PersonnelCostReportService,
     private readonly salesReportService: SalesReportService,
   ) {}
@@ -122,7 +141,7 @@ export class BreakEvenReportService {
     ] = await Promise.all([
       this.openDaysOf(org.id, org.openingHours, start, end, now),
       this.fixedCostsOf(org.id, month),
-      this.personnelOf(organizationSlug, month),
+      this.personnelOf(org.id, month),
       this.salesReportService.orderRows(org.id, start, end),
       this.itemsOf(org.id, start, end),
       this.paymentFeesOf(org.id, start, end),
@@ -131,28 +150,43 @@ export class BreakEvenReportService {
     ]);
 
     const personnelCost: BreakEvenPersonnelDto =
-      personnel.source !== 'payroll' && fixedCosts.personnel
+      personnel.source === 'none' && fixedCosts.personnel
         ? {
             source: 'estimate',
             amount: fixedCosts.personnel,
-            unpublishedEmployees: personnel.unpublishedEmployees,
+            publishedEmployees: personnel.publishedEmployees,
+            scheduledEmployees: personnel.scheduledEmployees,
+            unestimatedEmployees: personnel.unestimatedEmployees,
           }
         : personnel;
 
+    const fixedCostInputTax = fixedCosts.rows.reduce(
+      (sum, { inputTax }) => sum + inputTax,
+      0,
+    );
     const fixedCostTotal = roundMoney(
-      fixedCosts.rows.reduce((sum, { amount }) => sum + amount, 0) +
+      fixedCosts.rows.reduce((sum, { amount }) => sum + amount, 0) -
+        fixedCostInputTax +
         personnelCost.amount,
     );
 
     const revenue = roundMoney(sales?.net ?? 0);
     const salesExcludingTax = roundMoney(excludingTax(revenue));
-    const businessTax = roundMoney(revenue - salesExcludingTax);
+    const outputTax = roundMoney(revenue - salesExcludingTax);
 
     const costed = monthItems.filter(({ cost }) => cost !== null);
     const costOfGoodsSold = roundMoney(
       costed.reduce((sum, { cost }) => sum + (cost ?? 0), 0),
     );
+    const costOfGoodsSoldInputTax = costed.reduce(
+      (sum, { cost, grossCost }) => sum + (grossCost ?? 0) - (cost ?? 0),
+      0,
+    );
     const paymentFees = roundMoney(monthFees.fees);
+    const paymentFeeInputTax = includedTax(paymentFees);
+    const inputTax = roundMoney(
+      fixedCostInputTax + costOfGoodsSoldInputTax + paymentFeeInputTax,
+    );
 
     const { costOfGoodsSoldRate, costRateSource } = await this.costRateOf(
       org.id,
@@ -185,11 +219,14 @@ export class BreakEvenReportService {
           );
 
     const preTaxProfit = roundMoney(
-      salesExcludingTax - costOfGoodsSold - paymentFees - fixedCostTotal,
+      salesExcludingTax -
+        costOfGoodsSold -
+        (paymentFees - paymentFeeInputTax) -
+        fixedCostTotal,
     );
     const incomeTax = roundMoney(monthlyIncomeTax(preTaxProfit));
 
-    const page = pageReportRows(monthItems, query, {
+    const page = pageReportRows(monthItems.map(toItemRow), query, {
       values: ({
         name,
         quantity,
@@ -214,11 +251,16 @@ export class BreakEvenReportService {
       month,
       openDays: days.open,
       remainingOpenDays: days.remaining,
-      fixedCosts: fixedCosts.rows,
+      fixedCosts: fixedCosts.rows.map(({ inputTax: tax, ...row }) => ({
+        ...row,
+        inputTax: roundMoney(tax),
+      })),
       personnel: personnelCost,
       fixedCostTotal,
       revenue,
-      businessTax,
+      outputTax,
+      inputTax,
+      businessTaxPayable: roundMoney(outputTax - inputTax),
       salesExcludingTax,
       costOfGoodsSold,
       unpricedItems: monthItems.filter(
@@ -256,7 +298,7 @@ export class BreakEvenReportService {
 
   private async costRateOf(
     organizationId: string,
-    windowItems: BreakEvenItemRowDto[],
+    windowItems: CostedItem[],
   ): Promise<{
     costOfGoodsSoldRate: number | null;
     costRateSource: CostRateSource | null;
@@ -284,7 +326,7 @@ export class BreakEvenReportService {
     organizationId: string,
     since: Date,
     until: Date,
-  ): Promise<BreakEvenItemRowDto[]> {
+  ): Promise<CostedItem[]> {
     const [itemSales, itemCosts] = await Promise.all([
       this.salesReportService.itemRows(
         organizationId,
@@ -298,9 +340,12 @@ export class BreakEvenReportService {
     const lang = toLanguage(I18nContext.current()?.lang);
 
     return itemSales
-      .map((row): BreakEvenItemRowDto => {
+      .map((row): CostedItem => {
         const itemRevenue = roundMoney(excludingTax(row.net));
-        const cost = itemCosts.get(row.key) ?? null;
+        const { cost, grossCost } = itemCosts.get(row.key) ?? {
+          cost: null,
+          grossCost: null,
+        };
         const grossProfit =
           cost === null ? null : roundMoney(itemRevenue - cost);
 
@@ -310,6 +355,7 @@ export class BreakEvenReportService {
           quantity: (row.quantity ?? 0) - (row.refundedQuantity ?? 0),
           revenue: itemRevenue,
           cost,
+          grossCost,
           grossProfit,
           grossMarginRate:
             grossProfit === null || itemRevenue === 0
@@ -353,6 +399,7 @@ export class BreakEvenReportService {
       .selectDistinctOn([operatingCost.category], {
         category: operatingCost.category,
         effectiveFrom: operatingCost.effectiveFrom,
+        inputTaxDeductible: operatingCost.inputTaxDeductible,
         monthlyAmount: operatingCost.monthlyAmount,
       })
       .from(operatingCost)
@@ -365,10 +412,15 @@ export class BreakEvenReportService {
       .orderBy(asc(operatingCost.category), desc(operatingCost.effectiveFrom));
 
     const active = latest
-      .map(({ monthlyAmount, ...row }) => ({
-        ...row,
-        amount: Number(monthlyAmount),
-      }))
+      .map(({ inputTaxDeductible, monthlyAmount, ...row }) => {
+        const amount = Number(monthlyAmount);
+
+        return {
+          ...row,
+          amount,
+          inputTax: inputTaxDeductible ? includedTax(amount) : 0,
+        };
+      })
       .filter(({ amount }) => amount > 0);
 
     return {
@@ -379,22 +431,39 @@ export class BreakEvenReportService {
   }
 
   private async personnelOf(
-    organizationSlug: string,
+    organizationId: string,
     month: string,
   ): Promise<BreakEvenPersonnelDto> {
-    const { totals, unpublishedEmployees } =
-      await this.personnelCostReportService.getPersonnelCostReport(
-        organizationSlug,
-        { month } as PersonnelCostReportPageQueryDto,
-      );
+    const { publishedCents, publishedEmployees, unpublishedEmployeeIds } =
+      await this.personnelCostReportService.monthCosts(organizationId, month);
+    const estimates = await this.payrollService.estimateSnapshots(
+      organizationId,
+      month,
+      unpublishedEmployeeIds,
+    );
 
-    return totals.headcount > 0
-      ? {
-          source: 'payroll',
-          amount: Number(totals.totalCents) / 100,
-          unpublishedEmployees,
-        }
-      : { source: 'none', amount: 0, unpublishedEmployees };
+    const scheduled = estimates.flatMap(({ snapshot }) =>
+      snapshot ? [snapshot] : [],
+    );
+    const counts = {
+      publishedEmployees,
+      scheduledEmployees: scheduled.length,
+      unestimatedEmployees: estimates.length - scheduled.length,
+    };
+
+    if (!publishedEmployees && !scheduled.length)
+      return { source: 'none', amount: 0, ...counts };
+
+    const cents = scheduled.reduce(
+      (sum, snapshot) => sum + personnelCostCents(snapshot),
+      publishedCents,
+    );
+
+    return {
+      source: scheduled.length ? 'schedule' : 'payroll',
+      amount: Number(cents) / 100,
+      ...counts,
+    };
   }
 
   private async paymentFeesOf(
@@ -444,8 +513,11 @@ export class BreakEvenReportService {
         ${recipe.menuItemId} AS menu_item_id,
         ${recipe.modifierId} AS modifier_id,
         CASE WHEN COUNT(${recipeIngredient.id}) = COUNT(${unitPriceSql})
+          THEN COALESCE(SUM(${recipeIngredient.requiredQuantity} * ${netUnitPriceSql}), 0) / ${recipe.recipeYield}
+        END AS cost,
+        CASE WHEN COUNT(${recipeIngredient.id}) = COUNT(${unitPriceSql})
           THEN COALESCE(SUM(${recipeIngredient.requiredQuantity} * ${unitPriceSql}), 0) / ${recipe.recipeYield}
-        END AS cost
+        END AS gross_cost
       FROM ${recipe}
       LEFT JOIN ${recipeIngredient} ON ${recipeIngredient.recipeId} = ${recipe.id}
       LEFT JOIN ${ingredient} ON ${ingredient.id} = ${recipeIngredient.ingredientId}
@@ -484,10 +556,11 @@ export class BreakEvenReportService {
     organizationId: string,
     start: Date,
     end: Date,
-  ): Promise<Map<string, number | null>> {
+  ): Promise<Map<string, ItemCost>> {
     const { rows } = await this.db.execute<{
       key: string;
       cost: string | null;
+      grossCost: string | null;
     }>(sql`
       WITH movements AS (${orderItemMovements(organizationId, start, end)}),
       recipe_cost AS (${this.recipeCostSql(organizationId)}),
@@ -517,7 +590,10 @@ export class BreakEvenReportService {
         part.owner AS key,
         CASE WHEN bool_and(recipe_cost.cost IS NOT NULL OR (part.modifier_id IS NOT NULL AND recipe_cost.modifier_id IS NULL))
           THEN ROUND(SUM(part.quantity * COALESCE(recipe_cost.cost, 0)), 2)::text
-        END AS cost
+        END AS cost,
+        CASE WHEN bool_and(recipe_cost.cost IS NOT NULL OR (part.modifier_id IS NOT NULL AND recipe_cost.modifier_id IS NULL))
+          THEN ROUND(SUM(part.quantity * COALESCE(recipe_cost.gross_cost, 0)), 2)::text
+        END AS "grossCost"
       FROM part
       LEFT JOIN recipe_cost ON CASE
         WHEN part.modifier_id IS NULL THEN recipe_cost.menu_item_id = part.menu_item_id
@@ -526,8 +602,14 @@ export class BreakEvenReportService {
       GROUP BY 1
     `);
 
+    const numberOrNull = (value: string | null) =>
+      value === null ? null : Number(value);
+
     return new Map(
-      rows.map(({ key, cost }) => [key, cost === null ? null : Number(cost)]),
+      rows.map(({ key, cost, grossCost }) => [
+        key,
+        { cost: numberOrNull(cost), grossCost: numberOrNull(grossCost) },
+      ]),
     );
   }
 }
