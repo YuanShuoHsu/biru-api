@@ -90,7 +90,10 @@ import type { CreateMenuItemDto } from './dto/create-menu-item.dto.js';
 import type { CreateMenuSectionDto } from './dto/create-menu-section.dto.js';
 import type { CreateModifierGroupDto } from './dto/create-modifier-group.dto.js';
 import type { CreateModifierDto } from './dto/create-modifier.dto.js';
-import type { CreateOfferDto } from './dto/create-offer.dto.js';
+import type {
+  CreateOfferDto,
+  PriceSpecificationDto,
+} from './dto/create-offer.dto.js';
 import {
   MENU_ITEM_ARRAY_ENUM_FILTER_FIELDS,
   MENU_ITEM_DATE_FILTER_FIELDS,
@@ -145,6 +148,14 @@ const assertKeepsListing = (
     (current === 'Discontinued' || next === 'Discontinued')
   )
     throw accessForbiddenError();
+};
+
+const assertPromoDateRange = (
+  priceSpecification: PriceSpecificationDto | null | undefined,
+) => {
+  const { validFrom, validThrough } = priceSpecification ?? {};
+  if (validFrom && validThrough && validFrom > validThrough)
+    throw badRequestError('promoDateRangeInvalid');
 };
 
 const ADD_ON_TARGET_UNIQUE_INDEXES = [
@@ -589,6 +600,7 @@ export class MenusService {
     data: CreateMenuItemDto,
   ): Promise<MenuItemWithRecipe> {
     const { offer: offerData, ...itemData } = data;
+    assertPromoDateRange(offerData?.priceSpecification);
 
     const section = await this.db.query.menuSection.findFirst({
       where: eq(menuSection.id, sectionId),
@@ -900,6 +912,7 @@ export class MenusService {
     data: UpdateMenuItemDto;
   }): Promise<MenuItemWithRecipe> {
     const { offer: offerData, ...itemData } = params.data;
+    assertPromoDateRange(offerData?.priceSpecification);
 
     const touchesDrinkOptions = DRINK_OPTION_FIELDS.some(
       (field) => itemData[field] !== undefined,
@@ -1074,6 +1087,7 @@ export class MenusService {
     organizationId: string,
     data: CreateOfferDto,
   ): Promise<OfferWithCurrency> {
+    assertPromoDateRange(data.priceSpecification);
     const [created] = await this.db
       .insert(offer)
       .values({ id: uuidv4(), menuItemId, ...data })
@@ -1106,6 +1120,7 @@ export class MenusService {
     organizationId: string;
     data: UpdateOfferDto;
   }): Promise<OfferWithCurrency> {
+    assertPromoDateRange(params.data.priceSpecification);
     const [updated] = await this.db
       .update(offer)
       .set({

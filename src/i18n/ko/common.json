@@ -270,6 +270,7 @@
     "parentSectionNotFound": "상위 섹션을 찾을 수 없습니다. 삭제되었을 수 있습니다",
     "parentSectionSelf": "카테고리를 자신의 상위 카테고리로 설정할 수 없습니다",
     "printerNotFound": "프린터를 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "promoDateRangeInvalid": "프로모션 종료일은 시작일보다 앞설 수 없습니다",
     "selectionCountInvalid": "최대 선택 수는 최소 선택 수보다 작을 수 없습니다"
   },
   "orderTickets": {

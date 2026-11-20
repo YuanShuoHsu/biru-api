@@ -25,6 +25,7 @@ import { withImageRefUrl, withImageUrl } from '../images/image-url.js';
 import type { RecipesService } from '../inventory/recipes.service.js';
 
 import type { CreateMenuItemModifierGroupDto } from './dto/create-menu-item-modifier-group.dto.js';
+import type { CreateMenuItemDto } from './dto/create-menu-item.dto.js';
 import { MenusService } from './menus.service.js';
 
 const ORG = 'org';
@@ -681,6 +682,68 @@ describe('MenusService localized text filters and sorting', () => {
       ).rejects.toMatchObject(notFound);
     },
   );
+  describe('優惠價期間', () => {
+    const endsBeforeStart = {
+      price: '80',
+      validFrom: '2025-06-02',
+      validThrough: '2025-06-01',
+    };
+
+    it('新增與更新時結束日早於開始日回 400', async () => {
+      const rejected = {
+        response: { code: 'promoDateRangeInvalid' },
+        status: 400,
+      };
+      await expect(
+        service.createOffer('latte', ORG, {
+          price: '100',
+          priceSpecification: endsBeforeStart,
+        }),
+      ).rejects.toMatchObject(rejected);
+      await expect(
+        service.updateOffer({
+          where: { id: 'missing' },
+          organizationId: ORG,
+          data: { priceSpecification: endsBeforeStart },
+        }),
+      ).rejects.toMatchObject(rejected);
+    });
+
+    it('品項的新增與更新帶的優惠價結束日早於開始日時回 400', async () => {
+      const rejected = {
+        response: { code: 'promoDateRangeInvalid' },
+        status: 400,
+      };
+      const offerData = { price: '100', priceSpecification: endsBeforeStart };
+      await expect(
+        service.createMenuItem('missing', ORG, {
+          name: { 'zh-TW': '新品' },
+          offer: offerData,
+        } as CreateMenuItemDto),
+      ).rejects.toMatchObject(rejected);
+      await expect(
+        service.updateMenuItem({
+          where: { id: 'latte' },
+          organizationId: ORG,
+          data: { offer: offerData },
+        }),
+      ).rejects.toMatchObject(rejected);
+    });
+
+    it('同一天開始與結束可以存', async () => {
+      await expect(
+        service.createOffer('latte', ORG, {
+          price: '100',
+          priceSpecification: {
+            price: '80',
+            validFrom: '2025-06-01',
+            validThrough: '2025-06-01',
+          },
+        }),
+      ).resolves.toMatchObject({ menuItemId: 'latte' });
+    });
+  });
+
   describe('加購對象', () => {
     const rejected = {
       response: { code: 'addOnTargetRequired' },
