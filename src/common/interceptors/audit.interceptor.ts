@@ -119,10 +119,14 @@ const idsFromRequest = (
   if ('body' in idSource) {
     const value = (request.body as Row | undefined)?.[idSource.body];
     if (typeof value === 'string') return [value];
+    if (!Array.isArray(value)) return [];
 
-    return Array.isArray(value)
-      ? value.filter((item): item is string => typeof item === 'string')
-      : [];
+    const ids: unknown[] =
+      'key' in idSource
+        ? value.map((item) => (item as Row | null)?.[idSource.key])
+        : value;
+
+    return ids.filter((id): id is string => typeof id === 'string');
   }
 
   return [];
