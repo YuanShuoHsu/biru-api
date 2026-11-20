@@ -163,6 +163,16 @@ describe('AttendanceNotificationsService.notifyMissingClockOuts', () => {
     await expect(service.notifyMissingClockOuts(now)).resolves.toBe(0);
   });
 
+  it('停權中的員工不通知，班次仍標記為已提醒', async () => {
+    const { startsAt } = await addShift('forgot', 5);
+    await punch('forgot', 'clockIn', startsAt);
+    await client.exec(`update "user" set banned = true where id = 'amy'`);
+
+    await expect(service.notifyMissingClockOuts(now)).resolves.toBe(0);
+    expect(sendMissingClockOut).not.toHaveBeenCalled();
+    await expect(remindedAt('forgot')).resolves.toBeInstanceOf(Date);
+  });
+
   it('還在可以打卡的時間內不通知', async () => {
     const { startsAt } = await addShift('stillOpen', 1);
     await punch('stillOpen', 'clockIn', startsAt);
