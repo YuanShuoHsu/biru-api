@@ -30,7 +30,7 @@ import {
 } from './dto/deleted-record-batch.dto.js';
 
 @ApiTags('deleted-records')
-@ApiParam({ name: 'organizationSlug' })
+@ApiParam({ name: 'organizationSlug', type: String })
 @Controller('organizations/:organizationSlug/deleted-records')
 export class OrganizationDeletedRecordsController {
   constructor(private readonly deletedRecordsService: DeletedRecordsService) {}

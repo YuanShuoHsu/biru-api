@@ -7,9 +7,11 @@ import { AttendanceParentalController } from './attendance/attendance-parental.c
 import { AttendanceRequestsController } from './attendance/attendance-requests.controller.js';
 import { AttendanceShiftTypesController } from './attendance/attendance-shift-types.controller.js';
 import { AttendanceShiftsController } from './attendance/attendance-shifts.controller.js';
+import { AuditController } from './audit/audit.controller.js';
 import { CashDevicesController } from './cash-devices/cash-devices.controller.js';
 import { ChecklistRunsController } from './checklists/checklist-runs.controller.js';
 import { ChecklistTemplatesController } from './checklists/checklist-templates.controller.js';
+import { OrganizationDeletedRecordsController } from './deleted-records/organization-deleted-records.controller.js';
 import { OrganizationsController } from './organizations/organizations.controller.js';
 import { PayrollEarningsController } from './payroll/payroll-earnings.controller.js';
 import { PayrollWithholdingController } from './payroll/payroll-withholding.controller.js';
@@ -29,9 +31,11 @@ describe('path parameters OpenAPI', () => {
         AttendanceRequestsController,
         AttendanceShiftTypesController,
         AttendanceShiftsController,
+        AuditController,
         CashDevicesController,
         ChecklistRunsController,
         ChecklistTemplatesController,
+        OrganizationDeletedRecordsController,
         OrganizationsController,
         PayrollController,
         PayrollEarningsController,
@@ -66,5 +70,25 @@ describe('path parameters OpenAPI', () => {
     );
     expect(Object.keys(document.paths).length).toBeGreaterThan(0);
     expect(missing).toEqual([]);
+  });
+
+  it('documents every organizationSlug path parameter as a string', () => {
+    const untyped = Object.entries(document.paths).flatMap(([path, item]) =>
+      METHODS.flatMap((method) =>
+        (item[method]?.parameters ?? []).flatMap((parameter) =>
+          'in' in parameter &&
+          parameter.in === 'path' &&
+          parameter.name === 'organizationSlug' &&
+          !(
+            parameter.schema &&
+            'type' in parameter.schema &&
+            parameter.schema.type === 'string'
+          )
+            ? [`${method.toUpperCase()} ${path}`]
+            : [],
+        ),
+      ),
+    );
+    expect(untyped).toEqual([]);
   });
 });
