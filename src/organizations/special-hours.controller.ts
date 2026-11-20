@@ -21,7 +21,13 @@ import {
   Audit,
   type AuditTarget,
 } from '../common/decorators/audit.decorator.js';
-import { Roles } from '../menus/decorators/roles.decorator.js';
+import { HasPermission } from '../menus/decorators/permission.decorator.js';
+import {
+  OrganizationMember,
+  Roles,
+} from '../menus/decorators/roles.decorator.js';
+
+import { SpecialHoursAffectedDto } from './dto/special-hours-affected.dto.js';
 
 import {
   CreateSpecialHoursDto,
@@ -51,6 +57,24 @@ export class SpecialHoursController {
     @Param('organizationSlug') organizationSlug: string,
   ): Promise<SpecialHoursDto[]> {
     return this.specialHoursService.findUpcoming(organizationSlug);
+  }
+
+  @Get('affected')
+  @OrganizationMember('organizationSlug')
+  @ApiOkResponse({ type: SpecialHoursAffectedDto })
+  @ApiOperation({
+    summary:
+      '依目前的特殊營業日列出受影響的自取訂單與今天的候位號碼；只列出有更新權限的類別',
+  })
+  findAffected(
+    @Param('organizationSlug') organizationSlug: string,
+    @HasPermission({ order: ['update'] }) orders: boolean,
+    @HasPermission({ waitlist: ['update'] }) waitlist: boolean,
+  ): Promise<SpecialHoursAffectedDto> {
+    return this.specialHoursService.findAffected(organizationSlug, {
+      orders,
+      waitlist,
+    });
   }
 
   @Post()

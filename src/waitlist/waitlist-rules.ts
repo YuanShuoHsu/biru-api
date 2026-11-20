@@ -1,4 +1,10 @@
-import type { OpeningCalendar } from '../common/utils/opening-hours.js';
+import { platformDateString } from '../common/constants/timezone.js';
+import {
+  openingCalendar,
+  specialHoursOn,
+  type OpeningCalendar,
+  type SpecialOpeningHours,
+} from '../common/utils/opening-hours.js';
 import type {
   WaitlistGroup,
   WaitlistTicket,
@@ -92,6 +98,14 @@ export const getAvailability = (
     open,
   };
 };
+
+export const isClosedTodayBySpecialHours = (
+  openingHours: string | null,
+  specialHours: SpecialOpeningHours[],
+  now: Date,
+): boolean =>
+  specialHoursOn(specialHours, platformDateString(now)).length > 0 &&
+  openingCalendar(openingHours, specialHours).isClosedForRestOfDay(now);
 
 export const isOverdue = (
   ticket: Pick<WaitlistTicket, 'calledAt' | 'status'>,

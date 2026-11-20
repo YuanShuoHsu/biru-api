@@ -209,4 +209,181 @@ describe('SpecialHoursService', () => {
       service.remove('biru', crypto.randomUUID()),
     ).rejects.toMatchObject(missing);
   });
+
+  describe('findAffected', () => {
+    const all = { orders: true, waitlist: true };
+    const at = (offset: number, time: string) =>
+      `${day(offset)}T${time}:00+08:00`;
+
+    const insertOrder = (
+      id: string,
+      pickupTime: string,
+      paymentMethod = 'Credit',
+      orderStatus = 'OrderProcessing',
+    ) =>
+      client.query(
+        `insert into "order" (id, customer, mode, order_number, payment_method, order_status, payment_date, seller_id, subtotal, pickup_time)
+         values ($1, '{"name":"王小明"}', 'pickup', $1, $2, $3, $4, 'biru', 100, $5)`,
+        [
+          id,
+          paymentMethod,
+          orderStatus,
+          orderStatus === 'OrderPaymentDue' ? null : new Date().toISOString(),
+          new Date(pickupTime).toISOString(),
+        ],
+      );
+
+    const ids = (orders?: { id: string }[]) => orders?.map(({ id }) => id);
+
+    beforeEach(async () => {
+      await client.exec(
+        `update organization set opening_hours = 'Mo-Su 08:00-20:00', pickup_cutoff_minutes = 15 where id = 'biru'`,
+      );
+    });
+
+    it('依付款狀態與退款方式分類受特殊營業日影響的自取訂單', async () => {
+      await client.exec(`
+        insert into organization_special_hours (id, organization_id, valid_from, valid_through, opening_hours) values
+          ('closed', 'biru', '${day(2)}', '${day(2)}', null),
+          ('short', 'biru', '${day(3)}', '${day(3)}', 'Mo-Su 10:00-12:00')
+      `);
+      await insertOrder('card', at(2, '12:00'));
+      await insertOrder('twqr', at(2, '13:00'), 'TWQR');
+      await insertOrder('unpaid', at(2, '14:00'), 'Credit', 'OrderPaymentDue');
+      await insertOrder('closing', at(3, '11:50'), 'ApplePay');
+      await insertOrder(
+        'late',
+        at(3, '14:00'),
+        'Jkopay',
+        'OrderPickupAvailable',
+      );
+      await insertOrder('inside', at(3, '11:00'));
+      await insertOrder('weekly', at(5, '19:50'));
+      await insertOrder(
+        'delivered',
+        at(2, '12:00'),
+        'Credit',
+        'OrderDelivered',
+      );
+      await insertOrder('refunding', at(2, '12:00'));
+      await client.exec(`
+        insert into refund (id, order_id, amount, scope, channel, status)
+        values ('r1', 'refunding', 100, 'full', 'ecpay', 'pending')
+      `);
+
+      const affected = await service.findAffected('biru', all);
+
+      expect(ids(affected.refundOrders)).toEqual(['card', 'closing']);
+      expect(ids(affected.manualRefundOrders)).toEqual(['twqr', 'late']);
+      expect(ids(affected.unpaidOrders)).toEqual(['unpaid']);
+      expect(affected.refundOrders?.[0]).toMatchObject({
+        customer: { name: '王小明' },
+        orderNumber: 'card',
+        total: '100.00',
+      });
+    });
+
+    it('每週公休日的特殊營業時段改成公休時，列出當天的訂單', async () => {
+      const weekdays = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+      const closedWeekday = weekdays[new Date(day(4)).getUTCDay()];
+      await client.exec(
+        `update organization set opening_hours = '${weekdays
+          .filter((code) => code !== closedWeekday)
+          .join(',')} 08:00-20:00' where id = 'biru'`,
+      );
+      const special = await service.create('biru', {
+        validFrom: day(4),
+        validThrough: day(4),
+        openingHours: 'Mo-Su 10:00-14:00',
+      });
+      await insertOrder('card', at(4, '11:00'));
+      await expect(service.findAffected('biru', all)).resolves.toMatchObject({
+        refundOrders: [],
+      });
+
+      await service.update('biru', special.id, { openingHours: null });
+
+      await expect(service.findAffected('biru', all)).resolves.toMatchObject({
+        refundOrders: [{ id: 'card' }],
+      });
+    });
+
+    it('改正或刪除特殊營業日後清單變空', async () => {
+      await client.exec(`
+        insert into organization_special_hours (id, organization_id, valid_from, valid_through, opening_hours)
+        values ('closed', 'biru', '${day(2)}', '${day(2)}', null)
+      `);
+      await insertOrder('card', at(2, '12:00'));
+      await expect(service.findAffected('biru', all)).resolves.toMatchObject({
+        refundOrders: [{ id: 'card' }],
+      });
+
+      await service.remove('biru', 'closed');
+
+      await expect(service.findAffected('biru', all)).resolves.toEqual({
+        manualRefundOrders: [],
+        refundOrders: [],
+        unpaidOrders: [],
+        waitlistTickets: [],
+      });
+    });
+
+    it('今天特殊公休時列出今天仍在候位或叫號中的號碼', async () => {
+      await client.exec(`
+        insert into organization_special_hours (id, organization_id, valid_from, valid_through, opening_hours)
+        values ('closed', 'biru', '${day(0)}', '${day(0)}', null);
+        insert into waitlist_ticket (id, organization_id, service_date, prefix, number, party_size, locale, status, created_at) values
+          ('waiting', 'biru', '${day(0)}', 'A', 1, 2, 'zh-TW', 'waiting', now() - interval '2 minutes'),
+          ('called', 'biru', '${day(0)}', 'B', 3, 4, 'zh-TW', 'called', now() - interval '1 minute'),
+          ('seated', 'biru', '${day(0)}', 'A', 2, 2, 'zh-TW', 'seated', now()),
+          ('yesterday', 'biru', '${day(-1)}', 'A', 1, 2, 'zh-TW', 'waiting', now()),
+          ('other', 'cafe', '${day(0)}', 'A', 1, 2, 'zh-TW', 'waiting', now());
+      `);
+
+      const { waitlistTickets } = await service.findAffected('biru', all);
+
+      expect(waitlistTickets).toEqual([
+        expect.objectContaining({ id: 'waiting', ticketNumber: 'A001' }),
+        expect.objectContaining({ id: 'called', ticketNumber: 'B003' }),
+      ]);
+    });
+
+    it('整天特殊公休時，過了每週打烊時間仍列出叫號中的號碼', async () => {
+      vi.useFakeTimers({
+        now: new Date(`${day(0)}T21:00:00+08:00`),
+        toFake: ['Date'],
+      });
+      onTestFinished(() => {
+        vi.useRealTimers();
+      });
+      await client.exec(`
+        insert into organization_special_hours (id, organization_id, valid_from, valid_through, opening_hours)
+        values ('closed', 'biru', '${day(0)}', '${day(0)}', null);
+        insert into waitlist_ticket (id, organization_id, service_date, prefix, number, party_size, locale, status)
+        values ('called', 'biru', '${day(0)}', 'A', 1, 2, 'zh-TW', 'called');
+      `);
+
+      await expect(service.findAffected('biru', all)).resolves.toMatchObject({
+        waitlistTickets: [{ id: 'called' }],
+      });
+    });
+
+    it('沒有權限的類別不列出', async () => {
+      await client.exec(`
+        insert into organization_special_hours (id, organization_id, valid_from, valid_through, opening_hours)
+        values ('closed', 'biru', '${day(0)}', '${day(2)}', null)
+      `);
+      await insertOrder('card', at(2, '12:00'));
+
+      await expect(
+        service.findAffected('biru', { orders: false, waitlist: false }),
+      ).resolves.toEqual({});
+      await expect(
+        service.findAffected('biru', { orders: true, waitlist: false }),
+      ).resolves.not.toHaveProperty('waitlistTickets');
+      await expect(
+        service.findAffected('biru', { orders: false, waitlist: true }),
+      ).resolves.toEqual({ waitlistTickets: [] });
+    });
+  });
 });

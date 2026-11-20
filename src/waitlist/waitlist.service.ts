@@ -37,7 +37,10 @@ import {
   escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
-import { openingCalendar } from '../common/utils/opening-hours.js';
+import {
+  openingCalendar,
+  specialHoursOn,
+} from '../common/utils/opening-hours.js';
 import { organizationClosedError } from '../common/utils/organization-closure.js';
 import {
   findSpecialHours,
@@ -110,6 +113,7 @@ import {
   getAvailability,
   getAutoNoShowAt,
   getHoldUntil,
+  isClosedTodayBySpecialHours,
   isOverdue,
   isRevert,
   isValidGroups,
@@ -301,18 +305,13 @@ export class WaitlistService {
     cutoffMinutes: number,
     now: Date,
   ) {
-    const today = platformDateString(now);
-
     return {
       ...getAvailability(
         openingCalendar(openingHours, specialHours),
         cutoffMinutes,
         now,
       ),
-      specialHours: specialHours.filter(
-        ({ validFrom, validThrough }) =>
-          validFrom <= today && today <= validThrough,
-      ),
+      specialHours: specialHoursOn(specialHours, platformDateString(now)),
     };
   }
 
@@ -1104,23 +1103,45 @@ export class WaitlistService {
 
   async processOverdueTickets(since: Date): Promise<number> {
     const now = new Date();
+    const today = platformDateString(now);
     const rows = await this.db
       .select({
         graceMinutes: waitlistSetting.graceMinutes,
         holdMinutes: waitlistSetting.holdMinutes,
+        openingHours: organization.openingHours,
         ticket: waitlistTicket,
       })
       .from(waitlistTicket)
+      .innerJoin(
+        organization,
+        eq(organization.id, waitlistTicket.organizationId),
+      )
       .leftJoin(
         waitlistSetting,
         eq(waitlistSetting.organizationId, waitlistTicket.organizationId),
       )
       .where(eq(waitlistTicket.status, 'called'));
 
+    const closedToday = new Map<string, Promise<boolean>>();
+    const isClosedToday = (
+      organizationId: string,
+      openingHours: string | null,
+    ) => {
+      let closed = closedToday.get(organizationId);
+      if (!closed) {
+        closed = this.specialHoursAround(organizationId, now).then(
+          (specialHours) =>
+            isClosedTodayBySpecialHours(openingHours, specialHours, now),
+        );
+        closedToday.set(organizationId, closed);
+      }
+      return closed;
+    };
+
     const becameOverdue = new Set<string>();
     let skipped = 0;
 
-    for (const { graceMinutes, holdMinutes, ticket } of rows) {
+    for (const { graceMinutes, holdMinutes, openingHours, ticket } of rows) {
       const hold = holdMinutes || DEFAULT_HOLD_MINUTES;
       const autoNoShowAt = getAutoNoShowAt(
         ticket,
@@ -1129,6 +1150,12 @@ export class WaitlistService {
       );
 
       if (autoNoShowAt && autoNoShowAt <= now) {
+        if (
+          ticket.serviceDate === today &&
+          (await isClosedToday(ticket.organizationId, openingHours))
+        )
+          continue;
+
         await this.updateStatus(ticket, 'noShow', 'staff').then(
           () => skipped++,
           (error: unknown) => {
