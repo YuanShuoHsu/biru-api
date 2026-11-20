@@ -130,7 +130,7 @@
     "workPermitRequired": "此员工的法定身份须持有有效工作许可，班次或出勤日期不在工作许可期间内。"
   },
   "banners": {
-    "bannerNotFound": "找不到这则横幅，可能已被删除",
+    "bannerNotFound": "找不到这张轮播图，可能已被删除",
     "scheduleInvalid": "开始时间必须早于结束时间"
   },
   "cashDevices": {
