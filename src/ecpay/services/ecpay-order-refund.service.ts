@@ -363,12 +363,19 @@ export class EcpayOrderRefundService {
     }
 
     let offerStockChanged = false;
-    await this.db.transaction(async (tx) => {
+    const settled = await this.db.transaction(async (tx) => {
       const [locked] = await tx
         .select({ orderStatus: order.orderStatus })
         .from(order)
         .where(eq(order.id, claimed.orderId))
         .for('update');
+
+      const [current] = await tx
+        .select({ status: refund.status })
+        .from(refund)
+        .where(eq(refund.id, claimed.id))
+        .for('update');
+      if (current?.status !== 'settling') return false;
 
       // 餐點交出去之後才退款就不必通知吧台
       if (locked && isOrderTicketPrintable(locked.orderStatus))
@@ -407,7 +414,10 @@ export class EcpayOrderRefundService {
         .update(refund)
         .set({ status: 'settled' })
         .where(eq(refund.id, claimed.id));
+
+      return true;
     });
+    if (!settled) return;
 
     if (plan.isFull) {
       this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {

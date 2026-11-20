@@ -1,5 +1,4 @@
 import { HttpException, Inject, Injectable, Logger } from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -9,9 +8,11 @@ import {
   eq,
   gte,
   inArray,
+  isNull,
   lte,
   ne,
   notExists,
+  or,
 } from 'drizzle-orm';
 
 import { PICKUP_MAX_ADVANCE_DAYS } from '../common/constants/pickup.js';
@@ -42,12 +43,7 @@ import {
   waitlistTicket,
 } from '../db/schema/waitlist.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
-import {
-  REFUND_SETTLED_EVENT,
-  type RefundSettledEvent,
-} from '../events/refund-settled.event.js';
 import { EcpayOrderRefundService } from '../ecpay/services/ecpay-order-refund.service.js';
-import { MailsService } from '../mails/mails.service.js';
 import { getRefundChannel } from '../orders/order-transitions.js';
 import { OrdersService } from '../orders/orders.service.js';
 import { pickupHoursError } from '../orders/pickup-hours.js';
@@ -95,13 +91,24 @@ const codeOf = (error: unknown): string | undefined => {
 
 type SpecialHoursRows = Awaited<ReturnType<typeof findSpecialHours>>;
 
+const closedPickup = (
+  org: AffectingOrganization,
+  specialHours: SpecialHoursRows,
+) => {
+  const calendar = openingCalendar(org.openingHours, specialHours);
+
+  return (pickupTime: Date) =>
+    [pickupTime, new Date(pickupTime.getTime() - DAY_MS)].some(
+      (date) => specialHoursOn(specialHours, platformDateString(date)).length,
+    ) && !!pickupHoursError(calendar, org.pickupCutoffMinutes, pickupTime);
+};
+
 @Injectable()
 export class SpecialHoursService {
   private readonly logger = new Logger(SpecialHoursService.name);
 
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly mailsService: MailsService,
     private readonly ordersService: OrdersService,
     private readonly refundService: EcpayOrderRefundService,
     private readonly waitlistService: WaitlistService,
@@ -218,7 +225,8 @@ export class SpecialHoursService {
     }
     if (manualRefundOrders.length) return 'manualRefundRequired';
 
-    if (!refundOrders.length) return this.previousOrderOutcome(org.id, id);
+    if (!refundOrders.length)
+      return this.previousOrderOutcome(org, specialHours, id);
 
     try {
       const { status } = await this.refundService.refundOrder(
@@ -230,13 +238,17 @@ export class SpecialHoursService {
 
       return status === 'settled' ? 'refunded' : 'refundPending';
     } catch (error) {
-      if (codeOf(error) === 'resultUnknown') return 'refundPending';
+      const code = codeOf(error);
+      if (code === 'resultUnknown') return 'refundPending';
+      if (code === 'alreadyRefunded' || code === 'nothingToRefund')
+        return this.previousOrderOutcome(org, specialHours, id);
       throw error;
     }
   }
 
   private async previousOrderOutcome(
-    organizationId: string,
+    org: AffectingOrganization,
+    specialHours: SpecialHoursRows,
     orderId: string,
   ): Promise<SpecialHoursProcessStatus> {
     const [previous] = await this.db
@@ -246,15 +258,31 @@ export class SpecialHoursService {
       .where(
         and(
           eq(refund.orderId, orderId),
-          eq(order.sellerId, organizationId),
+          eq(order.sellerId, org.id),
           eq(refund.reasonCode, 'storeClosed'),
         ),
       )
       .orderBy(desc(refund.createdAt))
       .limit(1);
-    if (!previous) return 'skipped';
+    if (previous)
+      return previous.status === 'settled' ? 'refunded' : 'refundPending';
 
-    return previous.status === 'settled' ? 'refunded' : 'refundPending';
+    const cancelled = await this.db.query.order.findFirst({
+      where: and(
+        eq(order.id, orderId),
+        eq(order.sellerId, org.id),
+        eq(order.mode, 'pickup'),
+        eq(order.orderStatus, 'OrderCancelled'),
+        isNull(order.paymentDate),
+        gte(order.pickupTime, new Date(platformMidnight(Date.now()))),
+      ),
+      columns: { pickupTime: true },
+    });
+
+    return cancelled?.pickupTime &&
+      closedPickup(org, specialHours)(cancelled.pickupTime)
+      ? 'cancelled'
+      : 'skipped';
   }
 
   private async previousTicketOutcome(
@@ -272,63 +300,6 @@ export class SpecialHoursService {
     });
 
     return cancelled ? 'cancelled' : 'skipped';
-  }
-
-  @OnEvent(REFUND_SETTLED_EVENT, { async: true })
-  async onRefundSettled({
-    reasonCode,
-    refundId,
-  }: RefundSettledEvent): Promise<void> {
-    if (reasonCode !== 'storeClosed') return;
-
-    try {
-      const settled = await this.db.query.refund.findFirst({
-        where: eq(refund.id, refundId),
-        columns: { amount: true },
-        with: {
-          order: {
-            columns: {
-              customer: true,
-              orderNumber: true,
-              pickupTime: true,
-              sellerId: true,
-            },
-            with: {
-              seller: { columns: { name: true } },
-              user: { columns: { lang: true } },
-            },
-          },
-        },
-      });
-      const email = settled?.order.customer.email;
-      if (!email || !settled.order.pickupTime) return;
-
-      const { orderNumber, pickupTime, seller, sellerId, user } = settled.order;
-      const dates = [pickupTime, new Date(pickupTime.getTime() - DAY_MS)];
-      const specialHours = await findSpecialHours(
-        this.db,
-        sellerId,
-        dates[1],
-        dates[0],
-      );
-
-      await this.mailsService.sendOrderStoreClosed({
-        amount: settled.amount,
-        email,
-        lang: user?.lang ?? null,
-        note:
-          dates
-            .flatMap((date) =>
-              specialHoursOn(specialHours, platformDateString(date)),
-            )
-            .find(({ note }) => note)?.note ?? null,
-        orderNumber,
-        organizationName: seller.name,
-        pickupTime,
-      });
-    } catch (error) {
-      this.logger.error(`退款 ${refundId} 的門市公休通知寄送失敗`, error);
-    }
   }
 
   private async settleFailure(
@@ -446,7 +417,13 @@ export class SpecialHoursService {
             .where(
               and(
                 eq(refund.orderId, order.id),
-                inArray(refund.status, ['pending', 'refunded', 'settling']),
+                or(
+                  inArray(refund.status, ['pending', 'settling']),
+                  and(
+                    eq(refund.status, 'refunded'),
+                    eq(refund.reasonCode, 'storeClosed'),
+                  ),
+                ),
               ),
             ),
         ),
@@ -464,19 +441,10 @@ export class SpecialHoursService {
       orderBy: asc(order.pickupTime),
     });
 
-    const calendar = openingCalendar(org.openingHours, specialHours);
-    const coveredBySpecialHours = (at: Date) =>
-      [at, new Date(at.getTime() - DAY_MS)].some(
-        (date) => specialHoursOn(specialHours, platformDateString(date)).length,
-      );
+    const closed = closedPickup(org, specialHours);
 
     for (const pickup of pickups) {
-      if (
-        !pickup.pickupTime ||
-        !coveredBySpecialHours(pickup.pickupTime) ||
-        !pickupHoursError(calendar, org.pickupCutoffMinutes, pickup.pickupTime)
-      )
-        continue;
+      if (!pickup.pickupTime || !closed(pickup.pickupTime)) continue;
 
       if (pickup.orderStatus === 'OrderPaymentDue')
         affected.unpaidOrders.push(pickup);

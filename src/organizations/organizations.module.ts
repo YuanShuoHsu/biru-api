@@ -15,6 +15,7 @@ import { OrganizationPlatformAdminController } from './organization-platform-adm
 import { OrganizationsController } from './organizations.controller.js';
 import { OrganizationsService } from './organizations.service.js';
 import { SpecialHoursController } from './special-hours.controller.js';
+import { SpecialHoursNotificationsService } from './special-hours-notifications.service.js';
 import { SpecialHoursService } from './special-hours.service.js';
 
 @Module({
@@ -29,7 +30,12 @@ import { SpecialHoursService } from './special-hours.service.js';
     OrganizationsController,
     SpecialHoursController,
   ],
-  providers: [AuthBatchService, OrganizationsService, SpecialHoursService],
+  providers: [
+    AuthBatchService,
+    OrganizationsService,
+    SpecialHoursNotificationsService,
+    SpecialHoursService,
+  ],
   exports: [OrganizationsService],
 })
 export class OrganizationsModule {}

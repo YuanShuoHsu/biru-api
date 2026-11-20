@@ -506,6 +506,8 @@ describe('EcpayOrderRefundService 綠界退款完成時發出 refund.settled', (
   const settled = vi.fn();
   const doActionRefund = vi.fn();
   const queryCreditDetail = vi.fn();
+  const getIssue = vi.fn();
+  const revokeForOrder = vi.fn();
 
   beforeAll(async () => {
     client = createPGlite();
@@ -519,11 +521,11 @@ describe('EcpayOrderRefundService 綠界退款完成時發出 refund.settled', (
       {} as never,
       {} as never,
       { isAvailable: true, queryCreditDetail } as never,
-      {} as never,
+      { getIssue } as never,
       { inferItemDiscounts: vi.fn(), restore: vi.fn() } as never,
       { restoreAll: vi.fn() } as never,
       { enqueueRefund: vi.fn() } as never,
-      { revokeForOrder: vi.fn() } as never,
+      { revokeForOrder } as never,
       eventEmitter,
       { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
       { refresh: vi.fn() } as never,
@@ -542,6 +544,8 @@ describe('EcpayOrderRefundService 綠界退款完成時發出 refund.settled', (
     settled.mockReset();
     doActionRefund.mockReset();
     queryCreditDetail.mockReset();
+    getIssue.mockReset();
+    revokeForOrder.mockReset();
     await client.exec('truncate refund, order_item, "order" cascade');
     await client.query(
       `insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal, payment_date, order_status, merchant_trade_no, trade_no, authorization_no)
@@ -608,5 +612,28 @@ describe('EcpayOrderRefundService 綠界退款完成時發出 refund.settled', (
 
     expect(settled).not.toHaveBeenCalled();
     expect((await client.query(`select id from refund`)).rows).toEqual([]);
+  });
+
+  it('租約被補正接手並完成的退款，原本那次不再完成也不再發出', async () => {
+    await client.exec(`
+      insert into invoice (id, order_id, type, status, invoice_number, invoice_date, created_at, updated_at)
+      values ('inv', 'card', 'personal', 'issued', 'AB12345678', now(), now(), now());
+      insert into refund (id, order_id, amount, scope, channel, status, reason_code, items, updated_at)
+      values ('r', 'card', 100, 'full', 'ecpay', 'settling', 'storeClosed', '[]', now() - interval '16 minutes');
+    `);
+    getIssue.mockImplementation(async () => {
+      await client.exec(`update refund set status = 'settled' where id = 'r'`);
+
+      return { IIS_Invalid_Status: '1' };
+    });
+
+    await service.repairInterruptedRefunds();
+
+    expect(getIssue).toHaveBeenCalledOnce();
+    expect(revokeForOrder).not.toHaveBeenCalled();
+    expect(settled).not.toHaveBeenCalled();
+    expect(
+      (await client.query(`select order_status from "order"`)).rows,
+    ).toEqual([{ order_status: 'OrderProcessing' }]);
   });
 });
