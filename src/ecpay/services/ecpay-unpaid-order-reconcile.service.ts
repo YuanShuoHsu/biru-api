@@ -245,12 +245,14 @@ export class EcpayUnpaidOrderReconcileService {
   private async recoverPaidOrder(result: {
     MerchantTradeNo: string;
     PaymentDate: string;
+    PaymentTypeChargeFee: string;
     TradeAmt: string;
     TradeNo: string;
   }): Promise<boolean> {
     const outcome = await this.ordersService.recordPaymentResult({
       MerchantTradeNo: result.MerchantTradeNo,
       PaymentDate: result.PaymentDate,
+      PaymentTypeChargeFee: result.PaymentTypeChargeFee,
       RtnCode: '1',
       TradeAmt: result.TradeAmt,
       TradeNo: result.TradeNo,

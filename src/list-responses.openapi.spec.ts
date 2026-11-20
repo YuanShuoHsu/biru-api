@@ -11,6 +11,7 @@ import { IngredientsController } from './inventory/ingredients.controller.js';
 import { OrganizationInventoryController } from './inventory/organization-inventory.controller.js';
 import { RecipesController } from './inventory/recipes.controller.js';
 import { MenusController } from './menus/menus.controller.js';
+import { OperatingCostsController } from './operating-costs/operating-costs.controller.js';
 import { OrdersController } from './orders/orders.controller.js';
 import { QuantBotsController } from './quant/bots/quant-bots.controller.js';
 import { AdminStorePhotosController } from './store-photos/admin-store-photos.controller.js';
@@ -63,6 +64,11 @@ const LIST_ENDPOINTS: [string, string, string][] = [
     '/recipes/{recipeId}/recipe-ingredients',
     'RecipeIngredientListResponseDto',
     'RecipeIngredientResponseDto',
+  ],
+  [
+    '/organizations/{organizationSlug}/operating-costs',
+    'OperatingCostListResponseDto',
+    'OperatingCostResponseDto',
   ],
   [
     '/organizations/{organizationSlug}/orders',
@@ -135,6 +141,7 @@ describe('list endpoints OpenAPI', () => {
         OrganizationInventoryController,
         RecipesController,
         MenusController,
+        OperatingCostsController,
         OrdersController,
         QuantBotsController,
         AdminStorePhotosController,

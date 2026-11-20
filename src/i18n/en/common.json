@@ -273,6 +273,11 @@
     "promoDateRangeInvalid": "The sale can't end before it starts",
     "selectionCountInvalid": "Maximum selections can't be less than minimum selections"
   },
+  "operatingCosts": {
+    "operatingCostExists": "This category already has a fixed cost for that effective month. Edit that one instead.",
+    "operatingCostNotFound": "This fixed cost could not be found. It may have been deleted.",
+    "personnelInputTax": "Personnel costs have no tax invoice, so their input tax can't be deductible."
+  },
   "orderTickets": {
     "modes": {
       "counter": "In-store takeout",
@@ -435,6 +440,8 @@
       "employerInsurance": "Employer insurance",
       "employerPension": "Employer pension",
       "gross": "Gross pay",
+      "grossMarginRate": "Gross margin",
+      "grossProfit": "Gross profit",
       "headcount": "Headcount",
       "hour": "Hour",
       "ingredient": "Ingredient",
@@ -453,6 +460,8 @@
       "refunded": "Refunded",
       "refundedQuantity": "Refunded quantity",
       "revenue": "Revenue",
+      "revenueExcludingTax": "Revenue excl. tax",
+      "standardCost": "Standard cost",
       "theoreticalConsumption": "Theoretical consumption",
       "total": "Total",
       "uncategorized": "Uncategorized",

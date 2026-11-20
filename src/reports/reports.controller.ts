@@ -9,6 +9,12 @@ import {
 import { HasPermission } from '../menus/decorators/permission.decorator.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
 
+import { BreakEvenReportService } from './break-even-report.service.js';
+import {
+  BreakEvenReportPageQueryDto,
+  BreakEvenReportQueryDto,
+  BreakEvenReportResponseDto,
+} from './dto/break-even-report.dto.js';
 import {
   InventoryReportPageQueryDto,
   InventoryReportResponseDto,
@@ -39,6 +45,7 @@ const csvFile = (csv: string, filename: string) =>
 @Controller('organizations/:organizationSlug/reports')
 export class ReportsController {
   constructor(
+    private readonly breakEvenReportService: BreakEvenReportService,
     private readonly inventoryReportService: InventoryReportService,
     private readonly personnelCostReportService: PersonnelCostReportService,
     private readonly reportCsvService: ReportCsvService,
@@ -126,5 +133,35 @@ export class ReportsController {
     return this.reportCsvService
       .personnel(organizationSlug, query.month)
       .then((csv) => csvFile(csv, 'personnel-report.csv'));
+  }
+
+  @Get('break-even')
+  @Roles({ operatingCost: ['read'] }, 'organizationSlug')
+  @ApiOperation({
+    summary: '查詢損益平衡報表：固定成本、銷貨成本、營業稅與每日需求營業額',
+  })
+  @ApiOkResponse({ type: BreakEvenReportResponseDto })
+  findBreakEven(
+    @Param('organizationSlug') organizationSlug: string,
+    @Query() query: BreakEvenReportPageQueryDto,
+  ): Promise<BreakEvenReportResponseDto> {
+    return this.breakEvenReportService.getBreakEvenReport(
+      organizationSlug,
+      query,
+    );
+  }
+
+  @Get('break-even/export.csv')
+  @Roles({ operatingCost: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '匯出損益平衡報表的品項毛利 CSV' })
+  @ApiProduces('text/csv')
+  @ApiOkResponse({ schema: { type: 'string' } })
+  exportBreakEven(
+    @Param('organizationSlug') organizationSlug: string,
+    @Query() query: BreakEvenReportQueryDto,
+  ): Promise<StreamableFile> {
+    return this.reportCsvService
+      .breakEven(organizationSlug, query)
+      .then((csv) => csvFile(csv, 'break-even-report.csv'));
   }
 }

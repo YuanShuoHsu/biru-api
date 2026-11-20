@@ -328,6 +328,11 @@ export type I18nTranslations = {
             "promoDateRangeInvalid": string;
             "selectionCountInvalid": string;
         };
+        "operatingCosts": {
+            "operatingCostExists": string;
+            "operatingCostNotFound": string;
+            "personnelInputTax": string;
+        };
         "orderTickets": {
             "modes": {
                 "counter": string;
@@ -490,6 +495,8 @@ export type I18nTranslations = {
                 "employerInsurance": string;
                 "employerPension": string;
                 "gross": string;
+                "grossMarginRate": string;
+                "grossProfit": string;
                 "headcount": string;
                 "hour": string;
                 "ingredient": string;
@@ -508,6 +515,8 @@ export type I18nTranslations = {
                 "refunded": string;
                 "refundedQuantity": string;
                 "revenue": string;
+                "revenueExcludingTax": string;
+                "standardCost": string;
                 "theoreticalConsumption": string;
                 "total": string;
                 "uncategorized": string;

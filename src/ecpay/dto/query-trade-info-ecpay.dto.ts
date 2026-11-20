@@ -13,6 +13,7 @@ export interface QueryTradeInfoEcpayResponseDto {
   MerchantTradeNo: string;
   PaymentDate: string;
   PaymentType: string;
+  PaymentTypeChargeFee: string;
   TradeAmt: string;
   TradeDate: string;
   TradeNo: string;

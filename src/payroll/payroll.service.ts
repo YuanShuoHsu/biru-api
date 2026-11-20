@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { HttpException, Inject, Injectable } from '@nestjs/common';
 
 import {
   and,
@@ -620,7 +620,7 @@ export class PayrollService {
 
   private async payrollEmployee(
     tx: Transaction,
-    actor: AttendanceActor,
+    actor: Pick<AttendanceActor, 'organizationId'>,
     employeeId: string,
   ) {
     const [employee] = await tx
@@ -668,9 +668,49 @@ export class PayrollService {
     };
   }
 
+  async estimateSnapshots(
+    organizationId: string,
+    month: string,
+    employeeIds: string[],
+  ): Promise<{ employeeId: string; snapshot: PayrollSnapshot | null }[]> {
+    if (!employeeIds.length) return [];
+
+    // https://orm.drizzle.team/docs/transactions
+    return this.db.transaction(
+      async (tx) => {
+        const settings = await this.payrollSettings(tx, organizationId, month);
+        const estimates: {
+          employeeId: string;
+          snapshot: PayrollSnapshot | null;
+        }[] = [];
+
+        for (const employeeId of employeeIds)
+          try {
+            estimates.push({
+              employeeId,
+              snapshot: await this.snapshot(
+                tx,
+                { organizationId },
+                employeeId,
+                month,
+                undefined,
+                settings,
+              ),
+            });
+          } catch (error) {
+            if (!(error instanceof HttpException)) throw error;
+            estimates.push({ employeeId, snapshot: null });
+          }
+
+        return estimates;
+      },
+      { accessMode: 'read only' },
+    );
+  }
+
   private async snapshot(
     tx: Transaction,
-    actor: AttendanceActor,
+    actor: Pick<AttendanceActor, 'organizationId'>,
     employeeId: string,
     month: string,
     knownEmployee?: typeof attendanceEmployee.$inferSelect,

@@ -273,6 +273,11 @@
     "promoDateRangeInvalid": "促销结束日不能早于开始日",
     "selectionCountInvalid": "最多选择数量不能少于最少选择数量"
   },
+  "operatingCosts": {
+    "operatingCostExists": "这个类别在该生效月份已有一笔固定成本，请改为编辑那一笔",
+    "operatingCostNotFound": "找不到这笔固定成本，可能已被删除",
+    "personnelInputTax": "人事成本没有统一发票，不能设为进项税可抵扣"
+  },
   "orderTickets": {
     "modes": {
       "counter": "现场外带",
@@ -435,6 +440,8 @@
       "employerInsurance": "雇主劳健保",
       "employerPension": "雇主劳退提缴",
       "gross": "应发薪资",
+      "grossMarginRate": "毛利率",
+      "grossProfit": "毛利",
       "headcount": "人数",
       "hour": "小时",
       "ingredient": "食材",
@@ -453,6 +460,8 @@
       "refunded": "退款",
       "refundedQuantity": "退款份数",
       "revenue": "营收",
+      "revenueExcludingTax": "未税营收",
+      "standardCost": "标准成本",
       "theoreticalConsumption": "理论耗用",
       "total": "合计",
       "uncategorized": "未分类",

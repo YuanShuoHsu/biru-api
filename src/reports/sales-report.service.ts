@@ -125,7 +125,7 @@ export class SalesReportService {
     return { groupBy, ...page, totals };
   }
 
-  private async orderRows(
+  async orderRows(
     organizationId: string,
     since: Date,
     until: Date,
@@ -196,7 +196,7 @@ export class SalesReportService {
     return rows;
   }
 
-  private async itemRows(
+  async itemRows(
     organizationId: string,
     since: Date,
     until: Date,

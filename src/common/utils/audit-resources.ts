@@ -39,6 +39,7 @@ import {
   modifierGroup,
   offer,
 } from '../../db/schema/menus.js';
+import { operatingCost } from '../../db/schema/operating-costs.js';
 import { order, orderItem } from '../../db/schema/orders.js';
 import {
   invitation,
@@ -106,6 +107,7 @@ export const AUDIT_TABLES: Record<AuditResource, AuditableTable> = {
   catalogItemAddOn,
   checklistTemplate,
   cashDevice,
+  operatingCost,
 };
 
 export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
