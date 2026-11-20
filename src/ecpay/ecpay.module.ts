@@ -80,5 +80,6 @@ const ECPAY_HTTP_TIMEOUT_MS = 15_000;
     EcpaySyncInvoiceWordSettingsService,
     InvoicePrinterService,
   ],
+  exports: [EcpayOrderRefundService],
 })
 export class EcpayModule {}

@@ -152,6 +152,23 @@
       "detail": "請於 {holdUntil} 前到店內櫃檯報到。請點下方按鈕回覆是否前往；逾時未到，店家可能將您的號碼過號。",
       "action": "回覆是否前往"
     },
+    "cancelled": {
+      "subject": "{organizationName}：候位號碼 {ticketNumber} 已取消",
+      "title": "候位已取消",
+      "intro": "{organizationName} 今日因特殊營業時間不再營業，您的候位號碼 {ticketNumber}（{partySize} 位）已取消，造成不便，敬請見諒。",
+      "detail": "門市說明：{note}",
+      "action": "查看候位狀態"
+    },
+    "salutation": "謝謝，<br>{productName} 團隊",
+    "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
+  },
+  "order_store_closed": {
+    "subject": "{organizationName}：訂單 {orderNumber} 已取消並退款",
+    "title": "訂單已取消並退款",
+    "intro": "{organizationName} 於您預約的取餐時間 {pickupTime} 不營業，訂單 {orderNumber} 已取消，並已退款 {amount} 至原付款方式，造成不便，敬請見諒。",
+    "note": "門市說明：{note}",
+    "refund_hint": "退款入帳時間依發卡銀行作業而定。如需餐點，請重新下單。",
+    "action": "重新下單",
     "salutation": "謝謝，<br>{productName} 團隊",
     "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
   },

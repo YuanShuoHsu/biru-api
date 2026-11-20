@@ -11,23 +11,30 @@ import {
 import {
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiHeader,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 import {
   Audit,
   type AuditTarget,
 } from '../common/decorators/audit.decorator.js';
+import { IdempotencyKey } from '../common/decorators/idempotency-key.decorator.js';
 import { HasPermission } from '../menus/decorators/permission.decorator.js';
 import {
   OrganizationMember,
   Roles,
 } from '../menus/decorators/roles.decorator.js';
 
-import { SpecialHoursAffectedDto } from './dto/special-hours-affected.dto.js';
+import {
+  ProcessSpecialHoursAffectedDto,
+  SpecialHoursAffectedDto,
+  SpecialHoursProcessResponseDto,
+} from './dto/special-hours-affected.dto.js';
 
 import {
   CreateSpecialHoursDto,
@@ -75,6 +82,51 @@ export class SpecialHoursController {
       orders,
       waitlist,
     });
+  }
+
+  @Post('affected/process')
+  @HttpCode(200)
+  @OrganizationMember('organizationSlug')
+  @Audit(
+    { resource: 'order', idSource: { body: 'orderIds' } },
+    {
+      resource: 'order',
+      idSource: { column: 'orderId', body: 'orderIds' },
+      via: { table: 'refund', ownerColumn: 'orderId' },
+    },
+    { resource: 'invoice', idSource: { column: 'orderId', body: 'orderIds' } },
+    {
+      resource: 'userCoupon',
+      idSource: { column: 'orderId', body: 'orderIds' },
+    },
+    { resource: 'waitlistTicket', idSource: { body: 'ticketIds' } },
+  )
+  @ApiHeader({
+    description:
+      '同一次確認重試請帶同一把鍵，僅記錄於伺服器日誌；結果依目前狀態判定，已處理的項目不會再退款或寄信',
+    name: 'Idempotency-Key',
+    required: false,
+  })
+  @ApiOkResponse({ type: SpecialHoursProcessResponseDto })
+  @ApiOperation({
+    summary:
+      '取消並通知預覽中仍受影響的項目：綠界付款的自取訂單全額退款並寄信、未付款的取消、今天的候位號碼取消並寄信；逐筆回傳結果，失敗的維持原狀可再送一次',
+  })
+  processAffected(
+    @Param('organizationSlug') organizationSlug: string,
+    @Body() dto: ProcessSpecialHoursAffectedDto,
+    @HasPermission({ order: ['update'], refund: ['create'] }) orders: boolean,
+    @HasPermission({ waitlist: ['update'] }) waitlist: boolean,
+    @IdempotencyKey() idempotencyKey: string | null,
+    @Session() session: UserSession | null,
+  ): Promise<SpecialHoursProcessResponseDto> {
+    return this.specialHoursService.processAffected(
+      organizationSlug,
+      dto,
+      { orders, waitlist },
+      session?.user.id,
+      idempotencyKey,
+    );
   }
 
   @Post()

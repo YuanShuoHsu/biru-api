@@ -152,6 +152,23 @@
       "detail": "请于 {holdUntil} 前到店内柜台报到。请点击下方按钮回复是否前往；逾时未到，店家可能将您的号码过号。",
       "action": "回复是否前往"
     },
+    "cancelled": {
+      "subject": "{organizationName}：排队号码 {ticketNumber} 已取消",
+      "title": "排队已取消",
+      "intro": "{organizationName} 今日因特殊营业时间不再营业，您的排队号码 {ticketNumber}（{partySize} 位）已取消，造成不便，敬请谅解。",
+      "detail": "门店说明：{note}",
+      "action": "查看排队状态"
+    },
+    "salutation": "谢谢，<br>{productName} 团队",
+    "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
+  },
+  "order_store_closed": {
+    "subject": "{organizationName}：订单 {orderNumber} 已取消并退款",
+    "title": "订单已取消并退款",
+    "intro": "{organizationName} 在您预约的取餐时间 {pickupTime} 不营业，订单 {orderNumber} 已取消，并已退款 {amount} 至原支付方式，造成不便，敬请谅解。",
+    "note": "门店说明：{note}",
+    "refund_hint": "退款到账时间以发卡银行处理为准。如需餐点，请重新下单。",
+    "action": "重新下单",
     "salutation": "谢谢，<br>{productName} 团队",
     "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
   },

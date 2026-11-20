@@ -802,6 +802,23 @@ export type I18nTranslations = {
                 "detail": string;
                 "action": string;
             };
+            "cancelled": {
+                "subject": string;
+                "title": string;
+                "intro": string;
+                "detail": string;
+                "action": string;
+            };
+            "salutation": string;
+            "trouble_hint": string;
+        };
+        "order_store_closed": {
+            "subject": string;
+            "title": string;
+            "intro": string;
+            "note": string;
+            "refund_hint": string;
+            "action": string;
             "salutation": string;
             "trouble_hint": string;
         };

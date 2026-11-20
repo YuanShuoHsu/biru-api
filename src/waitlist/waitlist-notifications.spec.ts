@@ -96,4 +96,33 @@ describe('WaitlistNotificationsService.onUpdated', () => {
       expect.objectContaining({ email: 'taken@example.com', lang: 'ko' }),
     );
   });
+
+  it('因特殊營業日公休取消的號碼寄取消信並附上公休說明，客人自己取消的不寄', async () => {
+    await client.exec(`
+      insert into organization_special_hours (id, organization_id, valid_from, valid_through, opening_hours, note)
+        values ('closed', 'org', '2026-11-19', '2026-11-19', null, '颱風停業');
+      insert into waitlist_ticket (id, organization_id, service_date, prefix, number, party_size, locale, status, email, cancel_reason)
+        values ('closed', 'org', '2026-11-19', 'A', 6, 2, 'en', 'cancelled', 'closed@example.com', 'storeClosed'),
+               ('left', 'org', '2026-11-19', 'A', 7, 2, 'en', 'cancelled', 'left@example.com', null);
+    `);
+
+    await service.onUpdated({
+      organizationId: 'org',
+      ticket: { id: 'left', status: 'cancelled' },
+    });
+    expect(sendWaitlistNotification).not.toHaveBeenCalled();
+
+    await service.onUpdated({
+      organizationId: 'org',
+      ticket: { id: 'closed', status: 'cancelled' },
+    });
+    expect(sendWaitlistNotification).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        email: 'closed@example.com',
+        kind: 'cancelled',
+        note: '颱風停業',
+        ticketNumber: 'A006',
+      }),
+    );
+  });
 });
