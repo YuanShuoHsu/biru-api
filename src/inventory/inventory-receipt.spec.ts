@@ -156,9 +156,23 @@ describe('進貨點收', () => {
       false,
     );
 
-    expect(receipt.supplierId).toBeNull();
     expect(receipt.receivedAt.getTime()).toBeGreaterThanOrEqual(before - 1000);
     expect(receipt.inventoryTransactions[0]).not.toHaveProperty('unitCost');
+  });
+
+  it('供應商依當次呼叫者的採購權限回傳，重送時也一樣', async () => {
+    const dto = {
+      supplierId: `${ORG}-farm`,
+      items: [{ ingredientId: 'milk', quantity: '10' }],
+    };
+
+    const first = await service.receive(ORG, dto, 'key-x', true);
+    const replayed = await service.receive(ORG, dto, 'key-x', false);
+
+    expect(first.supplierId).toBe(`${ORG}-farm`);
+    expect(replayed.id).toBe(first.id);
+    expect(replayed.supplierId).toBeUndefined();
+    expect(replayed.inventoryTransactions[0]).not.toHaveProperty('unitCost');
   });
 
   it.each([

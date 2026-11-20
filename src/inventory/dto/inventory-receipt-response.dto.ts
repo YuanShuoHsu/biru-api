@@ -5,8 +5,12 @@ import { InventoryTransactionResponseDto } from './inventory-transaction-respons
 export class InventoryReceiptResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() organizationId: string;
-  @ApiPropertyOptional({ nullable: true, type: String })
-  supplierId: string | null;
+  @ApiPropertyOptional({
+    description: '無 purchasing 權限時不回傳',
+    nullable: true,
+    type: String,
+  })
+  supplierId?: string | null;
   @ApiProperty() receivedAt: Date;
   @ApiPropertyOptional({ nullable: true, type: String }) note: string | null;
   @ApiPropertyOptional({
