@@ -496,6 +496,7 @@ export type I18nTranslations = {
                 "consumed": string;
                 "createdAt": string;
                 "day": string;
+                "description": string;
                 "discount": string;
                 "employerInsurance": string;
                 "employerPension": string;
@@ -513,10 +514,12 @@ export type I18nTranslations = {
                 "noJobTitle": string;
                 "note": string;
                 "opening": string;
+                "options": string;
                 "orderNumber": string;
                 "orders": string;
                 "paymentMethod": string;
                 "personnelCost": string;
+                "price": string;
                 "quantity": string;
                 "quantityChange": string;
                 "reason": string;

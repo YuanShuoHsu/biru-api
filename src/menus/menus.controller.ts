@@ -7,12 +7,15 @@ import {
   Patch,
   Post,
   Query,
+  StreamableFile,
   UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
+  ApiProduces,
   ApiTags,
 } from '@nestjs/swagger';
 
@@ -73,6 +76,7 @@ import { UpdateModifierGroupDto } from './dto/update-modifier-group.dto.js';
 import { UpdateModifierDto } from './dto/update-modifier.dto.js';
 import { UpdateOfferDto } from './dto/update-offer.dto.js';
 import { MenuEventsInterceptor } from './interceptors/menu-events.interceptor.js';
+import { MenuCsvService } from './menu-csv.service.js';
 import { notFoundError } from './menu-errors.js';
 import { MenusService } from './menus.service.js';
 
@@ -81,7 +85,10 @@ import { MenusService } from './menus.service.js';
 @Controller()
 @UseInterceptors(MenuEventsInterceptor)
 export class MenusController {
-  constructor(private readonly menusService: MenusService) {}
+  constructor(
+    private readonly menuCsvService: MenuCsvService,
+    private readonly menusService: MenusService,
+  ) {}
 
   @Get('organizations/:organizationId/menus')
   @Roles({ menu: ['read'] }, 'organizationId')
@@ -102,6 +109,23 @@ export class MenusController {
     if (!result) throw notFoundError('menuNotFound');
 
     return withImageUrl('menu', result);
+  }
+
+  @Get('menus/:menuId/export.csv')
+  @Roles({ menu: ['read'] }, 'menuId')
+  @ApiOperation({ summary: '匯出點餐菜單 CSV' })
+  @ApiParam({ name: 'menuId' })
+  @ApiProduces('text/csv')
+  @ApiOkResponse({ schema: { type: 'string' } })
+  async exportMenu(
+    @OrganizationId() organizationId: string,
+  ): Promise<StreamableFile> {
+    const csv = await this.menuCsvService.orderMenu(organizationId);
+
+    return new StreamableFile(Buffer.from(csv), {
+      type: 'text/csv; charset=utf-8',
+      disposition: 'attachment; filename="menu.csv"',
+    });
   }
 
   @Patch('menus/:menuId')
