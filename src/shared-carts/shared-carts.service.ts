@@ -16,6 +16,7 @@ import {
   notExists,
   or,
   sql,
+  type SQL,
 } from 'drizzle-orm';
 import { I18nContext } from 'nestjs-i18n';
 
@@ -499,8 +500,12 @@ export class SharedCartsService {
     };
   }
 
-  private anonymizeSignedOut(deviceKey: string, member: SharedCartUser | null) {
-    return this.db
+  private anonymizeSignedOut(
+    participants: SQL,
+    member: SharedCartUser | null,
+    db: DrizzleDB | Tx = this.db,
+  ) {
+    return db
       .update(sharedCartParticipant)
       .set({
         avatar: anonymousAvatar,
@@ -517,10 +522,10 @@ export class SharedCartsService {
       })
       .where(
         and(
-          eq(sharedCartParticipant.deviceKey, deviceKey),
+          participants,
           eq(sharedCartParticipant.memberProfile, true),
           notExists(
-            this.db
+            db
               .select({ id: session.id })
               .from(session)
               .where(
@@ -705,7 +710,10 @@ export class SharedCartsService {
     deviceKey: string,
     member: SharedCartUser | null,
   ): Promise<SharedCartResult> {
-    await this.anonymizeSignedOut(deviceKey, member);
+    await this.anonymizeSignedOut(
+      eq(sharedCartParticipant.deviceKey, deviceKey),
+      member,
+    );
     const { active, pending } = await deviceOf(this.db, org.id, deviceKey);
     const mine = active ?? pending;
     if (!mine) throw notFoundError('sharedCartNotFound');
@@ -979,45 +987,48 @@ export class SharedCartsService {
     return this.view(org, this.requireDeviceKey(org, cookies), member);
   }
 
-  async updateMe(
+  updateMe(
     organizationSlug: string,
     { avatar, nickname }: SharedCartProfileDto,
     member: SharedCartUser | null,
     cookies: SharedCartCookies,
   ) {
-    const org = await this.getOrg(organizationSlug);
-    if (org.closedAt) throw organizationClosedError();
-    const { active, deviceKey } = await this.requireActive(org, cookies);
+    return this.changeCart(
+      organizationSlug,
+      member,
+      cookies,
+      async (tx, { participantId }) => {
+        if (avatar === 'member' && !member)
+          throw badRequestError('sharedCartMemberAvatarSignInRequired');
 
-    if (avatar === 'member' && !member)
-      throw badRequestError('sharedCartMemberAvatarSignInRequired');
-
-    await this.anonymizeSignedOut(deviceKey, member);
-    if (avatar !== undefined || nickname !== undefined)
-      await this.db
-        .update(sharedCartParticipant)
-        .set({
-          avatar,
-          nickname,
-          ...(avatar === 'member' &&
-            member && {
-              memberProfile: true,
-              sessionId: member.sessionId,
-              userId: member.id,
-            }),
-          ...(avatar !== undefined &&
-            avatar !== 'member' &&
-            nickname !== undefined && {
-              memberProfile: false,
-              sessionId: null,
-              userId: null,
-            }),
-        })
-        .where(eq(sharedCartParticipant.id, active.participantId));
-    if (avatar !== undefined || nickname !== undefined)
-      this.emitUpdated(active.sharedCartId);
-
-    return this.view(org, deviceKey, member);
+        await this.anonymizeSignedOut(
+          eq(sharedCartParticipant.id, participantId),
+          member,
+          tx,
+        );
+        if (avatar === undefined && nickname === undefined) return false;
+        await tx
+          .update(sharedCartParticipant)
+          .set({
+            avatar,
+            nickname,
+            ...(avatar === 'member' &&
+              member && {
+                memberProfile: true,
+                sessionId: member.sessionId,
+                userId: member.id,
+              }),
+            ...(avatar !== undefined &&
+              avatar !== 'member' &&
+              nickname !== undefined && {
+                memberProfile: false,
+                sessionId: null,
+                userId: null,
+              }),
+          })
+          .where(eq(sharedCartParticipant.id, participantId));
+      },
+    );
   }
 
   async leaveMe(organizationSlug: string, cookies: SharedCartCookies) {
