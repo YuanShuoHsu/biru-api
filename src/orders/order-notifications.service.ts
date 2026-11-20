@@ -1,22 +1,12 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
-import {
-  type SQL,
-  and,
-  asc,
-  eq,
-  gte,
-  inArray,
-  isNull,
-  lt,
-  lte,
-  or,
-} from 'drizzle-orm';
+import { type SQL, and, asc, eq, gte, inArray, lt, lte, or } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { isAuthorized } from '../auth/permissions.js';
 import { DAY_MS, platformMidnight } from '../common/constants/timezone.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
+import { notBanned } from '../common/utils/users.js';
 import type { Language, LocalizedText } from '../db/schema/enums.js';
 import { ingredient, supplier } from '../db/schema/inventory.js';
 import { menuItem } from '../db/schema/menus.js';
@@ -47,9 +37,6 @@ const adjustedBetween = (since: Date, until: Date) =>
     gte(pointTransaction.createdAt, utcTimestampParam(since)),
     lt(pointTransaction.createdAt, utcTimestampParam(until)),
   );
-
-const notBanned = (now: Date) =>
-  or(isNull(user.banned), eq(user.banned, false), lt(user.banExpires, now));
 
 const dashboardPath = (slug: string) =>
   `${DASHBOARD_PAGE}?${new URLSearchParams({ organization: slug, range: 'yesterday' })}`;

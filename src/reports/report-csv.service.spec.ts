@@ -7,6 +7,7 @@ import { paymentMethodEnum } from '../db/schema/orders.js';
 import { languagesEnum } from '../db/schema/enums.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
+import type { BreakEvenReportService } from './break-even-report.service.js';
 import type { InventoryReportService } from './inventory-report.service.js';
 import type { PersonnelCostReportService } from './personnel-cost-report.service.js';
 import { ReportCsvService, toCsv } from './report-csv.service.js';
@@ -67,7 +68,9 @@ describe('ReportCsvService', () => {
   const salesReportService = { getSalesReport: vi.fn() };
   const inventoryReportService = { getInventoryReport: vi.fn() };
   const personnelCostReportService = { getPersonnelCostReport: vi.fn() };
+  const breakEvenReportService = { getBreakEvenReport: vi.fn() };
   const service = new ReportCsvService(
+    breakEvenReportService as unknown as BreakEvenReportService,
     i18n,
     inventoryReportService as unknown as InventoryReportService,
     personnelCostReportService as unknown as PersonnelCostReportService,
@@ -105,6 +108,43 @@ describe('ReportCsvService', () => {
       ...range,
       groupBy: 'mode',
     });
+  });
+
+  it('exports every break-even item row with the cost of goods as the total cost', async () => {
+    breakEvenReportService.getBreakEvenReport.mockResolvedValue({
+      costOfGoodsSold: 80,
+      rows: [
+        {
+          menuItemId: 'latte',
+          name: '拿鐵',
+          quantity: 3,
+          revenue: 300,
+          cost: 80,
+          grossProfit: 220,
+          grossMarginRate: 0.7333,
+        },
+        {
+          menuItemId: 'cake',
+          name: '蛋糕',
+          quantity: 2,
+          revenue: 200,
+          cost: null,
+          grossProfit: null,
+          grossMarginRate: null,
+        },
+      ],
+    });
+
+    await expect(service.breakEven('biru', { month: '2026-10' })).resolves.toBe(
+      '\uFEFF品項,份數,未稅營收,標準成本,毛利,毛利率\r\n' +
+        '拿鐵,3,300,80,220,0.7333\r\n' +
+        '蛋糕,2,200,,,\r\n' +
+        '合計,5,500,80,,\r\n',
+    );
+    expect(breakEvenReportService.getBreakEvenReport).toHaveBeenCalledWith(
+      'biru',
+      { month: '2026-10' },
+    );
   });
 
   it('writes hour rows as hh:00 like the reports page', async () => {

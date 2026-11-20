@@ -435,6 +435,36 @@ describe('OrdersService.recordPaymentResult', () => {
     );
   });
 
+  it('付款成功時把綠界回報的交易服務金額記在這次付款嘗試上', async () => {
+    const { service, sets } = createService({
+      current: pending,
+      updated: [{ ...pending, orderStatus: 'OrderProcessing' }],
+    });
+
+    await service.recordPaymentResult(
+      paymentBody({ PaymentTypeChargeFee: '4.65' }),
+    );
+
+    expect(sets[0]).toEqual({ chargeFee: '4.65', updatedAt: expect.any(Date) });
+    expect(sets[1]).toMatchObject({ orderStatus: 'OrderProcessing' });
+  });
+
+  it.each([
+    ['付款失敗', { PaymentTypeChargeFee: '4.65', RtnCode: '10100058' }],
+    ['金額格式不對', { PaymentTypeChargeFee: 'abc' }],
+  ])('%s時不記交易服務金額', async (_, overrides) => {
+    const { service, sets } = createService({
+      current: pending,
+      updated: [{ ...pending, orderStatus: 'OrderProblem' }],
+    });
+
+    await service.recordPaymentResult(paymentBody(overrides));
+
+    expect(sets).not.toContainEqual(
+      expect.objectContaining({ chargeFee: expect.anything() }),
+    );
+  });
+
   it('付款失敗轉異常並還券、還庫存', async () => {
     const { inventory, service } = createService({
       current: pending,

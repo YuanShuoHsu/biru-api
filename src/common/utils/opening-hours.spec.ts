@@ -172,6 +172,26 @@ describe('opening calendar', () => {
     expect(calendar.minutesUntilClose(at('2026-08-31T09:00'))).toBe(9 * 60);
   });
 
+  it('tells whether a day has any opening hours', () => {
+    const calendar = openingCalendar(weekly, [
+      {
+        openingHours: null,
+        validFrom: '2026-09-02',
+        validThrough: '2026-09-02',
+      },
+    ]);
+    const dayNumber = (date: string) =>
+      Date.parse(date) / (24 * 60 * 60 * 1000);
+
+    expect(calendar.isOpenOn(dayNumber('2026-09-01'))).toBe(true);
+    expect(calendar.isOpenOn(dayNumber('2026-09-02'))).toBe(false);
+    expect(calendar.isOpenOn(dayNumber('2026-09-05'))).toBe(true);
+    expect(calendar.isOpenOn(dayNumber('2026-09-06'))).toBe(false);
+    expect(openingCalendar(null, []).isOpenOn(dayNumber('2026-09-06'))).toBe(
+      true,
+    );
+  });
+
   it('closes the whole day for a special entry without hours', () => {
     const calendar = openingCalendar(weekly, [
       {

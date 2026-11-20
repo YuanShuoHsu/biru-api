@@ -7,13 +7,14 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { and, eq, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import type { NodemailerError } from 'nodemailer';
 import type { AttendanceNotificationKind } from '../attendance/attendance-notification.events.js';
 import { PRODUCT_NAME } from '../common/constants/product.js';
 import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
 import { isLanguage, pickLanguage } from '../common/utils/language.js';
+import { notBanned } from '../common/utils/users.js';
 import { type Language } from '../db/schema/enums.js';
 import type { UnitCode } from '../db/schema/inventory.js';
 import {
@@ -167,14 +168,7 @@ export class MailsService {
   }): Promise<boolean> {
     const member = await this.db.query.user.findFirst({
       columns: { email: true, lang: true },
-      where: and(
-        eq(user.id, userId),
-        or(
-          isNull(user.banned),
-          eq(user.banned, false),
-          lt(user.banExpires, new Date()),
-        ),
-      ),
+      where: and(eq(user.id, userId), notBanned(new Date())),
     });
     if (!member) return false;
 
@@ -443,7 +437,10 @@ export class MailsService {
     const baseUrl = this.configService.get<string>('NEXT_URL');
     const invitee = await this.db.query.user.findFirst({
       columns: { lang: true },
-      where: sql`lower(${user.email}) = lower(${email})`,
+      where: and(
+        sql`lower(${user.email}) = lower(${email})`,
+        eq(user.emailVerified, true),
+      ),
     });
     const lang = this.languageFor(invitee?.lang, request);
     const home_url = `${baseUrl}/${lang}`;

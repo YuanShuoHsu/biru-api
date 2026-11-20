@@ -87,13 +87,23 @@ describe('MailsService 語系', () => {
       );
     service = moduleRef.get(MailsService);
 
-    await db.insert(schema.user).values({
-      id: 'invitee',
-      email: 'invitee@example.com',
-      firstName: 'Ann',
-      lang: 'ja',
-      name: 'Ann',
-    });
+    await db.insert(schema.user).values([
+      {
+        id: 'invitee',
+        email: 'invitee@example.com',
+        emailVerified: true,
+        firstName: 'Ann',
+        lang: 'ja',
+        name: 'Ann',
+      },
+      {
+        id: 'unverified',
+        email: 'unverified@example.com',
+        firstName: 'Eve',
+        lang: 'ko',
+        name: 'Eve',
+      },
+    ]);
     await db.insert(schema.organization).values({
       id: 'store',
       name: 'Biru',
@@ -190,6 +200,12 @@ describe('MailsService 語系', () => {
 
     expect(sent[0].subject).toBe("You're invited to join Biru on Biru Coffee");
     expect(sent[0].html).toContain('invited');
+  });
+
+  it('受邀 email 對應的帳號沒驗證時用邀請人請求的語系', async () => {
+    await sendInvitationEmail('unverified@example.com', 'en-US,en;q=0.9');
+
+    expect(sent[0].subject).toBe("You're invited to join Biru on Biru Coffee");
   });
 
   it('邀請信頁尾顯示邀請門市的地址，不再是範本假地址', async () => {

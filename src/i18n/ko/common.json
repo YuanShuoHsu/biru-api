@@ -270,7 +270,13 @@
     "parentSectionNotFound": "상위 섹션을 찾을 수 없습니다. 삭제되었을 수 있습니다",
     "parentSectionSelf": "카테고리를 자신의 상위 카테고리로 설정할 수 없습니다",
     "printerNotFound": "프린터를 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "promoDateRangeInvalid": "프로모션 종료일은 시작일보다 앞설 수 없습니다",
     "selectionCountInvalid": "최대 선택 수는 최소 선택 수보다 작을 수 없습니다"
+  },
+  "operatingCosts": {
+    "operatingCostExists": "이 항목에는 같은 적용 시작 월의 고정비가 이미 있습니다. 해당 항목을 수정해 주세요",
+    "operatingCostNotFound": "이 고정비를 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "personnelInputTax": "인건비에는 통일 영수증이 없어 매입세액 공제 대상으로 설정할 수 없습니다"
   },
   "orderTickets": {
     "modes": {
@@ -426,14 +432,18 @@
     "csv": {
       "actualConsumption": "실제 소모량",
       "adjusted": "조정",
+      "balance": "변동 후 재고",
       "category": "카테고리",
       "closing": "기말 재고",
       "consumed": "소모",
+      "createdAt": "생성 일시",
       "day": "날짜",
       "discount": "할인",
       "employerInsurance": "고용주 부담 보험료",
       "employerPension": "고용주 연금",
       "gross": "총 지급액",
+      "grossMarginRate": "매출총이익률",
+      "grossProfit": "매출총이익",
       "headcount": "인원",
       "hour": "시간대",
       "ingredient": "식자재",
@@ -443,22 +453,37 @@
       "mode": "주문 방식",
       "net": "순매출",
       "noJobTitle": "직책 미설정",
+      "note": "비고",
       "opening": "기초 재고",
+      "orderNumber": "주문 번호",
       "orders": "주문 수",
       "paymentMethod": "결제 수단",
       "personnelCost": "인건비",
       "quantity": "수량",
+      "quantityChange": "변동량",
+      "reason": "사유",
       "received": "입고",
       "refunded": "환불",
       "refundedQuantity": "환불 수량",
       "revenue": "매출",
+      "revenueExcludingTax": "세금 제외 매출",
+      "standardCost": "표준원가",
       "theoreticalConsumption": "이론 소모량",
       "total": "합계",
       "uncategorized": "미분류",
       "unit": "단위",
+      "unitCost": "단위 원가",
       "variance": "차이",
       "wasted": "폐기",
-      "wastedCost": "폐기 비용"
+      "wastedCost": "폐기 비용",
+      "wasteReason": "폐기 사유"
+    },
+    "inventoryTransactionReasons": {
+      "batch": "배치 생산",
+      "consume": "주문 소비",
+      "count": "재고 실사",
+      "restore": "주문 환불",
+      "waste": "폐기"
     },
     "paymentMethods": {
       "ApplePay": "Apple Pay",
@@ -477,6 +502,13 @@
       "KGM": "킬로그램",
       "LTR": "리터",
       "MLT": "밀리리터"
+    },
+    "wasteReasons": {
+      "damaged": "파손",
+      "expired": "유통기한 경과",
+      "madeWrong": "잘못 만듦",
+      "other": "기타",
+      "spilled": "쏟음"
     }
   },
   "sharedCarts": {

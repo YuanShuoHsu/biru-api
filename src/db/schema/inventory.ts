@@ -56,6 +56,7 @@ export const supplier = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
     telephone: text('telephone'),
+    uniformInvoice: boolean('uniform_invoice').notNull().default(false),
     url: text('url'),
     ...timestamps,
   },

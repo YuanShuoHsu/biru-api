@@ -270,7 +270,13 @@
     "parentSectionNotFound": "The parent section wasn't found. It may have been deleted",
     "parentSectionSelf": "A section can't be its own parent",
     "printerNotFound": "The printer wasn't found. It may have been removed",
+    "promoDateRangeInvalid": "The sale can't end before it starts",
     "selectionCountInvalid": "Maximum selections can't be less than minimum selections"
+  },
+  "operatingCosts": {
+    "operatingCostExists": "This category already has a fixed cost for that effective month. Edit that one instead.",
+    "operatingCostNotFound": "This fixed cost could not be found. It may have been deleted.",
+    "personnelInputTax": "Personnel costs have no tax invoice, so their input tax can't be deductible."
   },
   "orderTickets": {
     "modes": {
@@ -426,14 +432,18 @@
     "csv": {
       "actualConsumption": "Actual consumption",
       "adjusted": "Adjusted",
+      "balance": "Stock after",
       "category": "Category",
       "closing": "Closing",
       "consumed": "Consumed",
+      "createdAt": "Created at",
       "day": "Date",
       "discount": "Discount",
       "employerInsurance": "Employer insurance",
       "employerPension": "Employer pension",
       "gross": "Gross pay",
+      "grossMarginRate": "Gross margin",
+      "grossProfit": "Gross profit",
       "headcount": "Headcount",
       "hour": "Hour",
       "ingredient": "Ingredient",
@@ -443,22 +453,37 @@
       "mode": "Order mode",
       "net": "Net",
       "noJobTitle": "No job title",
+      "note": "Notes",
       "opening": "Opening",
+      "orderNumber": "Order number",
       "orders": "Orders",
       "paymentMethod": "Payment method",
       "personnelCost": "Personnel cost",
       "quantity": "Quantity",
+      "quantityChange": "Change",
+      "reason": "Reason",
       "received": "Received",
       "refunded": "Refunded",
       "refundedQuantity": "Refunded quantity",
       "revenue": "Revenue",
+      "revenueExcludingTax": "Revenue excl. tax",
+      "standardCost": "Standard cost",
       "theoreticalConsumption": "Theoretical consumption",
       "total": "Total",
       "uncategorized": "Uncategorized",
       "unit": "Unit",
+      "unitCost": "Unit cost",
       "variance": "Variance",
       "wasted": "Waste",
-      "wastedCost": "Waste cost"
+      "wastedCost": "Waste cost",
+      "wasteReason": "Waste reason"
+    },
+    "inventoryTransactionReasons": {
+      "batch": "Batch made",
+      "consume": "Order usage",
+      "count": "Stock count",
+      "restore": "Order refund",
+      "waste": "Waste"
     },
     "paymentMethods": {
       "ApplePay": "Apple Pay",
@@ -477,6 +502,13 @@
       "KGM": "kg",
       "LTR": "L",
       "MLT": "ml"
+    },
+    "wasteReasons": {
+      "damaged": "Damaged",
+      "expired": "Expired",
+      "madeWrong": "Made wrong",
+      "other": "Other",
+      "spilled": "Spilled"
     }
   },
   "sharedCarts": {

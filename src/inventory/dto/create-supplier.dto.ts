@@ -4,6 +4,7 @@ import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsOptional,
   IsString,
   IsUrl,
@@ -22,6 +23,15 @@ export class CreateSupplierDto {
   @IsOptional()
   @IsString()
   telephone?: string | null;
+
+  @ApiPropertyOptional({
+    default: false,
+    description:
+      '這家開立統一發票給本店：進價的 5% 營業稅可扣抵，損益平衡以未稅成本計算',
+  })
+  @IsOptional()
+  @IsBoolean()
+  uniformInvoice?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()

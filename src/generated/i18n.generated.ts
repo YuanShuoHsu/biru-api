@@ -325,7 +325,13 @@ export type I18nTranslations = {
             "parentSectionNotFound": string;
             "parentSectionSelf": string;
             "printerNotFound": string;
+            "promoDateRangeInvalid": string;
             "selectionCountInvalid": string;
+        };
+        "operatingCosts": {
+            "operatingCostExists": string;
+            "operatingCostNotFound": string;
+            "personnelInputTax": string;
         };
         "orderTickets": {
             "modes": {
@@ -481,14 +487,18 @@ export type I18nTranslations = {
             "csv": {
                 "actualConsumption": string;
                 "adjusted": string;
+                "balance": string;
                 "category": string;
                 "closing": string;
                 "consumed": string;
+                "createdAt": string;
                 "day": string;
                 "discount": string;
                 "employerInsurance": string;
                 "employerPension": string;
                 "gross": string;
+                "grossMarginRate": string;
+                "grossProfit": string;
                 "headcount": string;
                 "hour": string;
                 "ingredient": string;
@@ -498,22 +508,37 @@ export type I18nTranslations = {
                 "mode": string;
                 "net": string;
                 "noJobTitle": string;
+                "note": string;
                 "opening": string;
+                "orderNumber": string;
                 "orders": string;
                 "paymentMethod": string;
                 "personnelCost": string;
                 "quantity": string;
+                "quantityChange": string;
+                "reason": string;
                 "received": string;
                 "refunded": string;
                 "refundedQuantity": string;
                 "revenue": string;
+                "revenueExcludingTax": string;
+                "standardCost": string;
                 "theoreticalConsumption": string;
                 "total": string;
                 "uncategorized": string;
                 "unit": string;
+                "unitCost": string;
                 "variance": string;
                 "wasted": string;
                 "wastedCost": string;
+                "wasteReason": string;
+            };
+            "inventoryTransactionReasons": {
+                "batch": string;
+                "consume": string;
+                "count": string;
+                "restore": string;
+                "waste": string;
             };
             "paymentMethods": {
                 "ApplePay": string;
@@ -532,6 +557,13 @@ export type I18nTranslations = {
                 "KGM": string;
                 "LTR": string;
                 "MLT": string;
+            };
+            "wasteReasons": {
+                "damaged": string;
+                "expired": string;
+                "madeWrong": string;
+                "other": string;
+                "spilled": string;
             };
         };
         "sharedCarts": {

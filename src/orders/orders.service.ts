@@ -243,6 +243,11 @@ const toPaymentDate = (value?: string): Date | undefined => {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 };
 
+const toChargeFee = (value?: string): string | undefined =>
+  value !== undefined && /^\d{1,8}(\.\d{1,2})?$/.test(value)
+    ? value
+    : undefined;
+
 const ORDER_RECEIPT_COLUMNS = {
   id: true,
   mode: true,
@@ -1473,7 +1478,17 @@ export class OrdersService {
       ? 'OrderProcessing'
       : 'OrderProblem';
 
+    const chargeFee = succeeded
+      ? toChargeFee(body.PaymentTypeChargeFee)
+      : undefined;
+
     const transitioned = await this.db.transaction(async (tx) => {
+      if (chargeFee !== undefined)
+        await tx
+          .update(ecpayPaymentAttempt)
+          .set({ chargeFee, updatedAt: new Date() })
+          .where(eq(ecpayPaymentAttempt.merchantTradeNo, body.MerchantTradeNo));
+
       const [current] = await tx
         .select({ id: order.id, orderStatus: order.orderStatus })
         .from(order)

@@ -13,6 +13,8 @@ export class SupplierResponseDto {
   @ApiProperty() organizationId: string;
   @ApiProperty() name: string;
   @ApiPropertyOptional() telephone: string | null;
+  @ApiProperty({ description: '這家開立統一發票給本店' })
+  uniformInvoice: boolean;
   @ApiPropertyOptional() url: string | null;
   @ApiPropertyOptional() note: string | null;
   @ApiProperty({

@@ -10,6 +10,7 @@ const modulesWithErrorCodes = [
   'ecpay',
   'inventory',
   'menus',
+  'operating-costs',
   'orders',
   'organizations',
   'points',

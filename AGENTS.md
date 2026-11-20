@@ -82,11 +82,12 @@ Every PR against `develop` or `master`, and every push to `develop`, runs `lint`
 | AuditModule          | `src/audit/`           | 異動紀錄: `audit_log` unioned with `attendance_audit`                                                  |
 | DeletedRecordsModule | `src/deleted-records/` | `deleted_record` capture, listing, and restore                                                         |
 | QuantModule          | `src/quant/`           | Pionex trading bots, market data, and AI decisions                                                     |
-| ReportsModule        | `src/reports/`         | Sales and inventory reports and their CSV exports                                                      |
+| ReportsModule        | `src/reports/`         | Sales, inventory, personnel cost and break-even reports, and their CSV exports                         |
 | PushModule           | `src/push/`            | Web Push subscriptions (storage only; sending comes later)                                             |
 | HealthModule         | `src/health/`          | `GET /api/health` (Terminus): checks the database with `select 1`                                      |
 | ChecklistsModule     | `src/checklists/`      | 例行檢查表: per-store checklist templates and their runs                                               |
 | CashDevicesModule    | `src/cash-devices/`    | 現金自助繳費機台: per-store cash devices and their event ledger                                        |
+| OperatingCostsModule | `src/operating-costs/` | 固定成本: per-store monthly fixed costs (rent, utilities, personnel estimate…) by effective month      |
 
 Most tenant-scoped routes are nested under `organizations/:organizationSlug/...`. Per-user
 routes live under `users/me/...` (orders, coupons, points).
@@ -113,12 +114,13 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 - `banners.ts` — `banner`
 - `invoices.ts` — `invoice`, `invoiceAllowance`, `invoicePrintJob`
 - `refunds.ts` — `refund`
-- `ecpay-payment-attempts.ts`, `ecpay-callback-logs.ts` — `ecpayPaymentAttempt`, `ecpayCallbackLog`
-- `inventory.ts` — `supplier`, `ingredient`, `inventoryTransaction`, `recipe`, `recipeIngredient`
+- `ecpay-payment-attempts.ts`, `ecpay-callback-logs.ts` — `ecpayPaymentAttempt` (with the ECPay `charge_fee` once paid), `ecpayCallbackLog`
+- `inventory.ts` — `supplier` (`uniform_invoice`: issues 統一發票 to the store, see Break-Even), `ingredient`, `inventoryTransaction`, `recipe`, `recipeIngredient`
 - `waitlist.ts` — `waitlistSetting`, `waitlistTicket`
 - `printers.ts` — `printer`, `orderTicketJob`
 - `push.ts` — `pushSubscription`
 - `cash-devices.ts` — `cashDevice`, `cashDeviceEvent` (`(device_id, idempotency_key)` unique; a retried write must reuse its key)
+- `operating-costs.ts` — `operatingCost` (`(organization_id, category, effective_from)` unique, `input_tax_deductible`; see Break-Even)
 - `checklists.ts` — `checklistTemplate`, `checklistTemplateItem`, `checklistRun`, `checklistRunItem`, `checklistSetting`
 - `store-layout.ts` — `storeLayout`
 - `audit.ts` — `auditLog`; `deleted-records.ts` — `deletedRecord`
@@ -338,6 +340,40 @@ recording waste on it is rejected with `unlimitedStockWaste` in the service, not
 controller); order consumption and restore leave it null. A new staff-initiated path that writes transactions must pass it —
 product waste carries no `@Audit`, so this column is its only record of who did it.
 
+### Break-Even
+
+`GET /api/organizations/:slug/reports/break-even?month=&targetProfit=` (`BreakEvenReportService`, `operatingCost: ['read']`,
+owner only) works on the Taiwan calendar month.
+
+- Fixed costs are `operating_cost` rows: per category, the row with the latest `effective_from` not after the month applies,
+  so a cost is entered once and carries forward; a later row with `0` ends it. Don't add per-month rows or a toggle.
+- Personnel is the month's published payslips (`PersonnelCostReportService.monthCosts`) plus, for every employee in the
+  month without one, a payslip calculated from the schedule and terms (`PayrollService.estimateSnapshots`, a read-only
+  transaction that writes no statement); an employee whose payslip can't be calculated is counted in `unestimatedEmployees`.
+  Only when no employee can be costed does the `personnel` row, a manual estimate, apply.
+- Revenue is tax-inclusive (counted orders less confirmed refunds, as in the sales report); 營業稅 is split out at
+  `BUSINESS_TAX_RATE` (5%, 營業稅法 §10, `src/common/constants/business-tax.ts`).
+- Costs are net of deductible input tax, the 5% in what the store pays against a 統一發票: fixed cost rows with
+  `input_tax_deductible` (never personnel), ingredients from a supplier with `uniform_invoice` (`netUnitPriceSql`, also
+  through homemade ingredients' materials) and ECPay fees. Whether a cost carries an invoice is recorded as a fact on the
+  row or supplier, not inferred from its category. The report's `businessTaxPayable` is output tax less this input tax, an
+  estimate from the month's costs; the filing goes by the actual purchase invoices.
+- Cost of goods is standard cost: sold servings (`orderItemMovements`) × each item's, add-on's and modifier's recipe cost at
+  current ingredient prices, so unlimited-stock ingredients count. An item with no recipe, or a recipe with an unpriced
+  ingredient, has an unknown cost and is left out of both the cost and the revenue that sets the rate; a modifier without a
+  recipe costs nothing.
+- Payment fees are what ECPay reports as `PaymentTypeChargeFee` (交易手續費 + 交易處理費), stored on the paid
+  `ecpay_payment_attempt.charge_fee` by `recordPaymentResult` from both the ReturnURL notice and the reconcile query; cash
+  orders cost 0. An ECPay order without a recorded fee is counted in `unknownFeeOrders`, not guessed. The 站內付 2.0
+  payment result, once handled, must record `ChargeFee` + `ProcessFee` the same way.
+- The cost of goods and fee rates come from the `RATE_WINDOW_DAYS` (90) days of sales up to now or the month end, not the
+  month alone, so early-month figures stay stable; before there are costed sales the cost rate is the average recipe cost
+  over price of the store's menu items (`costRateSource: 'menu'`), and the fee rate stays null.
+- Break-even = fixed costs ÷ ((1 − cost rate − fee rate) ÷ 1.05), divided over the open days of the month from the opening
+  hours and special hours (`OpeningCalendar.isOpenOn`). `targetProfit` is after 營所稅: it is grossed up with
+  `monthlyPreTaxProfitFor` before being added to the fixed costs, and `incomeTax` annualises the month (`src/reports/income-tax.ts`,
+  所得稅法 §5: 12 萬 exempt, 20%, capped at half the excess), so both are estimates of a yearly tax.
+
 ### Email Opt-in
 
 `user.emailSubscribed` is the member's email opt-in: the sign-up checkbox, which members change in the
@@ -535,7 +571,12 @@ value). A new variable must be added to that schema with the rule the code actua
   decrypt it: (1) set `legacy,v2:…` everywhere; (2) once all are deployed, switch to `v2:…,legacy`. Rotate
   the same way — add the new key second everywhere, then move it first. Once prefixed ciphertext exists,
   never roll back to a build without this support. Unprefixed ciphertext keeps needing `BETTER_AUTH_SECRET`
-  until it is re-encrypted; a later PR provides that script
+  until it is re-encrypted: once the new key is first everywhere, run `pnpm tsx scripts/reencrypt-fields.ts` with
+  that environment's `FIELD_ENCRYPTION_KEYS`, `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL`, which counts each encrypted
+  column's values by key version and the rows that fail to decrypt (exit 1); `--apply` re-encrypts them with the
+  first key, skipping rows changed meanwhile, and is safe to re-run. Quant rows are per environment and legacy payroll
+  rows decrypt only with the secret of the environment that wrote them (elsewhere they count as failures until that
+  environment has run `--apply`), so run it in each; only after it reports nothing left to re-encrypt anywhere may `legacy` or an old key be dropped
 - `S3_ENDPOINT` / `S3_REGION` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` / `S3_BUCKET` — S3-compatible bucket
   (Supabase Storage, path-style) for menu, banner and store photo images, member avatars and store logos; set all six S3
   variables or none: none keeps new images as base64 data URLs in Postgres, and a partial set stops the app at boot

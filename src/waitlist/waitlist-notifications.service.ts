@@ -1,8 +1,9 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 
-import { eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { organization } from '../db/schema/organizations.js';
+import { user } from '../db/schema/users.js';
 import { waitlistSetting, waitlistTicket } from '../db/schema/waitlist.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import {
@@ -44,6 +45,7 @@ export class WaitlistNotificationsService {
           partySize: waitlistTicket.partySize,
           prefix: waitlistTicket.prefix,
           status: waitlistTicket.status,
+          userLang: user.lang,
         })
         .from(waitlistTicket)
         .innerJoin(
@@ -53,6 +55,13 @@ export class WaitlistNotificationsService {
         .leftJoin(
           waitlistSetting,
           eq(waitlistSetting.organizationId, waitlistTicket.organizationId),
+        )
+        .leftJoin(
+          user,
+          and(
+            sql`lower(${user.email}) = lower(${waitlistTicket.email})`,
+            eq(user.emailVerified, true),
+          ),
         )
         .where(eq(waitlistTicket.id, ticket.id));
       if (!found?.email) return;
@@ -64,7 +73,7 @@ export class WaitlistNotificationsService {
           found.holdMinutes || DEFAULT_HOLD_MINUTES,
         ),
         kind: ticket.status === 'waiting' ? 'joined' : 'called',
-        lang: found.locale,
+        lang: found.userLang ?? found.locale,
         organizationName: found.organizationName,
         partySize: found.partySize,
         path: `/waitlist/${found.organizationSlug}/${found.id}`,

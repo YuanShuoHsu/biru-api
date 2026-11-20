@@ -270,7 +270,13 @@
     "parentSectionNotFound": "找不到上層分類，可能已被刪除",
     "parentSectionSelf": "分類不能設為自己的上層分類",
     "printerNotFound": "找不到這台印表機，可能已被移除",
+    "promoDateRangeInvalid": "促銷結束日不能早於開始日",
     "selectionCountInvalid": "最多選擇數量不能少於最少選擇數量"
+  },
+  "operatingCosts": {
+    "operatingCostExists": "這個類別在該生效月份已有一筆固定成本，請改為編輯那一筆",
+    "operatingCostNotFound": "找不到這筆固定成本，可能已被刪除",
+    "personnelInputTax": "人事成本沒有統一發票，不能設為進項稅可扣抵"
   },
   "orderTickets": {
     "modes": {
@@ -426,14 +432,18 @@
     "csv": {
       "actualConsumption": "實際耗用",
       "adjusted": "調整",
+      "balance": "異動後庫存",
       "category": "分類",
       "closing": "期末",
       "consumed": "耗用",
+      "createdAt": "建立時間",
       "day": "日期",
       "discount": "折扣",
       "employerInsurance": "雇主勞健保",
       "employerPension": "雇主勞退提繳",
       "gross": "應發薪資",
+      "grossMarginRate": "毛利率",
+      "grossProfit": "毛利",
       "headcount": "人數",
       "hour": "小時",
       "ingredient": "食材",
@@ -443,22 +453,37 @@
       "mode": "點餐方式",
       "net": "淨額",
       "noJobTitle": "未設定職位",
+      "note": "備註",
       "opening": "期初",
+      "orderNumber": "訂單編號",
       "orders": "訂單數",
       "paymentMethod": "付款方式",
       "personnelCost": "人事成本",
       "quantity": "份數",
+      "quantityChange": "異動量",
+      "reason": "原因",
       "received": "入庫",
       "refunded": "退款",
       "refundedQuantity": "退款份數",
       "revenue": "營收",
+      "revenueExcludingTax": "未稅營收",
+      "standardCost": "標準成本",
       "theoreticalConsumption": "理論耗用",
       "total": "合計",
       "uncategorized": "未分類",
       "unit": "單位",
+      "unitCost": "單位成本",
       "variance": "差異",
       "wasted": "報廢",
-      "wastedCost": "報廢成本"
+      "wastedCost": "報廢成本",
+      "wasteReason": "報廢原因"
+    },
+    "inventoryTransactionReasons": {
+      "batch": "製作批次",
+      "consume": "訂單耗用",
+      "count": "人工盤點",
+      "restore": "退單回補",
+      "waste": "報廢"
     },
     "paymentMethods": {
       "ApplePay": "Apple Pay",
@@ -477,6 +502,13 @@
       "KGM": "公斤",
       "LTR": "公升",
       "MLT": "毫升"
+    },
+    "wasteReasons": {
+      "damaged": "損壞",
+      "expired": "過期",
+      "madeWrong": "做錯",
+      "other": "其他",
+      "spilled": "打翻"
     }
   },
   "sharedCarts": {

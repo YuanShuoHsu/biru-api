@@ -30,4 +30,14 @@ describe('CreateSupplierDto', () => {
       ]);
     },
   );
+
+  it.each([CreateSupplierDto, UpdateSupplierDto])(
+    '%p takes whether the supplier issues uniform invoices as a boolean',
+    async (dto) => {
+      expect(await errorsOf(dto, { uniformInvoice: true })).toEqual([]);
+      expect(await errorsOf(dto, { uniformInvoice: 'yes' })).toEqual([
+        'uniformInvoice',
+      ]);
+    },
+  );
 });

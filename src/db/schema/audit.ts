@@ -45,6 +45,7 @@ export const auditResourceEnum = pgEnum('audit_resource', [
   'catalogItemAddOn',
   'checklistTemplate',
   'cashDevice',
+  'operatingCost',
 ]);
 export type AuditResource = (typeof auditResourceEnum.enumValues)[number];
 

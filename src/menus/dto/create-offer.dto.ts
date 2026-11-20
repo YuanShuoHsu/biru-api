@@ -14,7 +14,6 @@ import {
   Min,
   Validate,
   ValidateNested,
-  ValidationArguments,
   ValidatorConstraint,
   ValidatorConstraintInterface,
   ValidateIf,
@@ -30,20 +29,6 @@ import {
 } from '../../db/schema/menus.js';
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
-@ValidatorConstraint({ name: 'isValidFromNotAfterValidThrough' })
-class IsValidFromNotAfterValidThrough implements ValidatorConstraintInterface {
-  validate(_: unknown, { object }: ValidationArguments): boolean {
-    const { validFrom, validThrough } = object as PriceSpecificationDto;
-    if (!validFrom || !validThrough) return true;
-
-    return validFrom <= validThrough;
-  }
-
-  defaultMessage(): string {
-    return 'validFrom 不可晚於 validThrough';
-  }
-}
 
 @ValidatorConstraint({ name: 'isOpeningHours' })
 export class IsOpeningHours implements ValidatorConstraintInterface {
@@ -78,7 +63,6 @@ export class PriceSpecificationDto {
   @IsOptional()
   @Matches(DATE_PATTERN)
   @IsISO8601({ strict: true })
-  @Validate(IsValidFromNotAfterValidThrough)
   validThrough?: string;
 }
 
