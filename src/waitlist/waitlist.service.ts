@@ -919,10 +919,9 @@ export class WaitlistService {
       endedAt: waitlistTicket.endedAt,
     };
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
       ? [
-          dir(fieldMap[sortBy]),
+          sql`${fieldMap[sortBy]} ${sql.raw(sortDirection === 'desc' ? 'desc' : 'asc')} nulls last`,
           desc(waitlistTicket.createdAt),
           desc(waitlistTicket.id),
         ]

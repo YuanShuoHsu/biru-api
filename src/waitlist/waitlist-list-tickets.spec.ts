@@ -56,6 +56,7 @@ describe('WaitlistService.listTickets ticket number', () => {
         partySize: 4,
         locale: 'zh-TW' as const,
         createdAt: new Date('2026-11-09T00:00:00Z'),
+        calledAt: id === 'c' ? new Date('2026-11-09T01:00:00Z') : null,
       })),
     );
   }, 60_000);
@@ -106,4 +107,17 @@ describe('WaitlistService.listTickets ticket number', () => {
       ...(await page(4)),
     ]).toEqual(['e', 'd', 'c', 'b', 'a']);
   });
+
+  it.each(['asc', 'desc'] as const)(
+    '依叫號時間 %s 排序時，沒叫過號的排在最後',
+    async (sortDirection) => {
+      const { data } = await service.listTickets('biru', {
+        limit: 1,
+        sortBy: 'calledAt',
+        sortDirection,
+      });
+
+      expect(data.map(({ id }) => id)).toEqual(['c']);
+    },
+  );
 });
