@@ -12,10 +12,13 @@ import { CashDevicesController } from './cash-devices/cash-devices.controller.js
 import { ChecklistRunsController } from './checklists/checklist-runs.controller.js';
 import { ChecklistTemplatesController } from './checklists/checklist-templates.controller.js';
 import { OrganizationDeletedRecordsController } from './deleted-records/organization-deleted-records.controller.js';
+import { OrganizationInventoryController } from './inventory/organization-inventory.controller.js';
+import { OperatingCostsController } from './operating-costs/operating-costs.controller.js';
 import { OrganizationsController } from './organizations/organizations.controller.js';
 import { PayrollEarningsController } from './payroll/payroll-earnings.controller.js';
 import { PayrollWithholdingController } from './payroll/payroll-withholding.controller.js';
 import { PayrollController } from './payroll/payroll.controller.js';
+import { OrganizationPointsController } from './points/organization-points.controller.js';
 
 const METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
 
@@ -35,7 +38,10 @@ describe('path parameters OpenAPI', () => {
         CashDevicesController,
         ChecklistRunsController,
         ChecklistTemplatesController,
+        OperatingCostsController,
         OrganizationDeletedRecordsController,
+        OrganizationInventoryController,
+        OrganizationPointsController,
         OrganizationsController,
         PayrollController,
         PayrollEarningsController,
