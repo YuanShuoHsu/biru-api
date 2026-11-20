@@ -202,6 +202,7 @@
     "lookupUnavailable": "目前无法查询公司登记资料，请手动填写名称与地址"
   },
   "inventory": {
+    "idempotencyConflict": "这张进货单已用不同内容送出过，请关闭表单后再试一次",
     "ingredientInUse": "这项食材仍被食谱使用，请先从食谱中移除",
     "ingredientNotFound": "找不到这项食材，可能已被删除",
     "insufficientStock": "部分原料库存不足，无法制作这一批。请先进货或盘点",
@@ -209,6 +210,8 @@
     "packageRequired": "没有来源食谱的食材须填写包装价格、内容量与单位",
     "packageUnitIncompatible": "内容量单位与库存单位不兼容",
     "purchaseFieldsOnSourcedIngredient": "由来源食谱制成的食材不能设定包装价格、内容量或供应商",
+    "receiptPackageMissing": "这项食材没有设置包装规格，请直接填写数量",
+    "receiptQuantityRequired": "每一项请填写包装数或数量其中之一",
     "recipeInUseAsSource": "以下自制食材仍以这份食谱为来源食谱：{names}。请先在这些食材取消来源食谱",
     "recipeIngredientExists": "这项材料已经加入过了",
     "recipeIngredientNotFound": "找不到这项食谱材料，可能已被移除",
@@ -482,6 +485,7 @@
       "batch": "制作批次",
       "consume": "订单耗用",
       "count": "人工盘点",
+      "receive": "进货",
       "restore": "退单回补",
       "waste": "报废"
     },

@@ -10,6 +10,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import {
+  ApiHeader,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
@@ -18,6 +19,7 @@ import {
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
+import { IdempotencyKey } from '../common/decorators/idempotency-key.decorator.js';
 import { IdsDto } from '../common/dto/ids.dto.js';
 
 import { OrganizationId } from '../menus/decorators/organization-id.decorator.js';
@@ -27,6 +29,7 @@ import { ReorderDto } from '../menus/dto/reorder.dto.js';
 
 import { CreateIngredientBatchDto } from './dto/create-ingredient-batch.dto.js';
 import { CreateIngredientDto } from './dto/create-ingredient.dto.js';
+import { CreateInventoryReceiptDto } from './dto/create-inventory-receipt.dto.js';
 import { CreateProductWasteDto } from './dto/create-product-waste.dto.js';
 import { CreateRecipeDto } from './dto/create-recipe.dto.js';
 import { CreateSupplierDto } from './dto/create-supplier.dto.js';
@@ -35,6 +38,7 @@ import {
   IngredientListResponseDto,
   IngredientResponseDto,
 } from './dto/ingredient-response.dto.js';
+import { InventoryReceiptResponseDto } from './dto/inventory-receipt-response.dto.js';
 import { InventoryTransactionResponseDto } from './dto/inventory-transaction-response.dto.js';
 import { RecipePaginationQueryDto } from './dto/recipe-pagination-query.dto.js';
 import {
@@ -124,6 +128,30 @@ export class OrganizationInventoryController {
     return this.inventoryTransactionsService.wasteProduct(
       organizationId,
       dto,
+      canReadPurchasing,
+      session.user.id,
+    );
+  }
+
+  @Post('inventory/receipts')
+  @Roles({ inventoryTransaction: ['create'] }, 'organizationSlug')
+  @ApiHeader({
+    description: '同一張進貨單重試請帶同一把鍵，重送會回傳既有進貨單',
+    name: 'Idempotency-Key',
+    required: false,
+  })
+  @ApiOperation({ summary: '點收一張進貨單' })
+  createInventoryReceipt(
+    @OrganizationId() organizationId: string,
+    @Body() dto: CreateInventoryReceiptDto,
+    @IdempotencyKey() idempotencyKey: string | null,
+    @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
+    @Session() session: UserSession,
+  ): Promise<InventoryReceiptResponseDto> {
+    return this.inventoryTransactionsService.receive(
+      organizationId,
+      dto,
+      idempotencyKey,
       canReadPurchasing,
       session.user.id,
     );

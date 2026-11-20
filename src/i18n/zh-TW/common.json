@@ -202,6 +202,7 @@
     "lookupUnavailable": "目前無法查詢公司登記資料，請手動填寫名稱與地址"
   },
   "inventory": {
+    "idempotencyConflict": "這張進貨單已用不同內容送出過，請關閉表單後再試一次",
     "ingredientInUse": "這項食材仍被食譜使用，請先從食譜中移除",
     "ingredientNotFound": "找不到這項食材，可能已被刪除",
     "insufficientStock": "部分原料庫存不足，無法製作這一批。請先進貨或盤點",
@@ -209,6 +210,8 @@
     "packageRequired": "沒有來源食譜的食材須填寫包裝價格、內容量與單位",
     "packageUnitIncompatible": "內容量單位與庫存單位不相容",
     "purchaseFieldsOnSourcedIngredient": "由來源食譜製成的食材不能設定包裝價格、內容量或供應商",
+    "receiptPackageMissing": "這項食材沒有設定包裝規格，請直接填寫數量",
+    "receiptQuantityRequired": "每一項請填寫包裝數或數量其中之一",
     "recipeInUseAsSource": "以下自製食材仍以這份食譜為來源食譜：{names}。請先在這些食材取消來源食譜",
     "recipeIngredientExists": "這項材料已經加入過了",
     "recipeIngredientNotFound": "找不到這項食譜材料，可能已被移除",
@@ -482,6 +485,7 @@
       "batch": "製作批次",
       "consume": "訂單耗用",
       "count": "人工盤點",
+      "receive": "進貨",
       "restore": "退單回補",
       "waste": "報廢"
     },

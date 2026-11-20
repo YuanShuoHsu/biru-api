@@ -257,6 +257,7 @@ export type I18nTranslations = {
             "lookupUnavailable": string;
         };
         "inventory": {
+            "idempotencyConflict": string;
             "ingredientInUse": string;
             "ingredientNotFound": string;
             "insufficientStock": string;
@@ -264,6 +265,8 @@ export type I18nTranslations = {
             "packageRequired": string;
             "packageUnitIncompatible": string;
             "purchaseFieldsOnSourcedIngredient": string;
+            "receiptPackageMissing": string;
+            "receiptQuantityRequired": string;
             "recipeInUseAsSource": string;
             "recipeIngredientExists": string;
             "recipeIngredientNotFound": string;
@@ -537,6 +540,7 @@ export type I18nTranslations = {
                 "batch": string;
                 "consume": string;
                 "count": string;
+                "receive": string;
                 "restore": string;
                 "waste": string;
             };

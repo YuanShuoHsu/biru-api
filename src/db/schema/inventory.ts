@@ -25,6 +25,7 @@ import { type LocalizedText } from './enums.js';
 import { menuItem, modifier } from './menus.js';
 import { order } from './orders.js';
 import { organization } from './organizations.js';
+import { user } from './users.js';
 
 // UN/CEFACT 代碼，對應 https://schema.org/QuantitativeValue unitCode
 export const unitCodeEnum = pgEnum('unit_code', [
@@ -115,6 +116,37 @@ export const ingredient = pgTable(
 
 export type Ingredient = typeof ingredient.$inferSelect;
 
+export const inventoryReceipt = pgTable(
+  'inventory_receipt',
+  {
+    id: text('id').primaryKey(),
+    createdBy: text('created_by').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    idempotencyKey: text('idempotency_key'),
+    idempotencyFingerprint: text('idempotency_fingerprint'),
+    note: text('note'),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    receivedAt: timestamp('received_at').notNull(),
+    supplierId: text('supplier_id').references(() => supplier.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex('inventoryReceipt_organizationId_idempotencyKey_uidx').on(
+      table.organizationId,
+      table.idempotencyKey,
+    ),
+    index('inventoryReceipt_createdBy_idx').on(table.createdBy),
+    index('inventoryReceipt_supplierId_idx').on(table.supplierId),
+  ],
+);
+
+export type InventoryReceipt = typeof inventoryReceipt.$inferSelect;
+
 export const inventoryTransaction = pgTable(
   'inventory_transaction',
   {
@@ -132,6 +164,7 @@ export const inventoryTransaction = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
     quantity: numeric('quantity', { precision: 12, scale: 3 }).notNull(),
+    receiptId: text('receipt_id').references(() => inventoryReceipt.id),
     unitCost: numeric('unit_cost', { precision: 16, scale: 6 }),
     wasteBatchId: text('waste_batch_id'),
     wasteMenuItemId: text('waste_menu_item_id').references(() => menuItem.id, {
@@ -152,6 +185,7 @@ export const inventoryTransaction = pgTable(
       table.createdAt,
     ),
     index('inventoryTransaction_orderId_idx').on(table.orderId),
+    index('inventoryTransaction_receiptId_idx').on(table.receiptId),
     index('inventoryTransaction_wasteMenuItemId_idx').on(table.wasteMenuItemId),
   ],
 );
@@ -246,6 +280,21 @@ export const ingredientRelations = relations(ingredient, ({ one, many }) => ({
   recipeIngredients: many(recipeIngredient),
 }));
 
+export const inventoryReceiptRelations = relations(
+  inventoryReceipt,
+  ({ one, many }) => ({
+    organization: one(organization, {
+      fields: [inventoryReceipt.organizationId],
+      references: [organization.id],
+    }),
+    supplier: one(supplier, {
+      fields: [inventoryReceipt.supplierId],
+      references: [supplier.id],
+    }),
+    inventoryTransactions: many(inventoryTransaction),
+  }),
+);
+
 export const inventoryTransactionRelations = relations(
   inventoryTransaction,
   ({ one }) => ({
@@ -260,6 +309,10 @@ export const inventoryTransactionRelations = relations(
     organization: one(organization, {
       fields: [inventoryTransaction.organizationId],
       references: [organization.id],
+    }),
+    receipt: one(inventoryReceipt, {
+      fields: [inventoryTransaction.receiptId],
+      references: [inventoryReceipt.id],
     }),
   }),
 );

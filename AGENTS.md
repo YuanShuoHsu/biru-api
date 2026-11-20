@@ -115,7 +115,7 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 - `invoices.ts` — `invoice`, `invoiceAllowance`, `invoicePrintJob`
 - `refunds.ts` — `refund`
 - `ecpay-payment-attempts.ts`, `ecpay-callback-logs.ts` — `ecpayPaymentAttempt` (with the ECPay `charge_fee` once paid), `ecpayCallbackLog`
-- `inventory.ts` — `supplier` (`uniform_invoice`: issues 統一發票 to the store, see Break-Even), `ingredient`, `inventoryTransaction`, `recipe`, `recipeIngredient`
+- `inventory.ts` — `supplier` (`uniform_invoice`: issues 統一發票 to the store, see Break-Even), `ingredient`, `inventoryReceipt`, `inventoryTransaction` (`receipt_id` set: a delivery received on that receipt), `recipe`, `recipeIngredient`
 - `waitlist.ts` — `waitlistSetting`, `waitlistTicket`
 - `printers.ts` — `printer`, `orderTicketJob`
 - `push.ts` — `pushSubscription`
@@ -336,7 +336,7 @@ orders, and don't accept negative counts.
 An ingredient with `unlimitedStock` is never deducted: order consumption, batch materials and low-stock checks skip it, and
 recording waste on it is rejected with `unlimitedStockWaste` in the service, not only hidden in the admin UI.
 
-`inventory_transaction.created_by` is the user who recorded a count (the opening stock and count saved with an ingredient included), batch or waste (`session.user.id`, passed down from the
+`inventory_transaction.created_by` is the user who recorded a count (the opening stock and count saved with an ingredient included), batch, waste or receipt (`session.user.id`, passed down from the
 controller); order consumption and restore leave it null. A new staff-initiated path that writes transactions must pass it —
 product waste carries no `@Audit`, so this column is its only record of who did it.
 
