@@ -82,6 +82,10 @@ import {
   ORDER_UPDATED_EVENT,
   type OrderUpdatedEvent,
 } from '../../events/order-updated.event.js';
+import {
+  REFUND_SETTLED_EVENT,
+  type RefundSettledEvent,
+} from '../../events/refund-settled.event.js';
 import { InventoryTransactionsService } from '../../inventory/inventory-transactions.service.js';
 import { MenuStockService } from '../../inventory/menu-stock.service.js';
 import { notFoundError } from '../../orders/order-errors.js';
@@ -417,6 +421,13 @@ export class EcpayOrderRefundService {
         orderId: claimed.orderId,
         organizationId: found.sellerId,
       } satisfies OrderUpdatedEvent);
+
+    this.eventEmitter.emit(REFUND_SETTLED_EVENT, {
+      orderId: claimed.orderId,
+      organizationId: found.sellerId,
+      reasonCode: claimed.reasonCode,
+      refundId: claimed.id,
+    } satisfies RefundSettledEvent);
   }
 
   /**

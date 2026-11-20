@@ -95,6 +95,7 @@ export const SPECIAL_HOURS_PROCESS_STATUSES = [
   'cancelled',
   'failed',
   'manualRefundRequired',
+  'refundPending',
   'refunded',
   'skipped',
 ] as const;
@@ -110,7 +111,7 @@ export class SpecialHoursProcessResultDto {
     enum: SPECIAL_HOURS_PROCESS_STATUSES,
     enumName: 'SpecialHoursProcessStatus',
     description:
-      'refunded：已經綠界全額退款並寄信；cancelled：已取消（未付款訂單不寄信，候位號碼有 email 時寄信）；manualRefundRequired：非綠界付款，未處理，須由店員另外退款；skipped：已不受影響或已不在進行中，未處理；failed：處理失敗，維持原狀，可再送一次',
+      'refunded：已經綠界全額退款，有 email 時寄信；refundPending：已送出綠界退款但尚未確認，確認後才寄信，不必再送；cancelled：已取消（未付款訂單不寄信，候位號碼有 email 時寄信）；manualRefundRequired：非綠界付款，未處理，須由店員另外退款；skipped：已不受影響或已不在進行中，未處理；failed：處理失敗，維持原狀，可再送一次。重送時，先前已因公休退款的訂單與已因公休取消的候位號碼依目前狀態回 refunded／refundPending／cancelled；未付款訂單的取消不記錄原因，重送時回 skipped',
   })
   status: SpecialHoursProcessStatus;
 

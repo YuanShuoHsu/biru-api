@@ -102,7 +102,8 @@ export class SpecialHoursController {
     { resource: 'waitlistTicket', idSource: { body: 'ticketIds' } },
   )
   @ApiHeader({
-    description: '同一次確認重試請帶同一把鍵；已處理的項目不會再退款或寄信',
+    description:
+      '同一次確認重試請帶同一把鍵，僅記錄於伺服器日誌；結果依目前狀態判定，已處理的項目不會再退款或寄信',
     name: 'Idempotency-Key',
     required: false,
   })

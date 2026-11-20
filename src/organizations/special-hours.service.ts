@@ -1,7 +1,18 @@
 import { HttpException, Inject, Injectable, Logger } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import { randomUUID } from 'node:crypto';
 
-import { and, asc, eq, gte, inArray, lte, ne, notExists } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  lte,
+  ne,
+  notExists,
+} from 'drizzle-orm';
 
 import { PICKUP_MAX_ADVANCE_DAYS } from '../common/constants/pickup.js';
 import {
@@ -31,6 +42,10 @@ import {
   waitlistTicket,
 } from '../db/schema/waitlist.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
+import {
+  REFUND_SETTLED_EVENT,
+  type RefundSettledEvent,
+} from '../events/refund-settled.event.js';
 import { EcpayOrderRefundService } from '../ecpay/services/ecpay-order-refund.service.js';
 import { MailsService } from '../mails/mails.service.js';
 import { getRefundChannel } from '../orders/order-transitions.js';
@@ -64,7 +79,6 @@ import {
 
 type AffectingOrganization = {
   id: string;
-  name: string;
   openingHours: string | null;
   pickupCutoffMinutes: number;
 };
@@ -160,7 +174,7 @@ export class SpecialHoursService {
             new Date(),
             id,
           );
-          if (!ticket) return 'skipped';
+          if (!ticket) return this.previousTicketOutcome(org.id, id);
 
           try {
             await this.waitlistService.cancelForStoreClosed(
@@ -168,7 +182,8 @@ export class SpecialHoursService {
               id,
             );
           } catch (error) {
-            if (codeOf(error) === 'waitlistTransitionInvalid') return 'skipped';
+            if (codeOf(error) === 'waitlistTransitionInvalid')
+              return this.previousTicketOutcome(org.id, id);
             throw error;
           }
 
@@ -203,43 +218,117 @@ export class SpecialHoursService {
     }
     if (manualRefundOrders.length) return 'manualRefundRequired';
 
-    const [found] = refundOrders;
-    if (!found?.pickupTime) return 'skipped';
+    if (!refundOrders.length) return this.previousOrderOutcome(org.id, id);
 
-    const refunded = await this.refundService.refundOrder(
-      organizationSlug,
-      id,
-      { reasonCode: 'storeClosed' },
-      operatorId,
-    );
+    try {
+      const { status } = await this.refundService.refundOrder(
+        organizationSlug,
+        id,
+        { reasonCode: 'storeClosed' },
+        operatorId,
+      );
 
-    const recipient = await this.db.query.order.findFirst({
-      where: eq(order.id, id),
-      columns: { customer: true },
-      with: { user: { columns: { lang: true } } },
+      return status === 'settled' ? 'refunded' : 'refundPending';
+    } catch (error) {
+      if (codeOf(error) === 'resultUnknown') return 'refundPending';
+      throw error;
+    }
+  }
+
+  private async previousOrderOutcome(
+    organizationId: string,
+    orderId: string,
+  ): Promise<SpecialHoursProcessStatus> {
+    const [previous] = await this.db
+      .select({ status: refund.status })
+      .from(refund)
+      .innerJoin(order, eq(order.id, refund.orderId))
+      .where(
+        and(
+          eq(refund.orderId, orderId),
+          eq(order.sellerId, organizationId),
+          eq(refund.reasonCode, 'storeClosed'),
+        ),
+      )
+      .orderBy(desc(refund.createdAt))
+      .limit(1);
+    if (!previous) return 'skipped';
+
+    return previous.status === 'settled' ? 'refunded' : 'refundPending';
+  }
+
+  private async previousTicketOutcome(
+    organizationId: string,
+    ticketId: string,
+  ): Promise<SpecialHoursProcessStatus> {
+    const cancelled = await this.db.query.waitlistTicket.findFirst({
+      where: and(
+        eq(waitlistTicket.id, ticketId),
+        eq(waitlistTicket.organizationId, organizationId),
+        eq(waitlistTicket.status, 'cancelled'),
+        eq(waitlistTicket.cancelReason, 'storeClosed'),
+      ),
+      columns: { id: true },
     });
-    if (recipient?.customer.email) {
-      const dates = [
-        found.pickupTime,
-        new Date(found.pickupTime.getTime() - DAY_MS),
-      ];
+
+    return cancelled ? 'cancelled' : 'skipped';
+  }
+
+  @OnEvent(REFUND_SETTLED_EVENT, { async: true })
+  async onRefundSettled({
+    reasonCode,
+    refundId,
+  }: RefundSettledEvent): Promise<void> {
+    if (reasonCode !== 'storeClosed') return;
+
+    try {
+      const settled = await this.db.query.refund.findFirst({
+        where: eq(refund.id, refundId),
+        columns: { amount: true },
+        with: {
+          order: {
+            columns: {
+              customer: true,
+              orderNumber: true,
+              pickupTime: true,
+              sellerId: true,
+            },
+            with: {
+              seller: { columns: { name: true } },
+              user: { columns: { lang: true } },
+            },
+          },
+        },
+      });
+      const email = settled?.order.customer.email;
+      if (!email || !settled.order.pickupTime) return;
+
+      const { orderNumber, pickupTime, seller, sellerId, user } = settled.order;
+      const dates = [pickupTime, new Date(pickupTime.getTime() - DAY_MS)];
+      const specialHours = await findSpecialHours(
+        this.db,
+        sellerId,
+        dates[1],
+        dates[0],
+      );
+
       await this.mailsService.sendOrderStoreClosed({
-        amount: refunded.amount,
-        email: recipient.customer.email,
-        lang: recipient.user?.lang ?? null,
+        amount: settled.amount,
+        email,
+        lang: user?.lang ?? null,
         note:
           dates
             .flatMap((date) =>
               specialHoursOn(specialHours, platformDateString(date)),
             )
             .find(({ note }) => note)?.note ?? null,
-        orderNumber: found.orderNumber,
-        organizationName: org.name,
-        pickupTime: found.pickupTime,
+        orderNumber,
+        organizationName: seller.name,
+        pickupTime,
       });
+    } catch (error) {
+      this.logger.error(`退款 ${refundId} 的門市公休通知寄送失敗`, error);
     }
-
-    return 'refunded';
   }
 
   private async settleFailure(
@@ -274,12 +363,7 @@ export class SpecialHoursService {
   private async findAffecting(organizationSlug: string) {
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, organizationSlug),
-      columns: {
-        id: true,
-        name: true,
-        openingHours: true,
-        pickupCutoffMinutes: true,
-      },
+      columns: { id: true, openingHours: true, pickupCutoffMinutes: true },
     });
     if (!org) throw organizationNotFoundError();
 
@@ -362,7 +446,7 @@ export class SpecialHoursService {
             .where(
               and(
                 eq(refund.orderId, order.id),
-                inArray(refund.status, ['pending', 'settling']),
+                inArray(refund.status, ['pending', 'refunded', 'settling']),
               ),
             ),
         ),

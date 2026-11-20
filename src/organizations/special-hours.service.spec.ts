@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
@@ -413,6 +414,13 @@ describe('SpecialHoursService', () => {
         permissions = all,
       ) => service.processAffected('biru', dto, permissions, 'staff', 'key');
 
+      const insertRefund = (orderId: string, status: string) =>
+        client.query(
+          `insert into refund (id, order_id, amount, scope, channel, status, reason_code)
+           values ($1, $1, 100, 'full', 'ecpay', $2, 'storeClosed')`,
+          [orderId, status],
+        );
+
       const statusOf = async (id: string) =>
         (
           await client.query<{ order_status: string }>(
@@ -437,8 +445,9 @@ describe('SpecialHoursService', () => {
               `update "order" set order_status = 'OrderReturned' where id = $1`,
               [id],
             );
+            await insertRefund(id, 'settled');
 
-            return { amount: '100.00' };
+            return { amount: '100.00', status: 'settled' };
           });
         sendOrderStoreClosed.mockReset();
         await client.exec(`
@@ -487,34 +496,74 @@ describe('SpecialHoursService', () => {
           ['unpaid'],
           'OrderCancelled',
         );
-        expect(sendOrderStoreClosed).toHaveBeenCalledExactlyOnceWith({
-          amount: '100.00',
-          email: 'amy@example.com',
-          lang: 'ja',
-          note: '颱風停業',
-          orderNumber: 'card',
-          organizationName: 'Biru',
-          pickupTime: new Date(at(2, '12:00')),
-        });
+        expect(sendOrderStoreClosed).not.toHaveBeenCalled();
         expect(await statusOf('twqr')).toBe('OrderProcessing');
       });
 
-      it('重送同一請求不重複退款、不重寄信', async () => {
+      it('重送已處理完的請求依目前狀態回報結果，不重複退款', async () => {
         await insertOrder('card', at(2, '12:00'));
-        await client.exec(
-          `update "order" set customer = '{"name":"Amy","email":"amy@example.com"}' where id = 'card'`,
+        await insertOrder('unknown', at(2, '13:00'));
+        await insertOrder(
+          'unpaid',
+          at(2, '14:00'),
+          'Credit',
+          'OrderPaymentDue',
+        );
+        refundOrder.mockImplementation(async (_slug: string, id: string) => {
+          if (id === 'unknown') {
+            await insertRefund(id, 'pending');
+            throw new ServiceUnavailableException({ code: 'resultUnknown' });
+          }
+          await client.query(
+            `update "order" set order_status = 'OrderReturned' where id = $1`,
+            [id],
+          );
+          await insertRefund(id, 'settled');
+
+          return { amount: '100.00', status: 'settled' };
+        });
+        await client.exec(`
+          insert into organization_special_hours (id, organization_id, valid_from, valid_through, opening_hours)
+          values ('today', 'biru', '${day(0)}', '${day(0)}', null);
+          insert into waitlist_ticket (id, organization_id, service_date, prefix, number, party_size, locale, status)
+          values ('waiting', 'biru', '${day(0)}', 'A', 1, 2, 'zh-TW', 'waiting');
+        `);
+        const dto = {
+          orderIds: ['card', 'unknown', 'unpaid'],
+          ticketIds: ['waiting'],
+        };
+
+        const first = await process(dto);
+        await expect(process(dto)).resolves.toEqual({
+          orders: [
+            { id: 'card', status: 'refunded' },
+            { id: 'unknown', status: 'refundPending' },
+            { id: 'unpaid', status: 'skipped' },
+          ],
+          waitlistTickets: [{ id: 'waiting', status: 'cancelled' }],
+        });
+
+        expect(first).toEqual({
+          orders: [
+            { id: 'card', status: 'refunded' },
+            { id: 'unknown', status: 'refundPending' },
+            { id: 'unpaid', status: 'cancelled' },
+          ],
+          waitlistTickets: [{ id: 'waiting', status: 'cancelled' }],
+        });
+        expect(refundOrder).toHaveBeenCalledTimes(2);
+      });
+
+      it('其他原因的退款不算這次公休已處理', async () => {
+        await insertOrder('card', at(2, '12:00'), 'Credit', 'OrderReturned');
+        await client.query(
+          `insert into refund (id, order_id, amount, scope, channel, status, reason_code)
+           values ('r', 'card', 100, 'full', 'ecpay', 'settled', 'wrongItem')`,
         );
 
-        await process({ orderIds: ['card'] });
         await expect(process({ orderIds: ['card'] })).resolves.toMatchObject({
           orders: [{ id: 'card', status: 'skipped' }],
         });
-
-        expect(refundOrder).toHaveBeenCalledOnce();
-        expect(sendOrderStoreClosed).toHaveBeenCalledOnce();
-        expect(sendOrderStoreClosed).toHaveBeenCalledWith(
-          expect.objectContaining({ lang: null }),
-        );
       });
 
       it('預覽後狀態已變或時段已改正的不處理', async () => {
@@ -546,7 +595,7 @@ describe('SpecialHoursService', () => {
         refundOrder.mockImplementationOnce(async () => {
           await client.exec(`delete from organization_special_hours`);
 
-          return { amount: '100.00' };
+          return { amount: '100.00', status: 'settled' };
         });
 
         await expect(
@@ -594,13 +643,49 @@ describe('SpecialHoursService', () => {
         });
       });
 
-      it('沒有 email 的訂單只退款不寄信', async () => {
-        await insertOrder('card', at(2, '12:00'));
+      describe('onRefundSettled', () => {
+        const settle = (
+          reasonCode: 'storeClosed' | 'wrongItem' = 'storeClosed',
+        ) =>
+          service.onRefundSettled({
+            orderId: 'card',
+            organizationId: 'biru',
+            reasonCode,
+            refundId: 'card',
+          });
 
-        await expect(process({ orderIds: ['card'] })).resolves.toMatchObject({
-          orders: [{ id: 'card', status: 'refunded' }],
+        beforeEach(async () => {
+          await insertOrder('card', at(2, '12:00'), 'Credit', 'OrderReturned');
+          await insertRefund('card', 'settled');
         });
-        expect(sendOrderStoreClosed).not.toHaveBeenCalled();
+
+        it('因公休退款完成時寄信給訂購人', async () => {
+          await client.exec(
+            `update "order" set customer = '{"name":"Amy","email":"amy@example.com"}', user_id = 'amy' where id = 'card'`,
+          );
+
+          await settle();
+
+          expect(sendOrderStoreClosed).toHaveBeenCalledExactlyOnceWith({
+            amount: '100.00',
+            email: 'amy@example.com',
+            lang: 'ja',
+            note: '颱風停業',
+            orderNumber: 'card',
+            organizationName: 'Biru',
+            pickupTime: new Date(at(2, '12:00')),
+          });
+        });
+
+        it('沒有 email 或不是因公休退款時不寄信', async () => {
+          await settle();
+          await client.exec(
+            `update "order" set customer = '{"name":"Amy","email":"amy@example.com"}' where id = 'card'`,
+          );
+          await settle('wrongItem');
+
+          expect(sendOrderStoreClosed).not.toHaveBeenCalled();
+        });
       });
 
       it('今天公休時取消仍在候位的號碼並記下公休原因，已不受影響的不動', async () => {

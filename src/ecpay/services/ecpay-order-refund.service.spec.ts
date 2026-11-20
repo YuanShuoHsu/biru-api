@@ -8,10 +8,12 @@ import type { I18nService } from 'nestjs-i18n';
 import { createPGlite } from '../../../test/pglite.js';
 import * as schema from '../../db/schema/index.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
+import { REFUND_SETTLED_EVENT } from '../../events/refund-settled.event.js';
 import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import { buildRefundPlan } from '../utils/refund-plan.js';
 
+import { EcpayResultUnknownError } from './ecpay-do-action.service.js';
 import { EcpayOrderRefundService } from './ecpay-order-refund.service.js';
 
 const ORG = 'org';
@@ -495,5 +497,116 @@ describe('EcpayOrderRefundService 折讓品項', () => {
     expect(plans.reduce((sum, plan) => sum + plan.amount, 0)).toBe(
       Number(order.total),
     );
+  });
+});
+
+describe('EcpayOrderRefundService 綠界退款完成時發出 refund.settled', () => {
+  let client: PGlite;
+  let service: EcpayOrderRefundService;
+  const settled = vi.fn();
+  const doActionRefund = vi.fn();
+  const queryCreditDetail = vi.fn();
+
+  beforeAll(async () => {
+    client = createPGlite();
+    const db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    const eventEmitter = new EventEmitter2();
+    eventEmitter.on(REFUND_SETTLED_EVENT, settled);
+    service = new EcpayOrderRefundService(
+      db as unknown as DrizzleDB,
+      { refund: doActionRefund } as never,
+      {} as never,
+      {} as never,
+      { isAvailable: true, queryCreditDetail } as never,
+      {} as never,
+      { inferItemDiscounts: vi.fn(), restore: vi.fn() } as never,
+      { restoreAll: vi.fn() } as never,
+      { enqueueRefund: vi.fn() } as never,
+      { revokeForOrder: vi.fn() } as never,
+      eventEmitter,
+      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
+      { refresh: vi.fn() } as never,
+    );
+    await client.query(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ($1, 'biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
+      [ORG],
+    );
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  beforeEach(async () => {
+    settled.mockReset();
+    doActionRefund.mockReset();
+    queryCreditDetail.mockReset();
+    await client.exec('truncate refund, order_item, "order" cascade');
+    await client.query(
+      `insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal, payment_date, order_status, merchant_trade_no, trade_no, authorization_no)
+       values ('card', '{"name":"客人"}', 'pickup', 'card', 'Credit', $1, 100, now(), 'OrderProcessing', 'm1', 't1', 'a1')`,
+      [ORG],
+    );
+    await client.query(
+      `insert into order_item (id, menu_item_id, menu_item_name, order_id, order_quantity, unit_price, discount)
+       values ('card-1', 'latte', '拿鐵', 'card', 1, 100, 0)`,
+    );
+  });
+
+  const refundCard = () =>
+    service.refundOrder('biru', 'card', { reasonCode: 'storeClosed' });
+
+  const expireAmbiguousWindow = () =>
+    client.exec(
+      `update refund set created_at = now() - interval '31 minutes', updated_at = now() - interval '31 minutes'`,
+    );
+
+  it('綠界回覆中斷的退款，待補正確認退刷後才發出一次，再補正也不重發', async () => {
+    doActionRefund.mockRejectedValue(
+      new EcpayResultUnknownError(new Error('timeout')),
+    );
+
+    await expect(refundCard()).rejects.toMatchObject({
+      response: { code: 'resultUnknown' },
+    });
+    expect(settled).not.toHaveBeenCalled();
+
+    await expireAmbiguousWindow();
+    queryCreditDetail.mockResolvedValue({
+      RtnValue: { amount: '100', clsamt: '0', status: '已關帳' },
+    });
+
+    await service.repairInterruptedRefunds();
+    await service.repairInterruptedRefunds();
+
+    expect(settled).toHaveBeenCalledExactlyOnceWith({
+      orderId: 'card',
+      organizationId: ORG,
+      reasonCode: 'storeClosed',
+      refundId: expect.any(String),
+    });
+    expect((await client.query(`select status from refund`)).rows).toEqual([
+      { status: 'settled' },
+    ]);
+  });
+
+  it('綠界拒絕或對帳確認未退刷的退款不發出', async () => {
+    doActionRefund.mockRejectedValueOnce(new Error('declined'));
+    await expect(refundCard()).rejects.toThrow();
+
+    doActionRefund.mockRejectedValueOnce(
+      new EcpayResultUnknownError(new Error('timeout')),
+    );
+    await expect(refundCard()).rejects.toThrow();
+    await expireAmbiguousWindow();
+    queryCreditDetail.mockResolvedValue({
+      RtnValue: { amount: '100', clsamt: '100', status: '已關帳' },
+    });
+
+    await service.repairInterruptedRefunds();
+
+    expect(settled).not.toHaveBeenCalled();
+    expect((await client.query(`select id from refund`)).rows).toEqual([]);
   });
 });
