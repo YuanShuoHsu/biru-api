@@ -8,7 +8,7 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
@@ -44,6 +44,7 @@ import {
 } from './dto/create-attendance-shifts.dto.js';
 
 @ApiTags('attendance')
+@ApiParam({ name: 'organizationSlug', type: String })
 @Controller('organizations/:organizationSlug/attendance')
 export class AttendanceShiftsController {
   constructor(

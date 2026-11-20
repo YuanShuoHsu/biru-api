@@ -1,5 +1,10 @@
 import { Body, Controller, Get, Param, Put, Query } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
@@ -15,6 +20,7 @@ import {
 } from './dto/checklist-run.dto.js';
 
 @ApiTags('checklists')
+@ApiParam({ name: 'organizationSlug', type: String })
 @Controller('organizations/:organizationSlug/checklists')
 export class ChecklistRunsController {
   constructor(private readonly runsService: ChecklistRunsService) {}
