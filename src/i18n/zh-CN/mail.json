@@ -165,7 +165,7 @@
   "order_store_closed": {
     "subject": "{organizationName}：订单 {orderNumber} 已取消并退款",
     "title": "订单已取消并退款",
-    "intro": "{organizationName} 在您预约的取餐时间 {pickupTime} 不营业，订单 {orderNumber} 已取消，并已全额退款 {amount} 至原支付方式，造成不便，敬请谅解。",
+    "intro": "{organizationName} 在您预约的取餐时间 {pickupTime} 不营业，订单 {orderNumber} 已取消，并已退款 {amount} 至原支付方式，造成不便，敬请谅解。",
     "note": "门店说明：{note}",
     "refund_hint": "退款到账时间以发卡银行处理为准。如需餐点，请重新下单。",
     "action": "重新下单",

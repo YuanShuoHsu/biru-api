@@ -719,7 +719,10 @@ describe('MailsService 語系', () => {
     await service.sendWaitlistNotification(ticket);
 
     expect(sent[0].subject).toBe('Biru：候位號碼 A001 已取消');
+    const paragraphs = (html: string) => html.match(/<p\b[^>]*>/g)?.length;
     expect(sent[0].html).toContain('門市說明：颱風停業');
     expect(sent[1].html).not.toContain('門市說明');
+    expect(sent[1].html).not.toMatch(/<p\b[^>]*>\s*<\/p>/);
+    expect(paragraphs(sent[1].html)).toBe(paragraphs(sent[0].html)! - 1);
   });
 });

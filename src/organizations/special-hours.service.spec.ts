@@ -28,6 +28,7 @@ const day = (offset: number) =>
 describe('SpecialHoursService', () => {
   let client: PGlite;
   let service: SpecialHoursService;
+  let waitlistService: WaitlistService;
   const applyTransitions = vi.fn();
   const refundOrder = vi.fn();
   const sendOrderStoreClosed = vi.fn();
@@ -41,7 +42,11 @@ describe('SpecialHoursService', () => {
       { sendOrderStoreClosed } as unknown as MailsService,
       { applyTransitions } as unknown as OrdersService,
       { refundOrder } as unknown as EcpayOrderRefundService,
-      new WaitlistService(db, new EventEmitter2(), {} as OrderQrService),
+      (waitlistService = new WaitlistService(
+        db,
+        new EventEmitter2(),
+        {} as OrderQrService,
+      )),
     );
   }, 60_000);
 
@@ -535,6 +540,26 @@ describe('SpecialHoursService', () => {
         expect(refundOrder).not.toHaveBeenCalled();
       });
 
+      it('批次中途改正時段後，剩下的訂單不再退款或寄信', async () => {
+        await insertOrder('first', at(2, '12:00'));
+        await insertOrder('second', at(2, '13:00'));
+        refundOrder.mockImplementationOnce(async () => {
+          await client.exec(`delete from organization_special_hours`);
+
+          return { amount: '100.00' };
+        });
+
+        await expect(
+          process({ orderIds: ['first', 'second'] }),
+        ).resolves.toMatchObject({
+          orders: [
+            { id: 'first', status: 'refunded' },
+            { id: 'second', status: 'skipped' },
+          ],
+        });
+        expect(refundOrder).toHaveBeenCalledOnce();
+      });
+
       it('綠界退款失敗的維持原狀留在清單，不寄信也不中斷其他筆', async () => {
         await insertOrder('declined', at(2, '12:00'));
         await insertOrder(
@@ -603,6 +628,23 @@ describe('SpecialHoursService', () => {
           { id: 'seated', status: 'seated', cancel_reason: null },
           { id: 'waiting', status: 'cancelled', cancel_reason: 'storeClosed' },
         ]);
+      });
+
+      it('確認後才被帶位的號碼視為已不受影響', async () => {
+        await client.exec(`
+          insert into organization_special_hours (id, organization_id, valid_from, valid_through, opening_hours)
+          values ('today', 'biru', '${day(0)}', '${day(0)}', null);
+          insert into waitlist_ticket (id, organization_id, service_date, prefix, number, party_size, locale, status)
+          values ('waiting', 'biru', '${day(0)}', 'A', 1, 2, 'zh-TW', 'waiting');
+        `);
+        vi.spyOn(waitlistService, 'cancelForStoreClosed').mockRejectedValueOnce(
+          new BadRequestException({ code: 'waitlistTransitionInvalid' }),
+        );
+
+        await expect(process({ ticketIds: ['waiting'] })).resolves.toEqual({
+          orders: [],
+          waitlistTickets: [{ id: 'waiting', status: 'skipped' }],
+        });
       });
 
       it('沒有該類別的更新權限時拒絕，不處理任何一筆', async () => {

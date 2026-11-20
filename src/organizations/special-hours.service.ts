@@ -69,6 +69,16 @@ type AffectingOrganization = {
   pickupCutoffMinutes: number;
 };
 
+const codeOf = (error: unknown): string | undefined => {
+  if (!(error instanceof HttpException)) return undefined;
+
+  const response = error.getResponse();
+  const code =
+    typeof response === 'object' && (response as { code?: unknown }).code;
+
+  return typeof code === 'string' ? code : undefined;
+};
+
 type SpecialHoursRows = Awaited<ReturnType<typeof findSpecialHours>>;
 
 @Injectable()
@@ -126,7 +136,7 @@ export class SpecialHoursService {
     if ((orderIds.length && !orders) || (ticketIds.length && !waitlist))
       throw accessForbiddenError();
 
-    const { org, specialHours } = await this.findAffecting(organizationSlug);
+    const { org } = await this.findAffecting(organizationSlug);
     const result: SpecialHoursProcessResponseDto = {
       orders: [],
       waitlistTickets: [],
@@ -135,19 +145,15 @@ export class SpecialHoursService {
     for (const id of orderIds)
       result.orders.push(
         await this.settleFailure(id, () =>
-          this.processOrder(
-            organizationSlug,
-            org,
-            specialHours,
-            id,
-            operatorId,
-          ),
+          this.processOrder(organizationSlug, id, operatorId),
         ),
       );
 
     for (const id of ticketIds)
       result.waitlistTickets.push(
         await this.settleFailure(id, async () => {
+          const { org, specialHours } =
+            await this.findAffecting(organizationSlug);
           const [ticket] = await this.findAffectedTickets(
             org,
             specialHours,
@@ -156,7 +162,15 @@ export class SpecialHoursService {
           );
           if (!ticket) return 'skipped';
 
-          await this.waitlistService.cancelForStoreClosed(organizationSlug, id);
+          try {
+            await this.waitlistService.cancelForStoreClosed(
+              organizationSlug,
+              id,
+            );
+          } catch (error) {
+            if (codeOf(error) === 'waitlistTransitionInvalid') return 'skipped';
+            throw error;
+          }
 
           return 'cancelled';
         }),
@@ -171,11 +185,10 @@ export class SpecialHoursService {
 
   private async processOrder(
     organizationSlug: string,
-    org: AffectingOrganization,
-    specialHours: SpecialHoursRows,
     id: string,
     operatorId: string | undefined,
   ): Promise<SpecialHoursProcessStatus> {
+    const { org, specialHours } = await this.findAffecting(organizationSlug);
     const { manualRefundOrders, refundOrders, unpaidOrders } =
       await this.findAffectedOrders(org, specialHours, new Date(), id);
 
@@ -243,15 +256,16 @@ export class SpecialHoursService {
       }
 
       const response = error.getResponse();
-      const { code, message } =
+      const { message } =
         typeof response === 'object'
-          ? (response as { code?: unknown; message?: unknown })
-          : { code: undefined, message: response };
+          ? (response as { message?: unknown })
+          : { message: response };
+      const code = codeOf(error);
 
       return {
         id,
         status: 'failed',
-        ...(typeof code === 'string' && { code }),
+        ...(code && { code }),
         ...(typeof message === 'string' && { message }),
       };
     }

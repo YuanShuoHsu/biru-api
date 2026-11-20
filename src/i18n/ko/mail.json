@@ -165,7 +165,7 @@
   "order_store_closed": {
     "subject": "{organizationName}: 주문 {orderNumber}이(가) 취소 및 환불되었습니다",
     "title": "주문이 취소 및 환불되었습니다",
-    "intro": "{organizationName}은(는) 예약하신 픽업 시간 {pickupTime}에 영업하지 않아 주문 {orderNumber}이(가) 취소되었으며, {amount}이(가) 원래 결제 수단으로 전액 환불되었습니다. 불편을 드려 죄송합니다.",
+    "intro": "{organizationName}은(는) 예약하신 픽업 시간 {pickupTime}에 영업하지 않아 주문 {orderNumber}이(가) 취소되었으며, {amount}이(가) 원래 결제 수단으로 환불되었습니다. 불편을 드려 죄송합니다.",
     "note": "매장 안내: {note}",
     "refund_hint": "환불 반영 시점은 카드 발급사에 따라 다릅니다. 계속 주문을 원하시면 다시 주문해 주세요.",
     "action": "다시 주문하기",

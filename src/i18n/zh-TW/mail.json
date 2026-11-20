@@ -165,7 +165,7 @@
   "order_store_closed": {
     "subject": "{organizationName}：訂單 {orderNumber} 已取消並退款",
     "title": "訂單已取消並退款",
-    "intro": "{organizationName} 於您預約的取餐時間 {pickupTime} 不營業，訂單 {orderNumber} 已取消，並已全額退款 {amount} 至原付款方式，造成不便，敬請見諒。",
+    "intro": "{organizationName} 於您預約的取餐時間 {pickupTime} 不營業，訂單 {orderNumber} 已取消，並已退款 {amount} 至原付款方式，造成不便，敬請見諒。",
     "note": "門市說明：{note}",
     "refund_hint": "退款入帳時間依發卡銀行作業而定。如需餐點，請重新下單。",
     "action": "重新下單",
