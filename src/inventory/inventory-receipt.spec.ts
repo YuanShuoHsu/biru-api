@@ -188,6 +188,30 @@ describe('進貨點收', () => {
     expect(await receiptCount()).toBe(0);
   });
 
+  it('自製的食材要用製作批次入庫，不能點收進貨', async () => {
+    await client.exec(
+      `insert into recipe (id, organization_id, name, recipe_yield_quantity, recipe_yield_unit_code) values ('syrup-recipe', '${ORG}', '{"zh-TW":"syrup"}', 1000, 'MLT');
+       insert into ingredient (id, organization_id, name, unit_code, recipe_id) values ('syrup', '${ORG}', '{"zh-TW":"syrup"}', 'MLT', 'syrup-recipe');`,
+    );
+
+    expect(
+      await codeOf(
+        service.receive(
+          ORG,
+          {
+            items: [
+              { ingredientId: 'milk', packages: '1' },
+              { ingredientId: 'syrup', quantity: '500' },
+            ],
+          },
+          null,
+        ),
+      ),
+    ).toBe('receiptSourcedIngredient');
+    expect(await levels()).toEqual({ ice: 0, milk: 100, syrup: 0 });
+    expect(await receiptCount()).toBe(0);
+  });
+
   it('其他門市的供應商視為不存在', async () => {
     expect(
       await codeOf(

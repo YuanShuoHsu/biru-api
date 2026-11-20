@@ -212,6 +212,7 @@
     "purchaseFieldsOnSourcedIngredient": "由来源食谱制成的食材不能设定包装价格、内容量或供应商",
     "receiptPackageMissing": "这项食材没有设置包装规格，请直接填写数量",
     "receiptQuantityRequired": "每一项请填写包装数或数量其中之一",
+    "receiptSourcedIngredient": "这项食材由来源食谱制成，请用制作批次入库，不能点收进货",
     "recipeInUseAsSource": "以下自制食材仍以这份食谱为来源食谱：{names}。请先在这些食材取消来源食谱",
     "recipeIngredientExists": "这项材料已经加入过了",
     "recipeIngredientNotFound": "找不到这项食谱材料，可能已被移除",
