@@ -16,6 +16,7 @@ import {
   notExists,
   or,
   sql,
+  type SQL,
 } from 'drizzle-orm';
 import { I18nContext } from 'nestjs-i18n';
 
@@ -500,7 +501,7 @@ export class SharedCartsService {
   }
 
   private anonymizeSignedOut(
-    deviceKey: string,
+    participants: SQL,
     member: SharedCartUser | null,
     db: DrizzleDB | Tx = this.db,
   ) {
@@ -521,7 +522,7 @@ export class SharedCartsService {
       })
       .where(
         and(
-          eq(sharedCartParticipant.deviceKey, deviceKey),
+          participants,
           eq(sharedCartParticipant.memberProfile, true),
           notExists(
             db
@@ -709,7 +710,10 @@ export class SharedCartsService {
     deviceKey: string,
     member: SharedCartUser | null,
   ): Promise<SharedCartResult> {
-    await this.anonymizeSignedOut(deviceKey, member);
+    await this.anonymizeSignedOut(
+      eq(sharedCartParticipant.deviceKey, deviceKey),
+      member,
+    );
     const { active, pending } = await deviceOf(this.db, org.id, deviceKey);
     const mine = active ?? pending;
     if (!mine) throw notFoundError('sharedCartNotFound');
@@ -993,11 +997,15 @@ export class SharedCartsService {
       organizationSlug,
       member,
       cookies,
-      async (tx, { participantId }, _org, deviceKey) => {
+      async (tx, { participantId }) => {
         if (avatar === 'member' && !member)
           throw badRequestError('sharedCartMemberAvatarSignInRequired');
 
-        await this.anonymizeSignedOut(deviceKey, member, tx);
+        await this.anonymizeSignedOut(
+          eq(sharedCartParticipant.id, participantId),
+          member,
+          tx,
+        );
         if (avatar === undefined && nickname === undefined) return false;
         await tx
           .update(sharedCartParticipant)
@@ -1127,12 +1135,7 @@ export class SharedCartsService {
     organizationSlug: string,
     member: SharedCartUser | null,
     cookies: SharedCartCookies,
-    change: (
-      tx: Tx,
-      active: DeviceRow,
-      org: Org,
-      deviceKey: string,
-    ) => Promise<boolean | void>,
+    change: (tx: Tx, active: DeviceRow, org: Org) => Promise<boolean | void>,
     items?: CreateOrderItemDto[],
   ) {
     const org = await this.getOrg(organizationSlug);
@@ -1151,7 +1154,7 @@ export class SharedCartsService {
       const holder = liveCheckout(locked[0])?.participantId;
       if (holder && holder !== active.participantId)
         throw conflictError('sharedCartCheckoutLocked');
-      return change(tx, active, org, deviceKey);
+      return change(tx, active, org);
     });
     if (changed !== false) this.emitUpdated(active.sharedCartId);
 
