@@ -432,9 +432,11 @@
     "csv": {
       "actualConsumption": "실제 소모량",
       "adjusted": "조정",
+      "balance": "변동 후 재고",
       "category": "카테고리",
       "closing": "기말 재고",
       "consumed": "소모",
+      "createdAt": "생성 일시",
       "day": "날짜",
       "discount": "할인",
       "employerInsurance": "고용주 부담 보험료",
@@ -451,11 +453,15 @@
       "mode": "주문 방식",
       "net": "순매출",
       "noJobTitle": "직책 미설정",
+      "note": "비고",
       "opening": "기초 재고",
+      "orderNumber": "주문 번호",
       "orders": "주문 수",
       "paymentMethod": "결제 수단",
       "personnelCost": "인건비",
       "quantity": "수량",
+      "quantityChange": "변동량",
+      "reason": "사유",
       "received": "입고",
       "refunded": "환불",
       "refundedQuantity": "환불 수량",
@@ -466,9 +472,18 @@
       "total": "합계",
       "uncategorized": "미분류",
       "unit": "단위",
+      "unitCost": "단위 원가",
       "variance": "차이",
       "wasted": "폐기",
-      "wastedCost": "폐기 비용"
+      "wastedCost": "폐기 비용",
+      "wasteReason": "폐기 사유"
+    },
+    "inventoryTransactionReasons": {
+      "batch": "배치 생산",
+      "consume": "주문 소비",
+      "count": "재고 실사",
+      "restore": "주문 환불",
+      "waste": "폐기"
     },
     "paymentMethods": {
       "ApplePay": "Apple Pay",
@@ -487,6 +502,13 @@
       "KGM": "킬로그램",
       "LTR": "리터",
       "MLT": "밀리리터"
+    },
+    "wasteReasons": {
+      "damaged": "파손",
+      "expired": "유통기한 경과",
+      "madeWrong": "잘못 만듦",
+      "other": "기타",
+      "spilled": "쏟음"
     }
   },
   "sharedCarts": {

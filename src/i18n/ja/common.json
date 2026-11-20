@@ -432,9 +432,11 @@
     "csv": {
       "actualConsumption": "実消費量",
       "adjusted": "調整",
+      "balance": "変動後在庫",
       "category": "カテゴリ",
       "closing": "期末在庫",
       "consumed": "消費",
+      "createdAt": "作成日時",
       "day": "日付",
       "discount": "割引",
       "employerInsurance": "雇用主負担保険料",
@@ -451,11 +453,15 @@
       "mode": "注文方法",
       "net": "純売上",
       "noJobTitle": "職種未設定",
+      "note": "備考",
       "opening": "期首在庫",
+      "orderNumber": "注文番号",
       "orders": "注文数",
       "paymentMethod": "支払方法",
       "personnelCost": "人件費",
       "quantity": "数量",
+      "quantityChange": "変動量",
+      "reason": "理由",
       "received": "入庫",
       "refunded": "返金",
       "refundedQuantity": "返金数量",
@@ -466,9 +472,18 @@
       "total": "合計",
       "uncategorized": "未分類",
       "unit": "単位",
+      "unitCost": "単位原価",
       "variance": "差異",
       "wasted": "廃棄",
-      "wastedCost": "廃棄コスト"
+      "wastedCost": "廃棄コスト",
+      "wasteReason": "廃棄理由"
+    },
+    "inventoryTransactionReasons": {
+      "batch": "仕込み",
+      "consume": "注文消費",
+      "count": "棚卸",
+      "restore": "返品戻し",
+      "waste": "廃棄"
     },
     "paymentMethods": {
       "ApplePay": "Apple Pay",
@@ -487,6 +502,13 @@
       "KGM": "キログラム",
       "LTR": "リットル",
       "MLT": "ミリリットル"
+    },
+    "wasteReasons": {
+      "damaged": "破損",
+      "expired": "期限切れ",
+      "madeWrong": "作り間違い",
+      "other": "その他",
+      "spilled": "こぼした"
     }
   },
   "sharedCarts": {
