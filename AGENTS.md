@@ -432,10 +432,13 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   `@SubscribeMessage` handler (guard, pipe or the handler itself) is emitted as an `exception` event
   `{ status: 'error', message, statusCode?, ...response fields such as code, cause: { pattern, data } }` (no HTTP
   `path` / `success` / `timestamp`; a `WsException` or `HttpException` built from an object is spread as is, so `message`
-  is only there if that object has one), translated like `AllExceptionsFilter` except that validation errors become
-  `common.exceptions.badRequest`, `accessToken` stripped from `cause.data`; the ack is never called. Throw a translated
-  `HttpException` / `WsException` to reject a message, never return `false`
-  — both filters answer text Postgres refuses to store (a NUL byte: pg `22021` / `22P05`, `isUnstorableText`) with
+  is only there if that object has one), translated like `AllExceptionsFilter`, `accessToken` stripped from
+  `cause.data`; the ack is never called. Throw a translated `HttpException` / `WsException` to reject a message, never
+  return `false`
+  — both filters answer every validation error (`I18nValidationException`) with 400 `common.exceptions.badRequest`, so
+  no class-validator message reaches the client; a reason the user must see is thrown by the service as a coded,
+  translated error
+  — both also answer text Postgres refuses to store (a NUL byte: pg `22021` / `22P05`, `isUnstorableText`) with
   400 `badRequest`, so values bound for Postgres need no NUL check of their own; text sent elsewhere (ECPay, mail)
   still does
 - Global guards (`AppModule`): `RolesGuard`, then `ThrottlerGuard`
