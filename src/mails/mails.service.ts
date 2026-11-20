@@ -437,7 +437,10 @@ export class MailsService {
     const baseUrl = this.configService.get<string>('NEXT_URL');
     const invitee = await this.db.query.user.findFirst({
       columns: { lang: true },
-      where: sql`lower(${user.email}) = lower(${email})`,
+      where: and(
+        sql`lower(${user.email}) = lower(${email})`,
+        eq(user.emailVerified, true),
+      ),
     });
     const lang = this.languageFor(invitee?.lang, request);
     const home_url = `${baseUrl}/${lang}`;
