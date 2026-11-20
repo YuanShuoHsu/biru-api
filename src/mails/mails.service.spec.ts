@@ -578,6 +578,8 @@ describe('MailsService 語系', () => {
     request: Request,
   ) => Promise<void>;
 
+  type AccountNotice = (request: Request) => Promise<void>;
+
   it.each<[string, string, AccountMail]>([
     [
       'sendVerificationEmail',
@@ -627,6 +629,44 @@ describe('MailsService 語系', () => {
       ]);
     },
   );
+
+  it.each<[string, string, Record<string, string>, AccountNotice]>([
+    [
+      'afterEmailVerification',
+      'after-email-verification',
+      { url: 'http://localhost:3000/ja' },
+      (req) => service.afterEmailVerification({ user }, req),
+    ],
+    [
+      'onExistingUserSignUp',
+      'on-existing-user-sign-up',
+      { sign_in_url: 'http://localhost:3000/ja/auth/sign-in' },
+      (req) => service.onExistingUserSignUp({ user }, req),
+    ],
+    [
+      'onPasswordReset',
+      'on-password-reset',
+      { sign_in_url: 'http://localhost:3000/ja/auth/sign-in' },
+      (req) => service.onPasswordReset({ user }, req),
+    ],
+  ])('%s 寄出 %s 與共用的帳號信內容', async (_, template, extra, send) => {
+    await send(request());
+
+    expect(vi.mocked(sendMail).mock.calls.at(-1)?.[0]).toMatchObject({
+      to: 'ann@example.com',
+      template,
+      context: {
+        browser_name: 'Unknown',
+        home_url: 'http://localhost:3000/ja',
+        i18nLang: 'ja',
+        name: 'Ann',
+        operating_system: 'Unknown',
+        productName: 'Biru Coffee',
+        support_url: 'mailto:support@example.com',
+        ...extra,
+      },
+    });
+  });
 
   it('better-auth 的連結無法解析時不寄信', async () => {
     const calls = vi.mocked(sendMail).mock.calls.length;

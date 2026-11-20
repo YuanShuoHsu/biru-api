@@ -114,6 +114,23 @@ type LowStockLine = {
   unitCode: UnitCode;
 };
 
+type AccountMailRecipient = Pick<User, 'email' | 'name'> &
+  Partial<Pick<User, 'lang'>>;
+
+const ACCOUNT_MAIL_SUBJECTS = {
+  'after-email-verification': 'mail.after_email_verification.subject',
+  'on-existing-user-sign-up': 'mail.on_existing_user_sign_up.subject',
+  'on-password-reset': 'mail.on_password_reset.subject',
+  'send-change-email-confirmation':
+    'mail.send_change_email_confirmation.subject',
+  'send-delete-account-verification':
+    'mail.send_delete_account_verification.subject',
+  'send-reset-password': 'mail.send_reset_password.subject',
+  'send-verification-email': 'mail.send_verification_email.subject',
+} as const;
+
+type AccountMailTemplate = keyof typeof ACCOUNT_MAIL_SUBJECTS;
+
 @Injectable()
 export class MailsService {
   private readonly logger = new Logger(MailsService.name);
@@ -154,6 +171,35 @@ export class MailsService {
   ): Promise<void> {
     await this.mailerService.sendMail(options).catch((error: unknown) => {
       throw new Error(sendFailure(options.template, options.to, error));
+    });
+  }
+
+  private async sendAccountMail(
+    template: AccountMailTemplate,
+    { email, name, lang: recipientLang }: AccountMailRecipient,
+    request: Request | undefined,
+    context: (home_url: string) => Record<string, string>,
+  ): Promise<void> {
+    const productName = PRODUCT_NAME;
+    const lang = this.languageFor(recipientLang, request);
+    const home_url = `${this.configService.get<string>('NEXT_URL')}/${lang}`;
+
+    await this.send({
+      to: email,
+      subject: this.i18n.t(ACCOUNT_MAIL_SUBJECTS[template], {
+        args: { productName },
+        lang,
+      }),
+      template,
+      context: {
+        ...deviceOf(request),
+        home_url,
+        i18nLang: lang,
+        name,
+        productName,
+        support_url: this.supportUrl,
+        ...context(home_url),
+      },
     });
   }
 
@@ -217,201 +263,90 @@ export class MailsService {
   }
 
   public async afterEmailVerification(
-    {
-      user: { email, name, lang: recipientLang },
-    }: {
-      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
-    },
+    { user }: { user: AccountMailRecipient },
     request?: Request,
   ): Promise<void> {
-    const productName = PRODUCT_NAME;
-
-    const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = this.languageFor(recipientLang, request);
-    const home_url = `${baseUrl}/${lang}`;
-    const support_url = this.supportUrl;
-
-    const { browser_name, operating_system } = deviceOf(request);
-
-    await this.send({
-      to: email,
-      subject: this.i18n.t('mail.after_email_verification.subject', {
-        args: { productName },
-        lang,
-      }),
-      template: 'after-email-verification',
-      context: {
-        browser_name,
-        home_url,
-        i18nLang: lang,
-        name,
-        operating_system,
-        productName,
-        support_url,
-        url: home_url,
-      },
-    });
+    await this.sendAccountMail(
+      'after-email-verification',
+      user,
+      request,
+      (home_url) => ({ url: home_url }),
+    );
   }
 
   public async onExistingUserSignUp(
-    {
-      user: { email, name, lang: recipientLang },
-    }: {
-      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
-    },
+    { user }: { user: AccountMailRecipient },
     request?: Request,
   ): Promise<void> {
-    const productName = PRODUCT_NAME;
-
-    const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = this.languageFor(recipientLang, request);
-    const home_url = `${baseUrl}/${lang}`;
-    const sign_in_url = `${baseUrl}/${lang}/auth/sign-in`;
-    const support_url = this.supportUrl;
-
-    const { browser_name, operating_system } = deviceOf(request);
-
-    await this.send({
-      to: email,
-      subject: this.i18n.t('mail.on_existing_user_sign_up.subject', {
-        args: { productName },
-        lang,
-      }),
-      template: 'on-existing-user-sign-up',
-      context: {
-        browser_name,
-        home_url,
-        i18nLang: lang,
-        name,
-        operating_system,
-        productName,
-        sign_in_url,
-        support_url,
-      },
-    });
+    await this.sendAccountMail(
+      'on-existing-user-sign-up',
+      user,
+      request,
+      (home_url) => ({ sign_in_url: `${home_url}/auth/sign-in` }),
+    );
   }
 
   public async onPasswordReset(
-    {
-      user: { email, name, lang: recipientLang },
-    }: {
-      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
-    },
+    { user }: { user: AccountMailRecipient },
     request?: Request,
   ): Promise<void> {
-    const productName = PRODUCT_NAME;
-
-    const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = this.languageFor(recipientLang, request);
-    const home_url = `${baseUrl}/${lang}`;
-    const sign_in_url = `${baseUrl}/${lang}/auth/sign-in`;
-    const support_url = this.supportUrl;
-
-    const { browser_name, operating_system } = deviceOf(request);
-
-    await this.send({
-      to: email,
-      subject: this.i18n.t('mail.on_password_reset.subject', {
-        args: { productName },
-        lang,
-      }),
-      template: 'on-password-reset',
-      context: {
-        browser_name,
-        home_url,
-        i18nLang: lang,
-        name,
-        operating_system,
-        productName,
-        sign_in_url,
-        support_url,
-      },
-    });
+    await this.sendAccountMail(
+      'on-password-reset',
+      user,
+      request,
+      (home_url) => ({ sign_in_url: `${home_url}/auth/sign-in` }),
+    );
   }
 
   public async sendChangeEmailConfirmation(
     {
-      user: { email, name, lang: recipientLang },
+      user,
       newEmail,
       url,
       token,
     }: {
-      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
+      user: AccountMailRecipient;
       newEmail: string;
       url: string;
       token: string;
     },
     request?: Request,
   ): Promise<void> {
-    const productName = PRODUCT_NAME;
-
-    const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = this.languageFor(recipientLang, request);
-    const home_url = `${baseUrl}/${lang}`;
-    const support_url = this.supportUrl;
-
-    const { browser_name, operating_system } = deviceOf(request);
-
-    await this.send({
-      to: email,
-      subject: this.i18n.t('mail.send_change_email_confirmation.subject', {
-        args: { productName },
-        lang,
-      }),
-      template: 'send-change-email-confirmation',
-      context: {
-        browser_name,
-        home_url,
-        i18nLang: lang,
-        name,
+    await this.sendAccountMail(
+      'send-change-email-confirmation',
+      user,
+      request,
+      (home_url) => ({
         newEmail,
-        operating_system,
-        productName,
-        support_url,
-        url: authPageUrl(home_url, 'verify-email', { email, token, url }),
-      },
-    });
+        url: authPageUrl(home_url, 'verify-email', {
+          email: user.email,
+          token,
+          url,
+        }),
+      }),
+    );
   }
 
   public async sendDeleteAccountVerification(
     {
-      user: { email, name, lang: recipientLang },
+      user,
       url,
       token,
-    }: {
-      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
-      url: string;
-      token: string;
-    },
+    }: { user: AccountMailRecipient; url: string; token: string },
     request?: Request,
   ): Promise<void> {
-    const productName = PRODUCT_NAME;
-
-    const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = this.languageFor(recipientLang, request);
-    const home_url = `${baseUrl}/${lang}`;
-    const support_url = this.supportUrl;
-
-    const { browser_name, operating_system } = deviceOf(request);
-
-    await this.send({
-      to: email,
-      subject: this.i18n.t('mail.send_delete_account_verification.subject', {
-        args: { productName },
-        lang,
+    await this.sendAccountMail(
+      'send-delete-account-verification',
+      user,
+      request,
+      (home_url) => ({
+        url: authPageUrl(home_url, 'delete-account', {
+          email: user.email,
+          token,
+          url,
+        }),
       }),
-      template: 'send-delete-account-verification',
-      context: {
-        browser_name,
-        home_url,
-        i18nLang: lang,
-        name,
-        operating_system,
-        productName,
-        support_url,
-        url: authPageUrl(home_url, 'delete-account', { email, token, url }),
-      },
-    });
+    );
   }
 
   public async sendInvitationEmail(
@@ -488,43 +423,24 @@ export class MailsService {
 
   public async sendResetPassword(
     {
-      user: { email, name, lang: recipientLang },
+      user,
       url,
       token,
-    }: {
-      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
-      url: string;
-      token: string;
-    },
+    }: { user: AccountMailRecipient; url: string; token: string },
     request?: Request,
   ): Promise<void> {
-    const productName = PRODUCT_NAME;
-
-    const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = this.languageFor(recipientLang, request);
-    const home_url = `${baseUrl}/${lang}`;
-    const support_url = this.supportUrl;
-
-    const { browser_name, operating_system } = deviceOf(request);
-
-    await this.send({
-      to: email,
-      subject: this.i18n.t('mail.send_reset_password.subject', {
-        args: { productName },
-        lang,
+    await this.sendAccountMail(
+      'send-reset-password',
+      user,
+      request,
+      (home_url) => ({
+        url: authPageUrl(home_url, 'reset-password', {
+          email: user.email,
+          token,
+          url,
+        }),
       }),
-      template: 'send-reset-password',
-      context: {
-        browser_name,
-        home_url,
-        i18nLang: lang,
-        name,
-        operating_system,
-        productName,
-        support_url,
-        url: authPageUrl(home_url, 'reset-password', { email, token, url }),
-      },
-    });
+    );
   }
 
   public async sendTestEmail(
@@ -559,43 +475,24 @@ export class MailsService {
 
   public async sendVerificationEmail(
     {
-      user: { email, name, lang: recipientLang },
+      user,
       url,
       token,
-    }: {
-      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
-      url: string;
-      token: string;
-    },
+    }: { user: AccountMailRecipient; url: string; token: string },
     request?: Request,
   ): Promise<void> {
-    const productName = PRODUCT_NAME;
-
-    const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = this.languageFor(recipientLang, request);
-    const home_url = `${baseUrl}/${lang}`;
-    const support_url = this.supportUrl;
-
-    const { browser_name, operating_system } = deviceOf(request);
-
-    await this.send({
-      to: email,
-      subject: this.i18n.t('mail.send_verification_email.subject', {
-        args: { productName },
-        lang,
+    await this.sendAccountMail(
+      'send-verification-email',
+      user,
+      request,
+      (home_url) => ({
+        url: authPageUrl(home_url, 'verify-email', {
+          email: user.email,
+          token,
+          url,
+        }),
       }),
-      template: 'send-verification-email',
-      context: {
-        browser_name,
-        home_url,
-        i18nLang: lang,
-        name,
-        operating_system,
-        productName,
-        support_url,
-        url: authPageUrl(home_url, 'verify-email', { email, token, url }),
-      },
-    });
+    );
   }
 
   public async sendAttendanceNotification({
