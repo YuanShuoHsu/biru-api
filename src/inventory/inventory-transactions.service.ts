@@ -762,6 +762,7 @@ export class InventoryTransactionsService {
           id: ingredient.id,
           eligibleQuantity: ingredient.eligibleQuantity,
           eligibleQuantityUnitCode: ingredient.eligibleQuantityUnitCode,
+          recipeId: ingredient.recipeId,
           unitPrice: unitPriceSql,
         })
         .from(ingredient)
@@ -778,6 +779,7 @@ export class InventoryTransactionsService {
       const entries = items.map(({ ingredientId, packages, quantity }) => {
         const spec = specs.find(({ id }) => id === ingredientId);
         if (!spec) throw notFoundError('ingredientNotFound');
+        if (spec.recipeId) throw badRequestError('receiptSourcedIngredient');
 
         const packageBaseQuantity = baseQuantityOf(spec);
         if (packages != null && !packageBaseQuantity)

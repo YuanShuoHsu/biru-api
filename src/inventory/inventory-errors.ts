@@ -19,6 +19,7 @@ export const inventoryErrorCodes = [
   'purchaseFieldsOnSourcedIngredient',
   'receiptPackageMissing',
   'receiptQuantityRequired',
+  'receiptSourcedIngredient',
   'recipeInUseAsSource',
   'recipeIngredientExists',
   'recipeIngredientNotFound',

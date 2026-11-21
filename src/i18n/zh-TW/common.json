@@ -212,6 +212,7 @@
     "purchaseFieldsOnSourcedIngredient": "由來源食譜製成的食材不能設定包裝價格、內容量或供應商",
     "receiptPackageMissing": "這項食材沒有設定包裝規格，請直接填寫數量",
     "receiptQuantityRequired": "每一項請填寫包裝數或數量其中之一",
+    "receiptSourcedIngredient": "這項食材由來源食譜製成，請用製作批次入庫，不能點收進貨",
     "recipeInUseAsSource": "以下自製食材仍以這份食譜為來源食譜：{names}。請先在這些食材取消來源食譜",
     "recipeIngredientExists": "這項材料已經加入過了",
     "recipeIngredientNotFound": "找不到這項食譜材料，可能已被移除",

@@ -267,6 +267,7 @@ export type I18nTranslations = {
             "purchaseFieldsOnSourcedIngredient": string;
             "receiptPackageMissing": string;
             "receiptQuantityRequired": string;
+            "receiptSourcedIngredient": string;
             "recipeInUseAsSource": string;
             "recipeIngredientExists": string;
             "recipeIngredientNotFound": string;

@@ -212,6 +212,7 @@
     "purchaseFieldsOnSourcedIngredient": "元レシピから作る食材には、包装の価格・内容量・仕入先を設定できません",
     "receiptPackageMissing": "この食材には包装規格が設定されていません。数量で入力してください",
     "receiptQuantityRequired": "各品目に包装数または数量のどちらか一方を入力してください",
+    "receiptSourcedIngredient": "この食材は元レシピから作るため入荷できません。仕込みとして記録してください",
     "recipeInUseAsSource": "次の自家製食材がまだこのレシピを元レシピにしています：{names}。先にこれらの食材から元レシピを外してください",
     "recipeIngredientExists": "この材料はすでに追加されています",
     "recipeIngredientNotFound": "レシピの材料が見つかりません。削除された可能性があります",

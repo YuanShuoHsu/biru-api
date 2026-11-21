@@ -212,6 +212,7 @@
     "purchaseFieldsOnSourcedIngredient": "An ingredient made from a source recipe can't have a package price, quantity or supplier",
     "receiptPackageMissing": "This ingredient has no package size set. Enter the quantity instead",
     "receiptQuantityRequired": "Enter either the number of packages or the quantity for each item",
+    "receiptSourcedIngredient": "This ingredient is made from a source recipe. Record it as a batch instead of receiving it",
     "recipeInUseAsSource": "These house-made ingredients still use this recipe as their source recipe: {names}. Unlink it from them first",
     "recipeIngredientExists": "This ingredient has already been added",
     "recipeIngredientNotFound": "This recipe ingredient wasn't found. It may have been removed",
