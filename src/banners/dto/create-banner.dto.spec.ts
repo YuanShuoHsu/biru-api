@@ -42,9 +42,12 @@ describe('CreateBannerDto', () => {
   });
 
   it.each([
+    '/',
     '/order',
-    '/zh-TW/waitlist/biru?from=banner',
+    '/waitlist/biru?from=banner',
+    '/english',
     'https://example.com/campaign',
+    'https://example.com/zh-TW/campaign',
     null,
   ])('accepts url %j', async (url) => {
     expect(await errorsOf({ url })).toEqual([]);
@@ -58,6 +61,11 @@ describe('CreateBannerDto', () => {
     'https://',
     'order',
     '/order page',
+    '/zh-TW/waitlist/biru?from=banner',
+    '/zh-tw/order',
+    '/en',
+    '/ja?from=banner',
+    '/ko#top',
   ])('rejects url %j', async (url) => {
     expect(await errorsOf({ url })).toEqual(['url']);
   });
