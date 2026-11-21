@@ -26,7 +26,12 @@ import {
 } from '../../common/decorators/is-localized-text.decorator.js';
 import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import { emptyLocalizedTextToNull } from '../../common/utils/localized-text.js';
-import type { LocalizedText } from '../../db/schema/enums.js';
+import { languagesEnum, type LocalizedText } from '../../db/schema/enums.js';
+
+const BANNER_URL_PATTERN = new RegExp(
+  `^(?:/(?![/\\\\]|(?:${languagesEnum.enumValues.join('|')})(?:[/?#]|$))|https://[^\\s\\\\/])[^\\s\\\\]*$`,
+  'i',
+);
 
 export class CreateBannerDto {
   @ApiProperty({ description: '圖片來源（data URL）' })
@@ -47,14 +52,14 @@ export class CreateBannerDto {
   alt?: LocalizedText | null;
 
   @ApiPropertyOptional({
-    description: '點擊後前往的站內路徑（/ 開頭）或 https 網址',
+    description: '點擊後前往的站內路徑（/ 開頭、不含語系前綴）或 https 網址',
     example: '/order',
     nullable: true,
   })
   @IsOptional()
   @IsString()
   @MaxLength(2048)
-  @Matches(/^(?:\/(?![/\\])|https:\/\/[^\s\\/])[^\s\\]*$/)
+  @Matches(BANNER_URL_PATTERN)
   url?: string | null;
 
   @ApiPropertyOptional()
