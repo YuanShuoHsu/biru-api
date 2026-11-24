@@ -35,7 +35,6 @@ const createService = ({
     groups: unknown[];
     cutoffMinutes?: number;
     holdMinutes?: number;
-    paused: boolean;
   };
   ticket?: Record<string, unknown>;
 }) => {
@@ -72,7 +71,7 @@ const createService = ({
 const dto = { name: '王小明', partySize: 2, phoneNumber: '+886912345678' };
 const groups = [{ maxPartySize: 4, minPartySize: 1, prefix: 'A' }];
 
-const openSetting = { enabled: true, groups, paused: false };
+const openSetting = { enabled: true, groups };
 
 describe('WaitlistService.createTicket', () => {
   let qrSession: string;
@@ -91,12 +90,11 @@ describe('WaitlistService.createTicket', () => {
   it.each([
     [
       'waitlistDisabled',
-      { enabled: false, groups, paused: false },
+      { enabled: false, groups },
       ALWAYS_OPEN,
     ],
-    ['waitlistPaused', { enabled: true, groups, paused: true }, ALWAYS_OPEN],
-    ['waitlistClosed', { enabled: true, groups, paused: false }, NEVER_OPEN],
-    ['waitlistCutoff', { enabled: true, groups, paused: false }, CLOSING_SOON],
+    ['waitlistClosed', { enabled: true, groups }, NEVER_OPEN],
+    ['waitlistCutoff', { enabled: true, groups }, CLOSING_SOON],
   ])(
     'rejects with %s before asking for a QR session',
     async (code, setting, openingHours) => {
@@ -111,7 +109,7 @@ describe('WaitlistService.createTicket', () => {
 
   it('rejects with waitlistClosed on a closed special day', async () => {
     const { db, service } = createService({
-      setting: { enabled: true, groups, paused: false },
+      setting: { enabled: true, groups },
       specialHours: [
         {
           openingHours: null,
@@ -132,7 +130,7 @@ describe('WaitlistService.createTicket', () => {
     async (cutoffMinutes) => {
       const { db, service } = createService({
         openingHours: CLOSING_SOON,
-        setting: { cutoffMinutes, enabled: true, groups, paused: false },
+        setting: { cutoffMinutes, enabled: true, groups },
       });
       db.transaction.mockRejectedValue(new Error('reached transaction'));
 
@@ -152,7 +150,7 @@ describe('WaitlistService.createTicket', () => {
 
   it('rejects a party size outside every group', async () => {
     const { service } = createService({
-      setting: { enabled: true, groups, paused: false },
+      setting: { enabled: true, groups },
     });
 
     await expect(
@@ -394,9 +392,8 @@ describe('WaitlistService.createTicket by staff', () => {
   });
 
   it.each([
-    ['paused', { enabled: true, groups, paused: true }, ALWAYS_OPEN],
-    ['closed', { enabled: true, groups, paused: false }, NEVER_OPEN],
-    ['cutoff', { enabled: true, groups, paused: false }, CLOSING_SOON],
+    ['closed', { enabled: true, groups }, NEVER_OPEN],
+    ['cutoff', { enabled: true, groups }, CLOSING_SOON],
   ])(
     'passes the %s check through to numbering',
     async (_, setting, openingHours) => {
@@ -422,7 +419,7 @@ describe('WaitlistService.createTicket by staff', () => {
 
   it('still rejects when the waitlist is disabled', async () => {
     const { service } = createService({
-      setting: { enabled: false, groups, paused: false },
+      setting: { enabled: false, groups },
     });
 
     await expect(
@@ -461,7 +458,7 @@ describe('WaitlistService.confirmTicket', () => {
   it('returns an already confirmed ticket without writing again', async () => {
     const confirmedAt = new Date('2026-10-06T12:01:00Z');
     const { db, service } = createService({
-      setting: { enabled: true, groups, holdMinutes: 15, paused: false },
+      setting: { enabled: true, groups, holdMinutes: 15 },
       ticket: {
         calledAt: new Date('2026-10-06T12:00:00Z'),
         confirmedAt,
@@ -535,7 +532,7 @@ describe('WaitlistService.transitionTicket', () => {
       update: () => ({ set }),
     };
     const { db, service } = createService({
-      setting: { enabled: true, groups, holdMinutes: 15, paused: false },
+      setting: { enabled: true, groups, holdMinutes: 15 },
       ticket,
     });
     db.transaction.mockImplementation((run: (t: typeof tx) => unknown) =>
@@ -707,7 +704,6 @@ describe('WaitlistService.getPublicStatusByOrganizationId', () => {
           { maxPartySize: 2, minPartySize: 1, prefix: 'A' },
           { maxPartySize: 4, minPartySize: 3, prefix: 'B' },
         ],
-        paused: false,
       },
     });
     Object.assign(db, {
@@ -737,7 +733,6 @@ describe('WaitlistService.getPublicStatusByOrganizationId', () => {
         { currentTicketNumber: 'A004', prefix: 'A', waitingCount: 2 },
         { currentTicketNumber: null, prefix: 'B', waitingCount: 0 },
       ],
-      paused: false,
     });
   });
 
@@ -749,7 +744,6 @@ describe('WaitlistService.getPublicStatusByOrganizationId', () => {
           { maxPartySize: 2, minPartySize: 1, prefix: 'A' },
           { maxPartySize: 4, minPartySize: 3, prefix: 'B' },
         ],
-        paused: false,
       },
     });
     const calledAt = (minute: number) =>
@@ -794,7 +788,7 @@ describe('WaitlistService.getPublicStatusByOrganizationId', () => {
       validThrough: '2026-10-06',
     };
     const { db, service } = createService({
-      setting: { enabled: true, groups: [], paused: false },
+      setting: { enabled: true, groups: [] },
       specialHours: [
         {
           id: 'yesterday',
@@ -831,7 +825,7 @@ describe('WaitlistService.getPublicStatusByOrganizationId', () => {
 describe('WaitlistService.getTicket', () => {
   it('combines the hold deadline, queue position and current number', async () => {
     const { db, service } = createService({
-      setting: { enabled: true, groups, holdMinutes: 10, paused: false },
+      setting: { enabled: true, groups, holdMinutes: 10 },
       ticket: {
         calledAt: new Date('2026-10-06T12:00:00Z'),
         confirmedAt: null,
@@ -1112,7 +1106,7 @@ describe('WaitlistService.updateSettings', () => {
       }),
     };
     const { db, service } = createService({
-      setting: { enabled: true, groups: stored, paused: false },
+      setting: { enabled: true, groups: stored },
     });
     db.transaction.mockImplementation((run: (t: typeof tx) => unknown) =>
       run(tx),

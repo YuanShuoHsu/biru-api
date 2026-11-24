@@ -29,7 +29,6 @@ export const waitlistSetting = pgTable('waitlist_setting', {
     .primaryKey()
     .references(() => organization.id, { onDelete: 'cascade' }),
   enabled: boolean('enabled').notNull().default(false),
-  paused: boolean('paused').notNull().default(false),
   holdMinutes: integer('hold_minutes').notNull().default(10),
   graceMinutes: integer('grace_minutes').notNull().default(10),
   cutoffMinutes: integer('cutoff_minutes').notNull().default(60),

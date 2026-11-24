@@ -57,7 +57,6 @@ import {
 } from './dto/waitlist-qr.dto.js';
 import { WaitlistTicketPaginationQueryDto } from './dto/waitlist-ticket-pagination-query.dto.js';
 import {
-  UpdateWaitlistPausedDto,
   UpdateWaitlistSettingsDto,
   WaitlistSettingsResponseDto,
 } from './dto/waitlist-settings.dto.js';
@@ -289,21 +288,6 @@ export class WaitlistController {
       ticketId,
       status,
     );
-  }
-
-  @Put('paused')
-  @Roles({ waitlist: ['update'] }, 'organizationSlug')
-  @Audit({
-    resource: 'organization',
-    idSource: { column: 'organizationId', organization: true },
-    via: { table: 'waitlistSetting', ownerColumn: 'organizationId' },
-  })
-  @ApiOperation({ summary: '暫停／恢復取號' })
-  updatePaused(
-    @Param('organizationSlug') organizationSlug: string,
-    @Body() { paused }: UpdateWaitlistPausedDto,
-  ): Promise<WaitlistSettingsResponseDto> {
-    return this.waitlistService.updatePaused(organizationSlug, paused);
   }
 
   @Get('settings')

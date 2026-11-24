@@ -17,7 +17,6 @@ export const waitlistErrorCodes = [
   'waitlistGroupsInvalid',
   'waitlistIdempotencyConflict',
   'waitlistPartySizeUnavailable',
-  'waitlistPaused',
   'waitlistPhoneInQueue',
   'waitlistQrRequired',
   'waitlistQrSessionNotFound',

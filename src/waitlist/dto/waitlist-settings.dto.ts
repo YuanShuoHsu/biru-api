@@ -50,12 +50,6 @@ export class UpdateWaitlistSettingsDto {
   holdMinutes: number;
 }
 
-export class UpdateWaitlistPausedDto {
-  @ApiProperty()
-  @IsBoolean()
-  paused: boolean;
-}
-
 export class WaitlistSettingsResponseDto {
   @ApiProperty({ description: '打烊前幾分鐘停止顧客自助取號' })
   cutoffMinutes: number;
@@ -66,5 +60,4 @@ export class WaitlistSettingsResponseDto {
   })
   graceMinutes: number;
   @ApiProperty({ description: '叫號後保留分鐘數' }) holdMinutes: number;
-  @ApiProperty() paused: boolean;
 }
