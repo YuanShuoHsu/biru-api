@@ -177,22 +177,33 @@ export class MenuPdfService {
         .map((family) => `${family}-${weight}`)
         .find((name) => this.font(name).glyphs.hasGlyphForCodePoint(codePoint));
     };
-    const { layout, draw: drawLines } = createTextLayout(doc, (text) => {
-      const pieces = Array.from(text, (char) => ({ char, font: fontOf(char) }));
-      const unsupported = pieces.filter(({ font }) => !font);
-      if (unsupported.length > 0)
-        throw badRequestError('menuPdfUnsupportedCharacter', {
-          text: [...new Set(unsupported.map(({ char }) => char))].join(' '),
-        });
+    const register = (font: string) => {
+      if (!registered.has(font)) {
+        doc.registerFont(font, this.font(font).file);
+        registered.add(font);
+      }
+      return font;
+    };
+    const { layout, draw: drawLines } = createTextLayout(
+      doc,
+      (text) => {
+        const pieces = Array.from(text, (char) => ({
+          char,
+          font: fontOf(char),
+        }));
+        const unsupported = pieces.filter(({ font }) => !font);
+        if (unsupported.length > 0)
+          throw badRequestError('menuPdfUnsupportedCharacter', {
+            text: [...new Set(unsupported.map(({ char }) => char))].join(' '),
+          });
 
-      return pieces.map(({ char, font = '' }) => {
-        if (!registered.has(font)) {
-          doc.registerFont(font, this.font(font).file);
-          registered.add(font);
-        }
-        return { char, font };
-      });
-    });
+        return pieces.map(({ char, font = '' }) => ({
+          char,
+          font: register(font),
+        }));
+      },
+      () => register(`${MENU_PDF_FONT_FAMILIES[lang]}-${weight}`),
+    );
 
     doc.fillColor(MILK_WHITE).rect(0, 0, pageWidth, pageHeight).fill();
 

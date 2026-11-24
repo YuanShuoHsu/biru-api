@@ -419,6 +419,24 @@ describe('MenuPdfService', () => {
       expect(words).toContain(name);
   });
 
+  it('draws CR LF and tabs as line breaks and spaces, and keeps a blank line', async () => {
+    const menu = menuOf([{ name: '飲品', items: 1 }]);
+    menu.sections[0].menuItems[0].description =
+      'Iced\tonly\r\nNo sugar\u0007\r\rAsk staff';
+    publicMenusService.findOrderMenu.mockResolvedValue(menu);
+    const { drawn, lines } = recordText();
+
+    await service.orderMenu('org-1', 'en');
+
+    const texts = lines(0);
+    const yOf = (text: string) =>
+      texts.find((line) => line.text === text)?.y ?? Number.NaN;
+    const lineHeight =
+      drawn.find(({ text }) => text === 'Iced only')!.bottom - yOf('Iced only');
+    expect(yOf('No sugar') - yOf('Iced only')).toBeCloseTo(lineHeight);
+    expect(yOf('Ask staff') - yOf('No sugar')).toBeCloseTo(lineHeight * 2);
+  });
+
   it('refuses text no font can draw and names only those characters', async () => {
     vi.spyOn(I18nContext, 'current').mockReturnValue({
       t: (key: string, { args }: { args: object }) =>

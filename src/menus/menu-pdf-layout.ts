@@ -8,8 +8,8 @@ type Run = { font: string; text: string; width: number };
 type Line = { runs: Run[]; width: number; height: number };
 
 const BREAKS_AROUND = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
-const NO_BREAK_BEFORE = /^[\u00a0、。，．：；！？）」』】〉》・ー…]/u;
-const NO_BREAK_AFTER = /[\u00a0（「『【〈《]$/u;
+const NO_BREAK_BEFORE = /^[\u00a0)\],、。，．：；！？）」』】〉》〕｝％・ー…]/u;
+const NO_BREAK_AFTER = /[\u00a0([（「『【〈《〔｛]$/u;
 
 const textOf = (pieces: GlyphPiece[]) =>
   pieces.map(({ char }) => char).join('');
@@ -40,9 +40,15 @@ const segmentsOf = (pieces: GlyphPiece[]) => {
   return segments;
 };
 
+const normalize = (text: string) =>
+  Array.from(text.replace(/\r\n?/g, '\n').replace(/\t/g, ' '))
+    .filter((char) => char === '\n' || (char.codePointAt(0) ?? 0) >= 0x20)
+    .join('');
+
 export const createTextLayout = (
   doc: PDFKit.PDFDocument,
   piecesOf: (text: string) => GlyphPiece[],
+  blankLineFont: () => string,
 ) => {
   // https://github.com/foliojs/pdfkit/blob/v0.21.0/docs/text.md#text-measurements
   const runsOf = (pieces: GlyphPiece[], characterSpacing: number): Run[] =>
@@ -101,10 +107,21 @@ export const createTextLayout = (
 
   const layout = (text: string, { width, characterSpacing }: TextStyle) => {
     const lines = text
-      .split('\n')
-      .flatMap((paragraph) =>
-        wrap(piecesOf(paragraph), width, characterSpacing),
-      );
+      ? normalize(text)
+          .split('\n')
+          .flatMap((paragraph) => {
+            const wrapped = wrap(piecesOf(paragraph), width, characterSpacing);
+            return wrapped.length > 0
+              ? wrapped
+              : [
+                  {
+                    runs: [],
+                    width: 0,
+                    height: doc.font(blankLineFont()).currentLineHeight(true),
+                  },
+                ];
+          })
+      : [];
     return {
       lines,
       height: lines.reduce((sum, line) => sum + line.height, 0),
