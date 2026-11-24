@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { join } from 'node:path';
 
 import { Inject, Injectable } from '@nestjs/common';
 
 import { eq } from 'drizzle-orm';
+import { create as createFont, type Font } from 'fontkit';
 import { I18nService } from 'nestjs-i18n';
 import PDFDocument from 'pdfkit';
 
@@ -23,12 +23,6 @@ import { PublicMenusService } from './menus-public.service.js';
 type Cmyk = [number, number, number, number];
 type Section = OrderMenuResponseDto['sections'][number];
 type PdfLabel = 'addOns' | 'allergens' | 'currency' | 'option' | 'separator';
-type Glyphs = { hasGlyphForCodePoint: (codePoint: number) => boolean };
-
-const require = createRequire(import.meta.url);
-const fontkit = createRequire(require.resolve('pdfkit'))('fontkit') as {
-  create: (buffer: Buffer) => Glyphs;
-};
 
 const FONT_DIR = join(process.cwd(), 'assets', 'fonts');
 const REGULAR = 'Regular';
@@ -83,7 +77,7 @@ const TRAPPED_FALSE = {
 
 @Injectable()
 export class MenuPdfService {
-  private readonly fonts = new Map<string, { file: Buffer; glyphs: Glyphs }>();
+  private readonly fonts = new Map<string, { file: Buffer; glyphs: Font }>();
 
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
@@ -109,7 +103,7 @@ export class MenuPdfService {
     if (cached) return cached;
 
     const file = readFileSync(join(FONT_DIR, `${name}.ttf`));
-    const font = { file, glyphs: fontkit.create(file) };
+    const font = { file, glyphs: createFont(file) as Font };
     this.fonts.set(name, font);
     return font;
   }

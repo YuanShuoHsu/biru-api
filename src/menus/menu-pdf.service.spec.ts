@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { inflateSync } from 'node:zlib';
 
 import type { HttpException } from '@nestjs/common';
+import { create as createFont, type Font } from 'fontkit';
 import { I18nContext, type I18nService } from 'nestjs-i18n';
 import PDFDocument from 'pdfkit';
 
@@ -37,15 +37,10 @@ const t = vi.fn(
 );
 const i18n = { t } as unknown as I18nService<I18nTranslations>;
 
-const require = createRequire(import.meta.url);
-const fontkit = createRequire(require.resolve('pdfkit'))('fontkit') as {
-  create: (buffer: Buffer) => {
-    hasGlyphForCodePoint: (codePoint: number) => boolean;
-  };
-};
 const fontsOf = (family: string) =>
-  ['Regular', 'Bold'].map((weight) =>
-    fontkit.create(readFileSync(`assets/fonts/${family}-${weight}.ttf`)),
+  ['Regular', 'Bold'].map(
+    (weight) =>
+      createFont(readFileSync(`assets/fonts/${family}-${weight}.ttf`)) as Font,
   );
 
 const menuOf = (sections: { name: string; items: number }[]) =>
