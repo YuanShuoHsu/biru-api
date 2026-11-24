@@ -1,0 +1,33 @@
+# https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule
+name: Keepalive
+
+on:
+  schedule:
+    - cron: '17 19 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  health:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - environment: production
+            variable: PRODUCTION_API_URL
+          - environment: stage
+            variable: STAGE_API_URL
+    name: health (${{ matrix.environment }})
+    steps:
+      - env:
+          API_URL: ${{ vars[matrix.variable] }}
+        run: |
+          if [ -z "$API_URL" ]; then
+            echo "::error::Actions variable ${{ matrix.variable }} is not set"
+            exit 1
+          fi
+          curl --fail --silent --show-error --max-time 120 \
+            --retry 5 --retry-delay 30 --retry-all-errors \
+            "${API_URL%/}/api/health"
