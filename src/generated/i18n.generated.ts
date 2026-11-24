@@ -320,6 +320,8 @@ export type I18nTranslations = {
             "menuItemModifierGroupNotFound": string;
             "menuItemNotFound": string;
             "menuNotFound": string;
+            "menuPdfTooLong": string;
+            "menuPdfUnsupportedCharacter": string;
             "menuSectionNotFound": string;
             "modifierGroupAttached": string;
             "modifierGroupNotFound": string;
@@ -328,6 +330,13 @@ export type I18nTranslations = {
             "parentSectionDescendant": string;
             "parentSectionNotFound": string;
             "parentSectionSelf": string;
+            "pdf": {
+                "addOns": string;
+                "allergens": string;
+                "currency": string;
+                "option": string;
+                "separator": string;
+            };
             "printerNotFound": string;
             "promoDateRangeInvalid": string;
             "selectionCountInvalid": string;

@@ -7,17 +7,24 @@ import {
   Patch,
   Post,
   Query,
+  StreamableFile,
   UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
+  ApiProduces,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 
+import { I18nLang } from 'nestjs-i18n';
+
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { IdsDto } from '../common/dto/ids.dto.js';
+import { toLanguage } from '../common/utils/language.js';
+import { languagesEnum } from '../db/schema/enums.js';
 import { withImageRefUrl, withImageUrl } from '../images/image-url.js';
 import { OrderTicketPrinterOptionDto } from '../orders/dto/order-ticket.dto.js';
 
@@ -74,6 +81,7 @@ import { UpdateModifierDto } from './dto/update-modifier.dto.js';
 import { UpdateOfferDto } from './dto/update-offer.dto.js';
 import { MenuEventsInterceptor } from './interceptors/menu-events.interceptor.js';
 import { notFoundError } from './menu-errors.js';
+import { MenuPdfService } from './menu-pdf.service.js';
 import { MenusService } from './menus.service.js';
 
 @ApiTags('menus')
@@ -81,7 +89,10 @@ import { MenusService } from './menus.service.js';
 @Controller()
 @UseInterceptors(MenuEventsInterceptor)
 export class MenusController {
-  constructor(private readonly menusService: MenusService) {}
+  constructor(
+    private readonly menuPdfService: MenuPdfService,
+    private readonly menusService: MenusService,
+  ) {}
 
   @Get('organizations/:organizationId/menus')
   @Roles({ menu: ['read'] }, 'organizationId')
@@ -92,6 +103,32 @@ export class MenusController {
     const menus = await this.menusService.menus(organizationId);
 
     return menus.map((row) => withImageRefUrl('menu', row));
+  }
+
+  @Get('organizations/:organizationId/order-menu/pdf')
+  @Roles({ menu: ['read'] }, 'organizationId')
+  @ApiOperation({ summary: '下載 A4 點餐菜單 PDF' })
+  @ApiQuery({
+    name: 'lang',
+    enum: languagesEnum.enumValues,
+    required: false,
+    description: '未帶或不支援時依 x-lang、Accept-Language',
+  })
+  @ApiProduces('application/pdf')
+  @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
+  async orderMenuPdf(
+    @Param('organizationId') organizationId: string,
+    @I18nLang() lang: string,
+  ): Promise<StreamableFile> {
+    const pdf = await this.menuPdfService.orderMenu(
+      organizationId,
+      toLanguage(lang),
+    );
+
+    return new StreamableFile(pdf, {
+      type: 'application/pdf',
+      disposition: 'inline; filename="menu.pdf"',
+    });
   }
 
   @Get('menus/:menuId')

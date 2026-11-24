@@ -265,6 +265,8 @@
     "menuItemModifierGroupNotFound": "This option group isn't attached to the item. It may have been removed",
     "menuItemNotFound": "The item wasn't found. It may have been deleted",
     "menuNotFound": "The menu wasn't found. It may have been deleted",
+    "menuPdfTooLong": "The menu doesn't fit on one A4 page. Remove some items, descriptions or options and try again",
+    "menuPdfUnsupportedCharacter": "These characters can't be printed in the menu PDF: {text}. Edit the text and try again",
     "menuSectionNotFound": "The section wasn't found. It may have been deleted",
     "modifierGroupAttached": "This option group is already attached to the item",
     "modifierGroupNotFound": "The option group wasn't found. It may have been deleted",
@@ -273,6 +275,13 @@
     "parentSectionDescendant": "A section can't be moved under its own subsection",
     "parentSectionNotFound": "The parent section wasn't found. It may have been deleted",
     "parentSectionSelf": "A section can't be its own parent",
+    "pdf": {
+      "addOns": "Add-ons",
+      "allergens": "Ask our staff about allergens",
+      "currency": "Prices in {currency}",
+      "option": "{name}: {values}",
+      "separator": ", "
+    },
     "printerNotFound": "The printer wasn't found. It may have been removed",
     "promoDateRangeInvalid": "The sale can't end before it starts",
     "selectionCountInvalid": "Maximum selections can't be less than minimum selections"
