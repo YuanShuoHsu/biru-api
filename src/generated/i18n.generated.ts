@@ -31,6 +31,7 @@ export type I18nTranslations = {
         "PASSWORD_TOO_LONG": string;
         "PHONE_NUMBER_ALREADY_EXISTS": string;
         "PLATFORM_ADMIN_MEMBER_PROTECTED": string;
+        "SESSION_EXPIRED": string;
         "TEAM_NOT_FOUND": string;
         "TOKEN_EXPIRED": string;
         "UNAUTHORIZED": string;
