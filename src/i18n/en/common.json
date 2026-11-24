@@ -265,7 +265,6 @@
     "menuItemModifierGroupNotFound": "This option group isn't attached to the item. It may have been removed",
     "menuItemNotFound": "The item wasn't found. It may have been deleted",
     "menuNotFound": "The menu wasn't found. It may have been deleted",
-    "menuPdfLanguageUnsupported": "The PDF menu is only available in Traditional Chinese and English. Switch the language and try again",
     "menuPdfTooLong": "The menu doesn't fit on one A4 page. Remove some items, descriptions or options and try again",
     "menuSectionNotFound": "The section wasn't found. It may have been deleted",
     "modifierGroupAttached": "This option group is already attached to the item",

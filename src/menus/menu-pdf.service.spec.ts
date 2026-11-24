@@ -9,7 +9,9 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import type { OrderMenuResponseDto } from './dto/order-menu-response.dto.js';
-import { MENU_PDF_LANGUAGES, MenuPdfService } from './menu-pdf.service.js';
+import { languagesEnum } from '../db/schema/enums.js';
+
+import { MENU_PDF_FONT_FAMILIES, MenuPdfService } from './menu-pdf.service.js';
 import type { PublicMenusService } from './menus-public.service.js';
 
 const translationsOf = (lang: string) =>
@@ -41,9 +43,10 @@ const fontkit = createRequire(require.resolve('pdfkit'))('fontkit') as {
     hasGlyphForCodePoint: (codePoint: number) => boolean;
   };
 };
-const fonts = ['NotoSansTC-Regular', 'NotoSansTC-Bold'].map((name) =>
-  fontkit.create(readFileSync(`assets/fonts/${name}.ttf`)),
-);
+const fontsOf = (family: string) =>
+  ['Regular', 'Bold'].map((weight) =>
+    fontkit.create(readFileSync(`assets/fonts/${family}-${weight}.ttf`)),
+  );
 
 const menuOf = (sections: { name: string; items: number }[]) =>
   ({
@@ -154,18 +157,17 @@ describe('MenuPdfService', () => {
     ]);
   });
 
-  it.each(['ja', 'ko', 'zh-CN'] as const)(
-    'refuses %s, whose glyphs the font lacks',
+  it.each(languagesEnum.enumValues)(
+    'embeds the font of a %s menu',
     async (lang) => {
-      const error: unknown = await service
-        .orderMenu('org-1', lang)
-        .catch((caught: unknown) => caught);
+      publicMenusService.findOrderMenu.mockResolvedValue(
+        menuOf([{ name: '飲品', items: 1 }]),
+      );
 
-      expect(responseOf(error)).toEqual([
-        400,
-        expect.objectContaining({ code: 'menuPdfLanguageUnsupported' }),
-      ]);
-      expect(publicMenusService.findOrderMenu).not.toHaveBeenCalled();
+      const raw = (await service.orderMenu('org-1', lang)).toString('latin1');
+
+      expect(raw).toContain(`+${MENU_PDF_FONT_FAMILIES[lang]}-Regular`);
+      expect(raw).toContain(`+${MENU_PDF_FONT_FAMILIES[lang]}-Bold`);
     },
   );
 
@@ -209,8 +211,8 @@ describe('MenuPdfService', () => {
     });
   });
 
-  it.each(MENU_PDF_LANGUAGES)(
-    'has glyphs in both fonts for every %s label',
+  it.each(languagesEnum.enumValues)(
+    'has glyphs in both weights of its font for every %s label',
     (lang) => {
       const labels = Object.values(
         (translationsOf(lang).menus as { pdf: Record<string, string> }).pdf,
@@ -224,7 +226,7 @@ describe('MenuPdfService', () => {
         '\u00a0',
       ].join('');
 
-      for (const font of fonts)
+      for (const font of fontsOf(MENU_PDF_FONT_FAMILIES[lang]))
         expect(
           Array.from(text).filter(
             (char) => !font.hasGlyphForCodePoint(char.codePointAt(0) ?? 0),

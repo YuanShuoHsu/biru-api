@@ -23,9 +23,15 @@ type Section = OrderMenuResponseDto['sections'][number];
 type PdfLabel = 'addOns' | 'allergens' | 'currency' | 'option' | 'separator';
 
 const FONT_DIR = join(process.cwd(), 'assets', 'fonts');
-const REGULAR = 'NotoSansTC-Regular';
-const BOLD = 'NotoSansTC-Bold';
-export const MENU_PDF_LANGUAGES: Language[] = ['en', 'zh-TW'];
+const REGULAR = 'Regular';
+const BOLD = 'Bold';
+export const MENU_PDF_FONT_FAMILIES: Record<Language, string> = {
+  en: 'NotoSansTC',
+  ja: 'NotoSansJP',
+  ko: 'NotoSansKR',
+  'zh-CN': 'NotoSansSC',
+  'zh-TW': 'NotoSansTC',
+};
 
 const BLUE_GREY: Cmyk = [62, 36, 31, 25];
 const INK: Cmyk = [80, 57, 50, 55];
@@ -43,10 +49,7 @@ const COLUMN_GAP = mm(12);
 
 @Injectable()
 export class MenuPdfService {
-  private readonly fonts = {
-    [REGULAR]: readFileSync(join(FONT_DIR, `${REGULAR}.ttf`)),
-    [BOLD]: readFileSync(join(FONT_DIR, `${BOLD}.ttf`)),
-  };
+  private readonly fonts = new Map<string, Buffer>();
 
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
@@ -55,9 +58,6 @@ export class MenuPdfService {
   ) {}
 
   async orderMenu(organizationId: string, lang: Language): Promise<Buffer> {
-    if (!MENU_PDF_LANGUAGES.includes(lang))
-      throw badRequestError('menuPdfLanguageUnsupported');
-
     const [menu, store] = await Promise.all([
       this.publicMenusService.findOrderMenu(organizationId, lang),
       this.db.query.organization.findFirst({
@@ -68,6 +68,16 @@ export class MenuPdfService {
     if (!menu || !store) throw notFoundError('menuNotFound');
 
     return this.render(store.name, menu, lang);
+  }
+
+  private font(lang: Language, weight: string): Buffer {
+    const file = `${MENU_PDF_FONT_FAMILIES[lang]}-${weight}.ttf`;
+    const cached = this.fonts.get(file);
+    if (cached) return cached;
+
+    const font = readFileSync(join(FONT_DIR, file));
+    this.fonts.set(file, font);
+    return font;
   }
 
   private render(
@@ -94,8 +104,8 @@ export class MenuPdfService {
       lang,
       info: { Title: storeName },
     });
-    doc.registerFont(REGULAR, this.fonts[REGULAR]);
-    doc.registerFont(BOLD, this.fonts[BOLD]);
+    doc.registerFont(REGULAR, this.font(lang, REGULAR));
+    doc.registerFont(BOLD, this.font(lang, BOLD));
 
     const chunks: Buffer[] = [];
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));

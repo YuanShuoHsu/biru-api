@@ -18,7 +18,6 @@ export const menuErrorCodes = [
   'menuItemModifierGroupNotFound',
   'menuItemNotFound',
   'menuNotFound',
-  'menuPdfLanguageUnsupported',
   'menuPdfTooLong',
   'menuSectionNotFound',
   'modifierGroupAttached',

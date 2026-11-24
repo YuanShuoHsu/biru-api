@@ -320,7 +320,6 @@ export type I18nTranslations = {
             "menuItemModifierGroupNotFound": string;
             "menuItemNotFound": string;
             "menuNotFound": string;
-            "menuPdfLanguageUnsupported": string;
             "menuPdfTooLong": string;
             "menuSectionNotFound": string;
             "modifierGroupAttached": string;
