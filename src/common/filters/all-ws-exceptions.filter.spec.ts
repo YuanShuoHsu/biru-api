@@ -7,10 +7,13 @@ import {
 import { ThrottlerException } from '@nestjs/throttler';
 import { WsException } from '@nestjs/websockets';
 
+import { captureException } from '@sentry/nestjs';
 import { I18nService, I18nValidationException } from 'nestjs-i18n';
 
 import type { I18nTranslations } from '../../generated/i18n.generated.js';
 import { AllWsExceptionsFilter } from './all-ws-exceptions.filter.js';
+
+vi.mock('@sentry/nestjs', () => ({ captureException: vi.fn() }));
 
 describe('AllWsExceptionsFilter', () => {
   const setup = ({
@@ -48,6 +51,7 @@ describe('AllWsExceptionsFilter', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
+    vi.mocked(captureException).mockClear();
   });
 
   it('WsException 以官方結構送出，不記錄錯誤', () => {
@@ -219,5 +223,17 @@ describe('AllWsExceptionsFilter', () => {
       status: 'error',
       cause: undefined,
     });
+  });
+
+  it('WsException 與 4xx 不送 Sentry，非預期錯誤才送', () => {
+    const { catch: handle } = setup();
+    const error = new Error('boom');
+
+    handle(new WsException('bad'));
+    handle(new ForbiddenException());
+    handle(error);
+
+    expect(captureException).toHaveBeenCalledOnce();
+    expect(captureException).toHaveBeenCalledWith(error);
   });
 });
