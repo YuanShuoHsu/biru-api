@@ -10,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { BaseWsExceptionFilter, WsException } from '@nestjs/websockets';
 
+import { captureException } from '@sentry/nestjs';
+
 import { I18nContext, I18nService, I18nValidationException } from 'nestjs-i18n';
 import type { Socket } from 'socket.io';
 import type { I18nTranslations } from '../../generated/i18n.generated.js';
@@ -69,6 +71,12 @@ export class AllWsExceptionsFilter extends BaseWsExceptionFilter {
         : exception instanceof WsException
           ? undefined
           : HttpStatus.INTERNAL_SERVER_ERROR;
+
+    if (
+      statusCode !== undefined &&
+      statusCode >= Number(HttpStatus.INTERNAL_SERVER_ERROR)
+    )
+      captureException(exception);
 
     const error =
       statusCode === Number(HttpStatus.TOO_MANY_REQUESTS)

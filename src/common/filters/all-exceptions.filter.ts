@@ -10,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { BaseExceptionFilter, HttpAdapterHost } from '@nestjs/core';
 
+import { captureException } from '@sentry/nestjs';
+
 import { I18nContext, I18nValidationException } from 'nestjs-i18n';
 import type { I18nTranslations } from '../../generated/i18n.generated.js';
 import { isUnstorableText } from '../utils/pg-errors.js';
@@ -42,6 +44,13 @@ export class AllExceptionsFilter
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
+    const ctx = host.switchToHttp();
+
+    if (httpStatus >= Number(HttpStatus.INTERNAL_SERVER_ERROR)) {
+      const { user } = ctx.getRequest<{ user?: { id: string } | null }>();
+      captureException(exception, user ? { user: { id: user.id } } : undefined);
+    }
+
     const isProduction = process.env.NODE_ENV === 'production';
 
     const message =
@@ -67,8 +76,6 @@ export class AllExceptionsFilter
               };
 
     const { httpAdapter } = this.adapterHost;
-
-    const ctx = host.switchToHttp();
 
     const responseBody = {
       ...(typeof message === 'string' ? { message } : message),

@@ -585,6 +585,10 @@ value). A new variable must be added to that schema with the rule the code actua
   variables or none: none keeps new images as base64 data URLs in Postgres, and a partial set stops the app at boot
 - `S3_PUBLIC_URL` — Public URL prefix of that bucket (`https://<project_ref>.supabase.co/storage/v1/object/public/<bucket>`);
   the uploaded image URL is this plus the key
+- `SENTRY_DSN` — Sentry project DSN, read directly by `src/instrument.ts` before Nest boots; unset means Sentry is off.
+  Only 5xx and non-`HttpException` errors are sent (from `AllExceptionsFilter` / `AllWsExceptionsFilter`), never 4xx,
+  with no cookies, bodies, IPs, URL query strings or SQL params, and only the user id
+- `SENTRY_ENVIRONMENT` — Sentry `environment` of the events (e.g. `production`, `stage`)
 - `PORT` — HTTP port (default 3001)
 
 `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN`,
