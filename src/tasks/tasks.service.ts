@@ -13,8 +13,10 @@ import { DeletedRecordsService } from '../deleted-records/deleted-records.servic
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import { InventoryNotificationsService } from '../inventory/inventory-notifications.service.js';
 import { OrderNotificationsService } from '../orders/order-notifications.service.js';
+import { OrdersService } from '../orders/orders.service.js';
 import { PayrollRulesService } from '../payroll/payroll-rules.service.js';
 import { PointsService } from '../points/points.service.js';
+import { PushService } from '../push/push.service.js';
 import { SharedCartsService } from '../shared-carts/shared-carts.service.js';
 import { WaitlistService } from '../waitlist/waitlist.service.js';
 
@@ -32,8 +34,10 @@ export class TasksService {
     private readonly deletedRecordsService: DeletedRecordsService,
     private readonly inventoryNotificationsService: InventoryNotificationsService,
     private readonly orderNotificationsService: OrderNotificationsService,
+    private readonly ordersService: OrdersService,
     private readonly payrollRulesService: PayrollRulesService,
     private readonly pointsService: PointsService,
+    private readonly pushService: PushService,
     private readonly sharedCartsService: SharedCartsService,
     private readonly waitlistService: WaitlistService,
   ) {}
@@ -228,6 +232,35 @@ export class TasksService {
       if (erased) this.logger.log(`清除 ${erased} 張已結束候位號碼牌的個資`);
     } catch (error) {
       this.logger.error('清除候位個資失敗', error);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
+  async handleOrderPersonalDataCron() {
+    try {
+      const erased = await this.ordersService.erasePersonalData();
+
+      if (erased) this.logger.log(`清除 ${erased} 筆已結束訪客訂單的聯絡資料`);
+    } catch (error) {
+      this.logger.error('清除訪客訂單個資失敗', error);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
+  async handlePushSubscriptionRetentionCron() {
+    try {
+      const purged = await this.pushService.purgeEnded();
+
+      if (purged)
+        this.logger.log(`刪除 ${purged} 筆訂單或候位已結束的推播訂閱`);
+    } catch (error) {
+      this.logger.error('刪除已結束訂單與候位的推播訂閱失敗', error);
     }
   }
 

@@ -57,6 +57,10 @@ export const ORDER_TERMINAL_STATUSES = [
   'OrderProblem',
   'OrderReturned',
 ] as const;
+export const ORDER_ENDED_STATUSES = [
+  'OrderDelivered',
+  ...ORDER_TERMINAL_STATUSES,
+] as const;
 export const orderStatusEnum = pgEnum('order_status', [
   ...ORDER_FLOW_STATUSES,
   ...ORDER_TERMINAL_STATUSES,
