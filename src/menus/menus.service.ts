@@ -6,7 +6,6 @@ import {
   and,
   asc,
   count,
-  desc,
   eq,
   getTableColumns,
   ilike,
@@ -77,6 +76,10 @@ import {
   escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import {
+  type NullsAs,
+  orderByDirection,
+} from '../common/utils/data-grid-sort.js';
 import { reorderSortOrders } from '../common/utils/sort-order.js';
 
 import {
@@ -156,6 +159,23 @@ const assertPromoDateRange = (
   const { validFrom, validThrough } = priceSpecification ?? {};
   if (validFrom && validThrough && validFrom > validThrough)
     throw badRequestError('promoDateRangeInvalid');
+};
+
+const MENU_ITEM_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  description: 'last',
+  recipe: 'last',
+  price: 'last',
+  availability: 'last',
+  deliveryLeadTimeMinutes: 'last',
+  priceSpecification: 'last',
+  inventoryLevel: 'last',
+  priceSpecificationValidFrom: 'last',
+  priceSpecificationValidThrough: 'last',
+};
+
+const MODIFIER_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  priceAdjustment: 'last',
+  availability: 'last',
 };
 
 const ADD_ON_TARGET_UNIQUE_INDEXES = [
@@ -433,16 +453,17 @@ export class MenusService {
       description: menuSection.description,
     };
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] = sortBy
       ? [
-          dir(
+          orderByDirection(
             localizedFields[sortBy]
               ? localizedTextSql(
                   localizedFields[sortBy],
                   toLanguage(I18nContext.current()?.lang),
                 )
               : menuSection[sortBy],
+            sortDirection,
+            sortBy === 'description' ? 'last' : undefined,
           ),
           asc(menuSection.id),
         ]
@@ -762,9 +783,15 @@ export class MenusService {
           ? localizedTextSql(localizedFields[sortBy], lang)
           : sortBy && itemFieldMap[sortBy];
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] = sortColumn
-      ? [dir(sortColumn), asc(menuItem.id)]
+      ? [
+          orderByDirection(
+            sortColumn,
+            sortDirection,
+            MENU_ITEM_SORT_NULLS[sortBy ?? ''],
+          ),
+          asc(menuItem.id),
+        ]
       : [asc(menuItem.sortOrder), asc(menuItem.id)];
 
     const where = and(
@@ -1405,20 +1432,24 @@ export class MenusService {
             )
           : undefined;
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] =
       sortBy && localizedFields[sortBy]
         ? [
-            dir(
+            orderByDirection(
               localizedTextSql(
                 localizedFields[sortBy],
                 toLanguage(I18nContext.current()?.lang),
               ),
+              sortDirection,
+              'last',
             ),
             asc(menuItemAddOn.id),
           ]
         : sortBy && addOnFieldMap[sortBy]
-          ? [dir(addOnFieldMap[sortBy]), asc(menuItemAddOn.id)]
+          ? [
+              orderByDirection(addOnFieldMap[sortBy], sortDirection),
+              asc(menuItemAddOn.id),
+            ]
           : [asc(menuItemAddOn.sortOrder), asc(menuItemAddOn.id)];
 
     const where = and(
@@ -1655,20 +1686,27 @@ export class MenusService {
             )
           : undefined;
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] =
       sortBy === 'displayName'
         ? [
-            dir(
+            orderByDirection(
               localizedTextSql(
                 modifierGroup.displayName,
                 toLanguage(I18nContext.current()?.lang),
               ),
+              sortDirection,
             ),
             asc(columns.id),
           ]
         : sortBy && fieldMap[sortBy]
-          ? [dir(fieldMap[sortBy]), asc(columns.id)]
+          ? [
+              orderByDirection(
+                fieldMap[sortBy],
+                sortDirection,
+                sortBy === 'maxSelectionCount' ? 'highest' : undefined,
+              ),
+              asc(columns.id),
+            ]
           : [asc(columns.sortOrder), asc(columns.id)];
 
     const where = and(
@@ -1872,20 +1910,27 @@ export class MenusService {
             )
           : undefined;
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] =
       sortBy === 'displayName'
         ? [
-            dir(
+            orderByDirection(
               localizedTextSql(
                 modifier.displayName,
                 toLanguage(I18nContext.current()?.lang),
               ),
+              sortDirection,
             ),
             asc(modifier.id),
           ]
         : sortBy && fieldMap[sortBy]
-          ? [dir(fieldMap[sortBy]), asc(modifier.id)]
+          ? [
+              orderByDirection(
+                fieldMap[sortBy],
+                sortDirection,
+                MODIFIER_SORT_NULLS[sortBy],
+              ),
+              asc(modifier.id),
+            ]
           : [asc(modifier.sortOrder), asc(modifier.id)];
 
     const where = and(

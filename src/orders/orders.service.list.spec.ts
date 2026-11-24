@@ -33,9 +33,9 @@ describe('OrdersService.listOrders', () => {
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
          ('org', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段');
        insert into "order" (id, customer, mode, order_number, order_status, payment_method, seller_id, subtotal, created_at, updated_at) values
-         ('two', '{}', 'pickup', '2', 'OrderDelivered', 'Cash', 'org', 100, now(), now()),
-         ('ten', '{}', 'pickup', '10', 'OrderDelivered', 'Cash', 'org', 100, now(), now()),
-         ('one', '{}', 'pickup', '1', 'OrderDelivered', 'Cash', 'org', 100, now(), now());`,
+         ('two', '{"email": "a@example.com"}', 'pickup', '2', 'OrderDelivered', 'Cash', 'org', 100, now(), now()),
+         ('ten', '{"email": "b@example.com"}', 'pickup', '10', 'OrderDelivered', 'Cash', 'org', 100, now(), now()),
+         ('one', '{"email": ""}', 'pickup', '1', 'OrderDelivered', 'Cash', 'org', 100, now(), now());`,
     );
   }, 60_000);
 
@@ -54,4 +54,19 @@ describe('OrdersService.listOrders', () => {
 
     expect(data.map(({ id }) => id)).toEqual(ids);
   });
+
+  it.each([
+    ['asc', ['two', 'ten', 'one']],
+    ['desc', ['ten', 'two', 'one']],
+  ] as const)(
+    '依顧客 email 排序時沒填的排最後（%s）',
+    async (sortDirection, ids) => {
+      const { data } = await service.listOrders('biru', {
+        sortBy: 'customerEmail',
+        sortDirection,
+      });
+
+      expect(data.map(({ id }) => id)).toEqual(ids);
+    },
+  );
 });

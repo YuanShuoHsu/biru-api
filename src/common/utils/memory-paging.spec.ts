@@ -75,3 +75,33 @@ describe('pageInMemory 排序', () => {
     expect(page([...tied].reverse(), 'name')).toEqual(['c', 'a']);
   });
 });
+
+describe('pageInMemory 空值排序', () => {
+  it.each(['asc', 'desc'] as const)(
+    '沒有值的列不論升降冪都排最後，與 SQL 列表一致（%s）',
+    (sortDirection) => {
+      expect(
+        pageInMemory(
+          [
+            { id: 'empty', usedMinutes: null },
+            { id: 'short', usedMinutes: 10 },
+            { id: 'long', usedMinutes: 90 },
+          ],
+          { sortBy: 'usedMinutes', sortDirection },
+          {
+            defaultSort: () => 0,
+            stringFields: [],
+            dateFields: [],
+            enumFields: [],
+            numberFields: ['usedMinutes'],
+            textFields: [],
+          },
+        ).data.map(({ id }) => id),
+      ).toEqual(
+        sortDirection === 'asc'
+          ? ['short', 'long', 'empty']
+          : ['long', 'short', 'empty'],
+      );
+    },
+  );
+});

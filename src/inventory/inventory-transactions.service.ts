@@ -5,7 +5,6 @@ import {
   and,
   asc,
   count,
-  desc,
   eq,
   ilike,
   inArray,
@@ -23,6 +22,10 @@ import {
   escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import {
+  type NullsAs,
+  orderByDirection,
+} from '../common/utils/data-grid-sort.js';
 import {
   ingredient,
   inventoryReceipt,
@@ -92,6 +95,12 @@ const reachesThreshold = (
   threshold !== null &&
   level > Number(threshold) &&
   nextLevel <= Number(threshold);
+
+const INVENTORY_TRANSACTION_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  unitCost: 'last',
+  note: 'last',
+  wasteReason: 'last',
+};
 
 @Injectable()
 export class InventoryTransactionsService {
@@ -181,13 +190,19 @@ export class InventoryTransactionsService {
       createdAt: inventoryTransaction.createdAt,
     };
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const tiebreakers = [
-      dir(inventoryTransaction.createdAt),
-      dir(inventoryTransaction.id),
+      orderByDirection(inventoryTransaction.createdAt, sortDirection),
+      orderByDirection(inventoryTransaction.id, sortDirection),
     ];
     const orderBy = sortBy
-      ? [dir(fieldMap[sortBy]), ...tiebreakers]
+      ? [
+          orderByDirection(
+            fieldMap[sortBy],
+            sortDirection,
+            INVENTORY_TRANSACTION_SORT_NULLS[sortBy],
+          ),
+          ...tiebreakers,
+        ]
       : tiebreakers;
 
     const where = and(

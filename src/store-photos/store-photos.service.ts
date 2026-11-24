@@ -6,7 +6,6 @@ import {
   and,
   asc,
   count,
-  desc,
   eq,
   ilike,
   max,
@@ -39,6 +38,7 @@ import {
   escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import { orderByDirection } from '../common/utils/data-grid-sort.js';
 import { reorderSortOrders } from '../common/utils/sort-order.js';
 
 import type {
@@ -102,16 +102,16 @@ export class StorePhotosService {
       updatedAt: storePhoto.updatedAt,
     };
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
       ? [
-          dir(
+          orderByDirection(
             sortBy === 'alt'
               ? localizedTextSql(
                   storePhoto.alt,
                   toLanguage(I18nContext.current()?.lang),
                 )
               : storePhotoFieldMap[sortBy],
+            sortDirection,
           ),
           asc(storePhoto.createdAt),
           asc(storePhoto.id),

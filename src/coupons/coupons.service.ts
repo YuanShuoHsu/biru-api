@@ -64,6 +64,10 @@ import {
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import {
+  type NullsAs,
+  orderByDirection,
+} from '../common/utils/data-grid-sort.js';
+import {
   allocateDiscount,
   sumOrderItems,
 } from '../common/utils/order-items.js';
@@ -184,6 +188,18 @@ const couponDiscount = (
         Math.round(Number(found.discountValue)),
         Math.round(eligibleSubtotal),
       );
+
+const COUPON_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  minSubtotal: 'last',
+  perUserLimit: 'highest',
+  pointsCost: 'last',
+  validFrom: 'lowest',
+};
+
+const COUPON_RECIPIENT_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  grantedByEmail: 'last',
+  usedAt: 'last',
+};
 
 @Injectable()
 export class CouponsService {
@@ -390,28 +406,41 @@ export class CouponsService {
       createdAt: coupon.createdAt,
     };
 
-    const dir = (column: Column | SQL) =>
-      sql`${column} ${sql.raw(sortDirection === 'desc' ? 'desc' : 'asc')} nulls last`;
-
     const applicableOrganizationNames = sql`COALESCE((SELECT string_agg(o.name, ', ' ORDER BY array_position(${coupon.applicableOrganizationIds}, o.id)) FROM organization o WHERE o.id = ANY(${coupon.applicableOrganizationIds})), '')`;
-    const menuSectionNames = sql`COALESCE((SELECT string_agg(COALESCE(ms.name->>${lang}, ms.name->>${DEFAULT_LANGUAGE}), ', ' ORDER BY array_position(${coupon.menuSectionIds}, ms.id)) FROM menu_section ms WHERE ms.id = ANY(${coupon.menuSectionIds})), '')`;
-    const menuItemNames = sql`COALESCE((SELECT string_agg(COALESCE(mi.name->>${lang}, mi.name->>${DEFAULT_LANGUAGE}), ', ' ORDER BY array_position(${coupon.menuItemIds}, mi.id)) FROM menu_item mi WHERE mi.id = ANY(${coupon.menuItemIds})), '')`;
+    const menuSectionNames = sql`(SELECT string_agg(COALESCE(ms.name->>${lang}, ms.name->>${DEFAULT_LANGUAGE}), ', ' ORDER BY array_position(${coupon.menuSectionIds}, ms.id)) FROM menu_section ms WHERE ms.id = ANY(${coupon.menuSectionIds}))`;
+    const menuItemNames = sql`(SELECT string_agg(COALESCE(mi.name->>${lang}, mi.name->>${DEFAULT_LANGUAGE}), ', ' ORDER BY array_position(${coupon.menuItemIds}, mi.id)) FROM menu_item mi WHERE mi.id = ANY(${coupon.menuItemIds}))`;
     const orderBy: SQL[] =
       sortBy === 'distribution'
         ? [
-            dir(coupon.isPublic),
-            dir(coupon.isClaimable),
-            dir(coupon.issueTrigger),
+            orderByDirection(coupon.isPublic, sortDirection),
+            orderByDirection(coupon.isClaimable, sortDirection),
+            orderByDirection(coupon.issueTrigger, sortDirection, 'last'),
             desc(coupon.createdAt),
           ]
         : sortBy === 'applicableOrganizationIds'
-          ? [dir(applicableOrganizationNames), desc(coupon.createdAt)]
+          ? [
+              orderByDirection(applicableOrganizationNames, sortDirection),
+              desc(coupon.createdAt),
+            ]
           : sortBy === 'menuSectionIds'
-            ? [dir(menuSectionNames), desc(coupon.createdAt)]
+            ? [
+                orderByDirection(menuSectionNames, sortDirection, 'last'),
+                desc(coupon.createdAt),
+              ]
             : sortBy === 'menuItemIds'
-              ? [dir(menuItemNames), desc(coupon.createdAt)]
+              ? [
+                  orderByDirection(menuItemNames, sortDirection, 'last'),
+                  desc(coupon.createdAt),
+                ]
               : sortBy
-                ? [dir(couponFieldMap[sortBy]), desc(coupon.createdAt)]
+                ? [
+                    orderByDirection(
+                      couponFieldMap[sortBy],
+                      sortDirection,
+                      COUPON_SORT_NULLS[sortBy],
+                    ),
+                    desc(coupon.createdAt),
+                  ]
                 : [desc(coupon.createdAt)];
 
     const quickFilterCondition = buildQuickFilterCondition({
@@ -680,10 +709,15 @@ export class CouponsService {
       usedAt: userCoupon.usedAt,
     };
 
-    const dir = (column: Column | SQL) =>
-      sql`${column} ${sql.raw(sortDirection === 'desc' ? 'desc' : 'asc')} nulls last`;
     const orderBy: SQL[] = sortBy
-      ? [dir(recipientFieldMap[sortBy]), desc(userCoupon.createdAt)]
+      ? [
+          orderByDirection(
+            recipientFieldMap[sortBy],
+            sortDirection,
+            COUPON_RECIPIENT_SORT_NULLS[sortBy],
+          ),
+          desc(userCoupon.createdAt),
+        ]
       : [desc(userCoupon.createdAt)];
 
     const quickFilterCondition = buildQuickFilterCondition({

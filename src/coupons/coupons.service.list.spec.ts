@@ -183,15 +183,27 @@ describe('CouponsService 空值排序', () => {
     );
     await db.insert(coupon).values(
       [
-        { id: 'free', pointsCost: null },
-        { id: 'cheap', pointsCost: 10 },
-        { id: 'dear', pointsCost: 90 },
-      ].map(({ id, pointsCost }) => ({
+        { id: 'free', perUserLimit: null, pointsCost: null, validFrom: null },
+        {
+          id: 'cheap',
+          perUserLimit: 1,
+          pointsCost: 10,
+          validFrom: new Date('2026-10-01T00:00:00Z'),
+        },
+        {
+          id: 'dear',
+          perUserLimit: 5,
+          pointsCost: 90,
+          validFrom: new Date('2026-11-01T00:00:00Z'),
+        },
+      ].map(({ id, perUserLimit, pointsCost, validFrom }) => ({
         code: `CODE-${id}`,
         discountType: 'fixed' as const,
         discountValue: '50',
         id,
+        perUserLimit,
         pointsCost,
+        validFrom,
       })),
     );
     await db.insert(userCoupon).values(
@@ -221,6 +233,36 @@ describe('CouponsService 空值排序', () => {
     async (sortDirection, ids) => {
       const { data } = await service.findAll({
         sortBy: 'pointsCost',
+        sortDirection,
+      });
+
+      expect(data.map(({ id }) => id)).toEqual(ids);
+    },
+  );
+
+  it.each([
+    ['asc', ['cheap', 'dear', 'free']],
+    ['desc', ['free', 'dear', 'cheap']],
+  ] as const)(
+    '券列表依每人限領排序時不限次數視為最大（%s）',
+    async (sortDirection, ids) => {
+      const { data } = await service.findAll({
+        sortBy: 'perUserLimit',
+        sortDirection,
+      });
+
+      expect(data.map(({ id }) => id)).toEqual(ids);
+    },
+  );
+
+  it.each([
+    ['asc', ['free', 'cheap', 'dear']],
+    ['desc', ['dear', 'cheap', 'free']],
+  ] as const)(
+    '券列表依生效時間排序時沒有起始時間視為最早（%s）',
+    async (sortDirection, ids) => {
+      const { data } = await service.findAll({
+        sortBy: 'validFrom',
         sortDirection,
       });
 

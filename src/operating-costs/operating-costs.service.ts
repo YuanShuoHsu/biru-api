@@ -18,6 +18,7 @@ import {
   escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import { orderByDirection } from '../common/utils/data-grid-sort.js';
 import { isUniqueViolation } from '../common/utils/pg-errors.js';
 import {
   operatingCost,
@@ -84,9 +85,15 @@ export class OperatingCostsService {
       updatedAt: operatingCost.updatedAt,
     };
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
-      ? [dir(fieldMap[sortBy]), asc(operatingCost.id)]
+      ? [
+          orderByDirection(
+            fieldMap[sortBy],
+            sortDirection,
+            sortBy === 'note' ? 'last' : undefined,
+          ),
+          asc(operatingCost.id),
+        ]
       : [
           desc(operatingCost.effectiveFrom),
           asc(operatingCost.category),

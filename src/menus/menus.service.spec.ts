@@ -312,20 +312,20 @@ describe('MenusService localized text filters and sorting', () => {
       ]);
     });
 
-    it('依食譜名稱排序時取目前語系的名稱，沒有食譜的品項在降冪時排最前', async () => {
+    it('依食譜名稱排序時取目前語系的名稱，沒有食譜的品項不論升降冪都排最後', async () => {
       expect(await itemIds({ sortBy: 'recipe', sortDirection: 'asc' })).toEqual(
         ['latte', 'americano', 'mocha'],
       );
       expect(
         await itemIds({ sortBy: 'recipe', sortDirection: 'desc' }),
-      ).toEqual(['mocha', 'americano', 'latte']);
+      ).toEqual(['americano', 'latte', 'mocha']);
       inEnglish();
       expect(await itemIds({ sortBy: 'recipe', sortDirection: 'asc' })).toEqual(
         ['americano', 'latte', 'mocha'],
       );
       expect(
         await itemIds({ sortBy: 'recipe', sortDirection: 'desc' }),
-      ).toEqual(['mocha', 'latte', 'americano']);
+      ).toEqual(['latte', 'americano', 'mocha']);
     });
 
     it('排序值相同時，依 id 排出固定順序，分頁不重複也不漏', async () => {

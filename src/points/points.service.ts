@@ -55,6 +55,10 @@ import {
   escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import {
+  type NullsAs,
+  orderByDirection,
+} from '../common/utils/data-grid-sort.js';
 import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
 
 import {
@@ -195,6 +199,11 @@ const toPointsCoupon = (found: Coupon): PointsCouponDto => ({
   validFrom: found.validFrom,
   validThrough: found.validThrough,
 });
+
+const POINT_TRANSACTION_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  orderNumber: 'last',
+  expiresAt: 'last',
+};
 
 @Injectable()
 export class PointsService {
@@ -832,9 +841,16 @@ export class PointsService {
       expiresAt: pointTransaction.expiresAt,
     };
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = [
-      ...(sortBy ? [dir(fieldMap[sortBy])] : []),
+      ...(sortBy
+        ? [
+            orderByDirection(
+              fieldMap[sortBy],
+              sortDirection,
+              POINT_TRANSACTION_SORT_NULLS[sortBy],
+            ),
+          ]
+        : []),
       desc(pointTransaction.createdAt),
       desc(pointTransaction.id),
     ];

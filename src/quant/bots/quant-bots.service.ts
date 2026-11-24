@@ -49,6 +49,10 @@ import {
   escapeLike,
   localTimeText,
 } from '../../common/utils/data-grid-filters.js';
+import {
+  type NullsAs,
+  orderByDirection,
+} from '../../common/utils/data-grid-sort.js';
 
 import { QuantAccountService } from '../account/quant-account.service.js';
 import { QuantFuturesService } from '../account/quant-futures.service.js';
@@ -274,6 +278,11 @@ const importedFuturesGrid = (data: PionexFuturesGridData) => {
   return { config, investment: Number(data.quoteInvestment ?? 0) };
 };
 
+const QUANT_BOT_ORDER_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  price: 'last',
+  tag: 'last',
+};
+
 @Injectable()
 export class QuantBotsService {
   private readonly logger = new Logger(QuantBotsService.name);
@@ -329,9 +338,15 @@ export class QuantBotsService {
       startedAt: quantBot.startedAt,
     };
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
-      ? [dir(fieldMap[sortBy]), desc(quantBot.createdAt)]
+      ? [
+          orderByDirection(
+            fieldMap[sortBy],
+            sortDirection,
+            sortBy === 'startedAt' ? 'last' : undefined,
+          ),
+          desc(quantBot.createdAt),
+        ]
       : [desc(quantBot.createdAt)];
 
     const where = and(
@@ -605,7 +620,6 @@ export class QuantBotsService {
       tag: quantBotOrder.tag,
       type: quantBotOrder.type,
     };
-    const dir = sortDirection === 'desc' ? desc : asc;
     const where = eq(quantBotOrder.botId, bot.id);
 
     const [rows, [{ total }]] = await Promise.all([
@@ -614,7 +628,11 @@ export class QuantBotsService {
         .from(quantBotOrder)
         .where(where)
         .orderBy(
-          dir(fieldMap[sortBy ?? 'createdAt']),
+          orderByDirection(
+            fieldMap[sortBy ?? 'createdAt'],
+            sortDirection,
+            QUANT_BOT_ORDER_SORT_NULLS[sortBy ?? 'createdAt'],
+          ),
           desc(quantBotOrder.createdAt),
         )
         .limit(limit)
@@ -658,7 +676,6 @@ export class QuantBotsService {
       side: quantBotFill.side,
       size: quantBotFill.size,
     };
-    const dir = sortDirection === 'desc' ? desc : asc;
     const where = eq(quantBotFill.botId, bot.id);
 
     const [rows, [{ total }]] = await Promise.all([
@@ -667,7 +684,7 @@ export class QuantBotsService {
         .from(quantBotFill)
         .where(where)
         .orderBy(
-          dir(fieldMap[sortBy ?? 'filledAt']),
+          orderByDirection(fieldMap[sortBy ?? 'filledAt'], sortDirection),
           desc(quantBotFill.filledAt),
         )
         .limit(limit)
@@ -730,7 +747,6 @@ export class QuantBotsService {
       createdAt: quantBotEvent.createdAt,
       kind: quantBotEvent.kind,
     };
-    const dir = sortDirection === 'desc' ? desc : asc;
     const where = and(
       eq(quantBotEvent.botId, bot.id),
       kinds?.length ? inArray(quantBotEvent.kind, kinds) : undefined,
@@ -742,7 +758,7 @@ export class QuantBotsService {
         .from(quantBotEvent)
         .where(where)
         .orderBy(
-          dir(fieldMap[sortBy ?? 'createdAt']),
+          orderByDirection(fieldMap[sortBy ?? 'createdAt'], sortDirection),
           desc(quantBotEvent.createdAt),
         )
         .limit(limit)

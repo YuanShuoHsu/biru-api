@@ -38,6 +38,10 @@ import {
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import {
+  type NullsAs,
+  orderByDirection,
+} from '../common/utils/data-grid-sort.js';
+import {
   openingCalendar,
   specialHoursOn,
 } from '../common/utils/opening-hours.js';
@@ -145,6 +149,14 @@ const isActive = (status: WaitlistTicketStatus) =>
   (WAITLIST_ACTIVE_STATUSES as readonly WaitlistTicketStatus[]).includes(
     status,
   );
+
+const WAITLIST_TICKET_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  name: 'last',
+  phoneNumber: 'last',
+  email: 'last',
+  calledAt: 'last',
+  endedAt: 'last',
+};
 
 @Injectable()
 export class WaitlistService {
@@ -936,7 +948,11 @@ export class WaitlistService {
 
     const orderBy = sortBy
       ? [
-          sql`${fieldMap[sortBy]} ${sql.raw(sortDirection === 'desc' ? 'desc' : 'asc')} nulls last`,
+          orderByDirection(
+            fieldMap[sortBy],
+            sortDirection,
+            WAITLIST_TICKET_SORT_NULLS[sortBy],
+          ),
           desc(waitlistTicket.createdAt),
           desc(waitlistTicket.id),
         ]
