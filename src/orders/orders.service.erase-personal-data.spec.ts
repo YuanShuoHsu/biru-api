@@ -43,12 +43,16 @@ describe('OrdersService.erasePersonalData', () => {
          ('old-member', ${contact}, 'pickup', '6', 'OrderDelivered', 'Cash', 'org', 100, 'amy', null, now() - interval '31 days', null),
          ('old-pending-invoice', ${contact}, 'pickup', '7', 'OrderDelivered', 'Cash', 'org', 100, null, null, now() - interval '31 days', now() - interval '40 days'),
          ('old-voidable-invoice', ${contact}, 'pickup', '8', 'OrderDelivered', 'Cash', 'org', 100, null, null, now() - interval '31 days', null),
-         ('old-settled-invoice', ${contact}, 'pickup', '9', 'OrderDelivered', 'Cash', 'org', 100, null, null, now() - interval '31 days', null);
+         ('old-settled-invoice', ${contact}, 'pickup', '9', 'OrderDelivered', 'Cash', 'org', 100, null, null, now() - interval '31 days', null),
+         ('old-invoice-email', ${contact}, 'pickup', '10', 'OrderDelivered', 'Cash', 'org', 100, null, null, now() - interval '31 days', null);
        insert into invoice (id, order_id, type, status, invoice_date) values
          ('pending', 'old-pending-invoice', 'personal', 'pending', null),
          ('never-issued', 'old-cancelled', 'personal', 'pending', null),
          ('voidable', 'old-voidable-invoice', 'personal', 'issued', now()),
-         ('settled', 'old-settled-invoice', 'personal', 'issued', now() - interval '1 year');
+         ('settled', 'old-settled-invoice', 'personal', 'issued', now() - interval '1 year'),
+         ('settled-voided', 'old-settled-invoice', 'personal', 'voided', now() - interval '1 year');
+       insert into invoice (id, order_id, type, status, invoice_date, email) values
+         ('own-email', 'old-invoice-email', 'personal', 'issued', now() - interval '1 year', 'invoice@example.com');
        insert into audit_log (id, actor_name, actor_email, organization_id, resource, resource_id, action, changes, created_at) values
          ('audit-guest', 'Owner', 'owner@example.com', 'org', 'order', 'old-guest', 'update', '{"customer":{"before":{"name":"王小明"},"after":{"name":"王大明"}},"orderStatus":{"before":"OrderPickupAvailable","after":"OrderDelivered"}}', now()),
          ('audit-member', 'Owner', 'owner@example.com', 'org', 'order', 'old-member', 'update', '{"customer":{"before":{"name":"王小明"},"after":{"name":"王大明"}}}', now());`,
@@ -60,7 +64,7 @@ describe('OrdersService.erasePersonalData', () => {
   });
 
   it('keeps only a masked name on guest orders that ended over 30 days ago and whose invoice can no longer be issued or voided, and strips the customer from their audit log', async () => {
-    expect(await service.erasePersonalData()).toBe(4);
+    expect(await service.erasePersonalData()).toBe(5);
 
     const { rows: orders } = await client.query<{
       id: string;
@@ -81,6 +85,11 @@ describe('OrdersService.erasePersonalData', () => {
       },
       {
         id: 'old-guest',
+        customer: { name: '王**' },
+        idempotency_fingerprint: null,
+      },
+      {
+        id: 'old-invoice-email',
         customer: { name: '王**' },
         idempotency_fingerprint: null,
       },
@@ -129,6 +138,21 @@ describe('OrdersService.erasePersonalData', () => {
           customer: { before: { name: '王小明' }, after: { name: '王大明' } },
         },
       },
+    ]);
+  });
+
+  it('keeps the email an issued invoice was sent with, so a later refund can still mail its allowance', async () => {
+    const { rows } = await client.query<{ id: string; email: string | null }>(
+      'select id, email from invoice order by id',
+    );
+
+    expect(rows).toEqual([
+      { id: 'never-issued', email: null },
+      { id: 'own-email', email: 'invoice@example.com' },
+      { id: 'pending', email: null },
+      { id: 'settled', email: 'ming@example.com' },
+      { id: 'settled-voided', email: null },
+      { id: 'voidable', email: null },
     ]);
   });
 

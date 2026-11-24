@@ -1766,11 +1766,25 @@ export class OrdersService {
           ),
         ),
       )
+      .orderBy(order.id)
       .limit(PERSONAL_DATA_ERASE_BATCH_SIZE);
 
     let total = 0;
     for (;;) {
       const erased = await this.db.transaction(async (tx) => {
+        await tx
+          .update(invoice)
+          .set({
+            email: sql`(SELECT NULLIF(${order.customer}->>'email', '') FROM ${order} WHERE ${order.id} = ${invoice.orderId})`,
+          })
+          .where(
+            and(
+              inArray(invoice.orderId, due),
+              eq(invoice.status, 'issued'),
+              isNull(invoice.email),
+            ),
+          );
+
         const rows = await tx
           .update(order)
           .set({
