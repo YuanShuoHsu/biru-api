@@ -21,12 +21,18 @@ describe('POST /export-user-data', () => {
   let client: PGlite;
   let db: Transaction;
   let auth: ReturnType<typeof betterAuth>;
+  let rateLimitedAuth: ReturnType<typeof betterAuth>;
   const cookies: Record<string, string> = {};
 
-  const request = (path: string, body: unknown, cookie?: string) =>
+  const request = (
+    path: string,
+    body: unknown,
+    cookie?: string,
+    instance = auth,
+  ) =>
     runWithAuthHookState(() =>
       runInAuthTransaction(db, () =>
-        auth.handler(
+        instance.handler(
           new Request(`${BASE_URL}/api/auth${path}`, {
             method: 'POST',
             headers: {
@@ -90,13 +96,19 @@ describe('POST /export-user-data', () => {
       createAuthI18n({ t: () => zhTW } as never),
       {} as never,
     );
-    auth = betterAuth({
+    const testOptions = {
       ...options,
       baseURL: BASE_URL,
       database: authDatabase(db),
-      rateLimit: { enabled: false },
       secret: 'test-secret-test-secret-test-secret',
+    };
+    auth = betterAuth({
+      ...testOptions,
+      rateLimit: { enabled: false },
     }) as unknown as ReturnType<typeof betterAuth>;
+    rateLimitedAuth = betterAuth(testOptions) as unknown as ReturnType<
+      typeof betterAuth
+    >;
 
     const ann = await signUpAndIn('ann');
     const bo = await signUpAndIn('bo');
@@ -126,6 +138,73 @@ describe('POST /export-user-data', () => {
     await client.query(
       `insert into point_transaction (id, user_id, points, type) values ('bo-points', $1, 5, 'earn')`,
       [bo],
+    );
+    await client.query(
+      `insert into account (id, account_id, provider_id, user_id, access_token, refresh_token, id_token, updated_at)
+       values ('ann-google', 'google-sub', 'google', $1, 'google-access-token', 'google-refresh-token', 'google-id-token', now())`,
+      [ann],
+    );
+    await client.query(
+      `insert into coupon (id, code, discount_type, discount_value) values ('bo-coupon', 'BO-ONLY', 'fixed', 10)`,
+    );
+    await client.query(
+      `insert into user_coupon (id, coupon_id, source, user_id) values ('bo-user-coupon', 'bo-coupon', 'granted', $1)`,
+      [bo],
+    );
+    await client.query(
+      `insert into waitlist_ticket (id, organization_id, service_date, prefix, number, party_size, locale, user_id)
+       values ('bo-ticket', 'biru', '2026-11-25', 'A', 1, 2, 'zh-TW', $1)`,
+      [bo],
+    );
+    await client.query(
+      `insert into push_subscription (id, endpoint, p256dh, auth, lang, app, user_id) values
+         ('ann-push', 'https://push.example.com/ann-endpoint', 'ann-p256dh', 'ann-push-auth', 'zh-TW', 'storefront', $1),
+         ('bo-push', 'https://push.example.com/bo-endpoint', 'bo-p256dh', 'bo-push-auth', 'zh-TW', 'storefront', $2)`,
+      [ann, bo],
+    );
+    await client.query(
+      `insert into shared_cart (id, organization_id, code, mode) values ('cart', 'biru', 'CART', 'dineIn')`,
+    );
+    await client.query(
+      `insert into shared_cart_participant (id, shared_cart_id, device_key, user_id, session_id, avatar, nickname, member_profile, status) values
+         ('ann-participant', 'cart', 'ann-device-key', $1, (select id from session where user_id = $1 limit 1), 'cat', 'Ann', true, 'active'),
+         ('bo-participant', 'cart', 'bo-device-key', $2, null, 'dog', 'Bo', true, 'active')`,
+      [ann, bo],
+    );
+    await client.query(
+      `insert into attendance_employee (id, organization_id, user_id, hired_at) values
+         ('ann-employee', 'biru', $1, '2026-01-01T00:00:00Z'),
+         ('bo-employee', 'biru', $2, '2026-01-01T00:00:00Z')`,
+      [ann, bo],
+    );
+    await client.query(
+      `insert into attendance_shift (id, organization_id, employee_id, starts_at, ends_at) values
+         ('ann-shift', 'biru', 'ann-employee', '2026-11-01T01:00:00Z', '2026-11-01T05:00:00Z'),
+         ('bo-shift', 'biru', 'bo-employee', '2026-11-01T01:00:00Z', '2026-11-01T05:00:00Z')`,
+    );
+    await client.query(
+      `insert into attendance_event (id, organization_id, employee_id, shift_id, action, occurred_at, latitude, longitude, accuracy, source_ip, idempotency_key)
+       values ('bo-event', 'biru', 'bo-employee', 'bo-shift', 'clockIn', '2026-11-01T01:00:00Z', 25, 121, 10, '203.0.113.9', 'bo-event-key')`,
+    );
+    await client.query(
+      `insert into attendance_request (id, organization_id, employee_id, kind, starts_at, ends_at, reason)
+       values ('bo-request', 'biru', 'bo-employee', 'overtime', '2026-11-01T05:00:00Z', '2026-11-01T06:00:00Z', 'bo-reason')`,
+    );
+    await client.query(
+      `insert into attendance_leave_type (id, organization_id, name, paid_percent, requires_balance)
+       values ('custom-leave', 'biru', 'Custom', 100, false)`,
+    );
+    await client.query(
+      `insert into attendance_leave_case (id, organization_id, employee_id, leave_type_id, event_date, starts_at, ends_at, granted_minutes, paid_percent, reason, created_by)
+       values ('bo-leave-case', 'biru', 'bo-employee', 'custom-leave', '2026-11-02T00:00:00Z', '2026-11-02T01:00:00Z', '2026-11-02T05:00:00Z', 240, 100, 'bo-reason', $1)`,
+      [ann],
+    );
+    await client.query(
+      `insert into payroll_statement (id, organization_id, employee_id, employee_name, month, idempotency_key, status, snapshot, reason, created_by, paid_on) values
+         ('ann-published-payslip', 'biru', 'ann-employee', 'Ann', '2026-09', 'ann-published-key', 'published', '{}', 'publish', $1, '2026-10-05'),
+         ('ann-draft-payslip', 'biru', 'ann-employee', 'Ann', '2026-10', 'ann-draft-key', 'draft', '{}', 'draft', $1, null),
+         ('bo-draft-payslip', 'biru', 'bo-employee', 'Bo', '2026-10', 'bo-draft-key', 'draft', '{}', 'draft', $1, null)`,
+      [ann],
     );
   }, 60_000);
 
@@ -179,7 +258,7 @@ describe('POST /export-user-data', () => {
     });
   });
 
-  it('密碼正確時只回本人的資料，不含 token、密碼雜湊與內部欄位', async () => {
+  it('密碼正確時只回本人的資料，不含 token、密碼雜湊、金鑰與內部欄位', async () => {
     const response = await exportData('ann', { password: PASSWORD });
     expect(response.status).toBe(200);
     const text = await response.text();
@@ -187,7 +266,6 @@ describe('POST /export-user-data', () => {
 
     expect(data).toMatchObject({
       profile: { email: 'ann@example.com', firstName: 'ann' },
-      accounts: [{ providerId: 'credential' }],
       orders: [
         {
           id: 'ann-order',
@@ -196,8 +274,25 @@ describe('POST /export-user-data', () => {
         },
       ],
       pointTransactions: [],
-      employment: { employees: [], payslips: [] },
+      coupons: [],
+      waitlistTickets: [],
+      pushSubscriptions: [{ id: 'ann-push' }],
+      sharedCarts: [{ id: 'ann-participant', nickname: 'Ann' }],
+      employment: {
+        employees: [{ id: 'ann-employee' }],
+        shifts: [{ id: 'ann-shift' }],
+        events: [],
+        requests: [],
+        leaveCases: [],
+        payslips: [{ id: 'ann-published-payslip' }],
+      },
     });
+    expect(data.accounts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ providerId: 'credential' }),
+        expect.objectContaining({ providerId: 'google' }),
+      ]),
+    );
     expect(data.profile).not.toHaveProperty('role');
     expect(data.orders).toEqual([
       expect.not.objectContaining({ idempotencyKey: expect.anything() }),
@@ -208,11 +303,34 @@ describe('POST /export-user-data', () => {
 
     const { rows: secrets } = await client.query<{ secret: string }>(
       `select token as secret from session
-       union all select password from account where password is not null`,
+       union all select password from account where password is not null
+       union all select unnest(array[access_token, refresh_token, id_token]) from account where provider_id = 'google'
+       union all select unnest(array[endpoint, p256dh, auth]) from push_subscription
+       union all select device_key from shared_cart_participant
+       union all select session_id from shared_cart_participant where session_id is not null`,
     );
+    expect(secrets.length).toBeGreaterThan(10);
     for (const { secret } of secrets) expect(text).not.toContain(secret);
     expect(text).not.toContain('bo@example.com');
-    expect(text).not.toContain('bo-order');
+    expect(text).not.toContain('bo-');
+    expect(text).not.toContain('ann-draft-payslip');
+  });
+
+  it('每 60 秒最多 3 次，第 4 次回 429', async () => {
+    const statuses: number[] = [];
+    for (let attempt = 0; attempt < 4; attempt++)
+      statuses.push(
+        (
+          await request(
+            '/export-user-data',
+            { password: 'wrong-password' },
+            cookies.ann,
+            rateLimitedAuth,
+          )
+        ).status,
+      );
+
+    expect(statuses).toEqual([400, 400, 400, 429]);
   });
 
   it('沒登入就擋下', async () => {
