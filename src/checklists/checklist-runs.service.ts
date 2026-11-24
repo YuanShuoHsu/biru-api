@@ -260,12 +260,13 @@ export class ChecklistRunsService {
           .from(checklistRunItem)
           .where(inArray(checklistRunItem.runId, runIds))
       : [];
+    const rowsByKey = new Map(
+      rows.map((row) => [`${row.runId}:${row.itemId}`, row]),
+    );
 
     return runs.map(({ templateSnapshot: { name, timing, items }, ...run }) => {
       const runItems = items.map((item) => {
-        const row = rows.find(
-          ({ runId, itemId }) => runId === run.id && itemId === item.id,
-        );
+        const row = rowsByKey.get(`${run.id}:${item.id}`);
 
         return {
           ...item,
