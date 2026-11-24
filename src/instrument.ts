@@ -3,7 +3,7 @@ import 'dotenv/config';
 
 import * as Sentry from '@sentry/nestjs';
 
-import { withoutQueryParams } from './common/utils/sentry-events.js';
+import { withoutSqlParams } from './common/utils/sentry-events.js';
 
 const clientIdentityKeys = {
   deny: ['forwarded', '-ip', 'remote-', 'via', '-user', 'referer'],
@@ -13,7 +13,7 @@ if (process.env.SENTRY_DSN)
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.SENTRY_ENVIRONMENT,
-    beforeSend: withoutQueryParams,
+    beforeSend: withoutSqlParams,
     // https://github.com/getsentry/sentry-javascript/blob/11.16.0/MIGRATION.md#if-you-want-to-keep-the-v10-default-behavior
     dataCollection: {
       userInfo: false,

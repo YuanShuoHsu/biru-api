@@ -1,9 +1,9 @@
 import type { ErrorEvent } from '@sentry/nestjs';
 import { DrizzleQueryError } from 'drizzle-orm';
 
-import { withoutQueryParams } from './sentry-events.js';
+import { withoutSqlParams } from './sentry-events.js';
 
-describe('withoutQueryParams', () => {
+describe('withoutSqlParams', () => {
   it('drizzle 查詢錯誤只留 SQL，拿掉綁定參數，其他例外不動', () => {
     const { message } = new DrizzleQueryError(
       'select * from "user" where "email" = $1\nand "phone" = $2',
@@ -20,7 +20,7 @@ describe('withoutQueryParams', () => {
       },
     } as ErrorEvent;
 
-    const result = withoutQueryParams(event);
+    const result = withoutSqlParams(event);
 
     expect(result.exception?.values).toEqual([
       {
@@ -37,6 +37,6 @@ describe('withoutQueryParams', () => {
   it('沒有例外的事件原樣回傳', () => {
     const event = { type: undefined, message: 'hi' } as ErrorEvent;
 
-    expect(withoutQueryParams(event)).toEqual(event);
+    expect(withoutSqlParams(event)).toEqual(event);
   });
 });
