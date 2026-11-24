@@ -794,3 +794,72 @@ describe('OrganizationsService 經營型態', () => {
     ).rejects.toMatchObject(notFound);
   });
 });
+
+describe('OrganizationsService Wi-Fi', () => {
+  let client: PGlite;
+  let service: OrganizationsService;
+
+  beforeAll(async () => {
+    client = createPGlite();
+    const pglite = drizzle(client, { schema });
+    await migrate(pglite, { migrationsFolder: './drizzle' });
+    service = new OrganizationsService(pglite as unknown as DrizzleDB);
+    await client.exec(`
+      insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
+        ('biru', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+        ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+    `);
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  it('尚未設定的門市回空字串', async () => {
+    await expect(service.wifi('biru')).resolves.toEqual({
+      ssid: '',
+      password: '',
+    });
+  });
+
+  it('設定後寫入，再設定一次會覆寫，且只改到指定門市', async () => {
+    await expect(
+      service.setWifi('biru', { ssid: 'Biru', password: 'coffee123' }),
+    ).resolves.toEqual({ ssid: 'Biru', password: 'coffee123' });
+    await expect(service.wifi('biru')).resolves.toEqual({
+      ssid: 'Biru',
+      password: 'coffee123',
+    });
+
+    await expect(
+      service.setWifi('biru', { ssid: 'Biru 5G', password: '' }),
+    ).resolves.toEqual({ ssid: 'Biru 5G', password: '' });
+    await expect(service.wifi('biru')).resolves.toEqual({
+      ssid: 'Biru 5G',
+      password: '',
+    });
+    await expect(service.wifi('other')).resolves.toEqual({
+      ssid: '',
+      password: '',
+    });
+  });
+
+  it('Wi-Fi 不在公開的門市資料裡', async () => {
+    const found = await service.organizationBySlug('biru');
+
+    expect(found).not.toHaveProperty('ssid');
+    expect(found).not.toHaveProperty('password');
+  });
+
+  it('找不到門市時回 404', async () => {
+    const notFound = {
+      response: { code: 'organizationNotFound' },
+      status: 404,
+    };
+
+    await expect(service.wifi('missing')).rejects.toMatchObject(notFound);
+    await expect(
+      service.setWifi('missing', { ssid: 'x', password: 'y' }),
+    ).rejects.toMatchObject(notFound);
+  });
+});
