@@ -225,7 +225,6 @@ export class WaitlistService {
       groups: setting?.groups.length ? setting.groups : DEFAULT_WAITLIST_GROUPS,
       graceMinutes: setting?.graceMinutes ?? DEFAULT_GRACE_MINUTES,
       holdMinutes: setting?.holdMinutes || DEFAULT_HOLD_MINUTES,
-      paused: setting?.paused || false,
     };
   }
 
@@ -377,7 +376,6 @@ export class WaitlistService {
           ).length,
         };
       }),
-      paused: settings.paused,
     };
   }
 
@@ -434,9 +432,7 @@ export class WaitlistService {
     if (org.closedAt) throw organizationClosedError();
     if (!settings.enabled)
       throw badRequestError('waitlistDisabled', byStaff ? 'staff' : 'guest');
-    // 暫停、營業時間與打烊前停止取號只限制顧客自助取號，店員代客登記不受限
-    if (!byStaff && settings.paused)
-      throw badRequestError('waitlistPaused', 'guest');
+    // 營業時間與打烊前停止取號只限制顧客自助取號，店員代客登記不受限
     if (!byStaff) {
       const now = new Date();
       const { cutoff, open } = this.availabilityAt(
@@ -1094,25 +1090,6 @@ export class WaitlistService {
           set: values,
         });
     });
-
-    this.emitUpdated(org.id, null);
-
-    return this.getSettings(org.id);
-  }
-
-  async updatePaused(
-    organizationSlug: string,
-    paused: boolean,
-  ): Promise<WaitlistSettingsResponseDto> {
-    const org = await this.getOrgBySlug(organizationSlug);
-
-    await this.db
-      .insert(waitlistSetting)
-      .values({ organizationId: org.id, paused })
-      .onConflictDoUpdate({
-        target: waitlistSetting.organizationId,
-        set: { paused },
-      });
 
     this.emitUpdated(org.id, null);
 

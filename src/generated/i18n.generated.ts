@@ -622,7 +622,6 @@ export type I18nTranslations = {
                 "waitlistGroupsInvalid": string;
                 "waitlistIdempotencyConflict": string;
                 "waitlistPartySizeUnavailable": string;
-                "waitlistPaused": string;
                 "waitlistPhoneInQueue": string;
                 "waitlistQrRequired": string;
                 "waitlistQrSessionNotFound": string;
@@ -639,7 +638,6 @@ export type I18nTranslations = {
                 "waitlistGroupsInvalid": string;
                 "waitlistIdempotencyConflict": string;
                 "waitlistPartySizeUnavailable": string;
-                "waitlistPaused": string;
                 "waitlistPhoneInQueue": string;
                 "waitlistQrRequired": string;
                 "waitlistQrSessionNotFound": string;

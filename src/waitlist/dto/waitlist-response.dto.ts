@@ -39,7 +39,6 @@ export class WaitlistStatusResponseDto {
   @ApiProperty({ type: [WaitlistGroupStatusDto] })
   groups: WaitlistGroupStatusDto[];
   @ApiProperty({ description: '是否在營業時間內' }) open: boolean;
-  @ApiProperty() paused: boolean;
   @ApiProperty({
     type: [PublicSpecialHoursDto],
     description:
@@ -115,7 +114,6 @@ export class AdminWaitlistResponseDto {
   @ApiProperty() graceMinutes: number;
   @ApiProperty() holdMinutes: number;
   @ApiProperty({ description: '是否在營業時間內' }) open: boolean;
-  @ApiProperty() paused: boolean;
   @ApiProperty({
     type: [PublicSpecialHoursDto],
     description:

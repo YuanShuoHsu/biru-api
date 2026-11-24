@@ -2080,6 +2080,13 @@
       "when": 1795229122865,
       "tag": "0296_banner_url_locale_prefix",
       "breakpoints": true
+    },
+    {
+      "idx": 297,
+      "version": "7",
+      "when": 1795507032323,
+      "tag": "0297_drop_waitlist_paused",
+      "breakpoints": true
     }
   ]
 }
