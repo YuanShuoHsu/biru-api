@@ -390,7 +390,8 @@ export class CouponsService {
       createdAt: coupon.createdAt,
     };
 
-    const dir = sortDirection === 'desc' ? desc : asc;
+    const dir = (column: Column | SQL) =>
+      sql`${column} ${sql.raw(sortDirection === 'desc' ? 'desc' : 'asc')} nulls last`;
 
     const applicableOrganizationNames = sql`COALESCE((SELECT string_agg(o.name, ', ' ORDER BY array_position(${coupon.applicableOrganizationIds}, o.id)) FROM organization o WHERE o.id = ANY(${coupon.applicableOrganizationIds})), '')`;
     const menuSectionNames = sql`COALESCE((SELECT string_agg(COALESCE(ms.name->>${lang}, ms.name->>${DEFAULT_LANGUAGE}), ', ' ORDER BY array_position(${coupon.menuSectionIds}, ms.id)) FROM menu_section ms WHERE ms.id = ANY(${coupon.menuSectionIds})), '')`;
@@ -679,7 +680,8 @@ export class CouponsService {
       usedAt: userCoupon.usedAt,
     };
 
-    const dir = sortDirection === 'desc' ? desc : asc;
+    const dir = (column: Column | SQL) =>
+      sql`${column} ${sql.raw(sortDirection === 'desc' ? 'desc' : 'asc')} nulls last`;
     const orderBy: SQL[] = sortBy
       ? [dir(recipientFieldMap[sortBy]), desc(userCoupon.createdAt)]
       : [desc(userCoupon.createdAt)];
