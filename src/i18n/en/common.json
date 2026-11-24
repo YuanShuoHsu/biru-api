@@ -266,6 +266,7 @@
     "menuItemNotFound": "The item wasn't found. It may have been deleted",
     "menuNotFound": "The menu wasn't found. It may have been deleted",
     "menuPdfTooLong": "The menu doesn't fit on one A4 page. Remove some items, descriptions or options and try again",
+    "menuPdfUnsupportedCharacter": "The menu PDF can't print some characters in “{text}”. Edit the text and try again",
     "menuSectionNotFound": "The section wasn't found. It may have been deleted",
     "modifierGroupAttached": "This option group is already attached to the item",
     "modifierGroupNotFound": "The option group wasn't found. It may have been deleted",

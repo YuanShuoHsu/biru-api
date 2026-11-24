@@ -321,6 +321,7 @@ export type I18nTranslations = {
             "menuItemNotFound": string;
             "menuNotFound": string;
             "menuPdfTooLong": string;
+            "menuPdfUnsupportedCharacter": string;
             "menuSectionNotFound": string;
             "modifierGroupAttached": string;
             "modifierGroupNotFound": string;

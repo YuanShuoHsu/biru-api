@@ -266,6 +266,7 @@
     "menuItemNotFound": "找不到这个品项，可能已被删除",
     "menuNotFound": "找不到这个菜单，可能已被删除",
     "menuPdfTooLong": "菜单内容超过一页 A4，请减少品项、描述或选项后重试",
+    "menuPdfUnsupportedCharacter": "「{text}」含有菜单 PDF 无法印出的字符，请修改后重试",
     "menuSectionNotFound": "找不到这个分类，可能已被删除",
     "modifierGroupAttached": "这个选项群组已经挂载到这个品项",
     "modifierGroupNotFound": "找不到这个选项群组，可能已被删除",

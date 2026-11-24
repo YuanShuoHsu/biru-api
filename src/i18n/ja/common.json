@@ -266,6 +266,7 @@
     "menuItemNotFound": "品目が見つかりません。削除された可能性があります",
     "menuNotFound": "メニューが見つかりません。削除された可能性があります",
     "menuPdfTooLong": "メニューがA4用紙1枚に収まりません。品目・説明・オプションを減らしてからもう一度お試しください",
+    "menuPdfUnsupportedCharacter": "「{text}」にメニューPDFで印刷できない文字が含まれています。文字を修正してからもう一度お試しください",
     "menuSectionNotFound": "セクションが見つかりません。削除された可能性があります",
     "modifierGroupAttached": "このオプショングループはすでにこの商品に紐付けられています",
     "modifierGroupNotFound": "オプショングループが見つかりません。削除された可能性があります",

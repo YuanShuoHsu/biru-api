@@ -114,6 +114,7 @@ describe('MenuPdfService', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('draws the order menu on one A4 page in CMYK with the font embedded', async () => {
@@ -174,6 +175,8 @@ describe('MenuPdfService', () => {
     expect(raw).not.toContain('DeviceRGB');
     expect(raw).not.toContain('/ExtGState');
     expect(raw).not.toContain('/Annots');
+    expect(raw).not.toContain('/Group');
+    expect(raw).not.toContain('/JavaScript');
   });
 
   it('refuses a menu that does not fit on one page', async () => {
@@ -246,7 +249,38 @@ describe('MenuPdfService', () => {
     expect(yOf('辣度：不辣・大辣\u00a0+10\n加購：加麵\u00a0+20')).toHaveLength(
       1,
     );
-    text.mockRestore();
+  });
+
+  it('draws text the language font lacks with the first font that covers it', async () => {
+    const menu = menuOf([{ name: '飲品', items: 2 }]);
+    menu.sections[0].menuItems[0].name = '碧露咖啡';
+    publicMenusService.findOrderMenu.mockResolvedValue(menu);
+
+    const pdf = await service.orderMenu('org-1', 'ko');
+    const raw = pdf.toString('latin1');
+    const glyphIds = [...contentOf(pdf).matchAll(/^\[(.*)\] TJ$/gm)]
+      .flatMap(([, array]) => [...array.matchAll(/<([0-9a-f]+)>/g)])
+      .flatMap(([, hex]) => hex.match(/.{4}/g) ?? []);
+
+    expect(raw).toContain('+NotoSansKR-Regular');
+    expect(raw).toContain('+NotoSansTC-Regular');
+    expect(glyphIds.length).toBeGreaterThan(0);
+    expect(glyphIds).not.toContain('0000');
+  });
+
+  it('refuses text no font can draw', async () => {
+    const menu = menuOf([{ name: '飲品', items: 1 }]);
+    menu.sections[0].menuItems[0].name = '拿鐵 \u{1F600}';
+    publicMenusService.findOrderMenu.mockResolvedValue(menu);
+
+    const error: unknown = await service
+      .orderMenu('org-1', 'zh-TW')
+      .catch((caught: unknown) => caught);
+
+    expect(responseOf(error)).toEqual([
+      400,
+      expect.objectContaining({ code: 'menuPdfUnsupportedCharacter' }),
+    ]);
   });
 
   it('lists an add-on reached twice once and skips option groups without options', async () => {

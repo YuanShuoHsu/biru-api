@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
 
 import { Inject, Injectable } from '@nestjs/common';
@@ -21,6 +22,12 @@ import { PublicMenusService } from './menus-public.service.js';
 type Cmyk = [number, number, number, number];
 type Section = OrderMenuResponseDto['sections'][number];
 type PdfLabel = 'addOns' | 'allergens' | 'currency' | 'option' | 'separator';
+type Glyphs = { hasGlyphForCodePoint: (codePoint: number) => boolean };
+
+const require = createRequire(import.meta.url);
+const fontkit = createRequire(require.resolve('pdfkit'))('fontkit') as {
+  create: (buffer: Buffer) => Glyphs;
+};
 
 const FONT_DIR = join(process.cwd(), 'assets', 'fonts');
 const REGULAR = 'Regular';
@@ -32,6 +39,12 @@ export const MENU_PDF_FONT_FAMILIES: Record<Language, string> = {
   'zh-CN': 'NotoSansSC',
   'zh-TW': 'NotoSansTC',
 };
+const FALLBACK_FONT_FAMILIES = [
+  'NotoSansTC',
+  'NotoSansSC',
+  'NotoSansJP',
+  'NotoSansKR',
+];
 
 const BLUE_GREY: Cmyk = [62, 36, 31, 25];
 const INK: Cmyk = [80, 57, 50, 55];
@@ -46,6 +59,7 @@ const MARGIN_Y = mm(16);
 const BLOCK_GAP = mm(8);
 const ITEM_GAP = mm(3);
 const COLUMN_GAP = mm(12);
+const NOTE_GAP = mm(6);
 
 // https://printtechnologies.org/standards/files/pdf-x-application-notes_v4-sep06.pdf
 // https://printtechnologies.org/standards/files/technote5413.pdf
@@ -68,7 +82,7 @@ const TRAPPED_FALSE = {
 
 @Injectable()
 export class MenuPdfService {
-  private readonly fonts = new Map<string, Buffer>();
+  private readonly fonts = new Map<string, { file: Buffer; glyphs: Glyphs }>();
 
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
@@ -89,13 +103,13 @@ export class MenuPdfService {
     return this.render(store.name, menu, lang);
   }
 
-  private font(lang: Language, weight: string): Buffer {
-    const file = `${MENU_PDF_FONT_FAMILIES[lang]}-${weight}.ttf`;
-    const cached = this.fonts.get(file);
+  private font(name: string) {
+    const cached = this.fonts.get(name);
     if (cached) return cached;
 
-    const font = readFileSync(join(FONT_DIR, file));
-    this.fonts.set(file, font);
+    const file = readFileSync(join(FONT_DIR, `${name}.ttf`));
+    const font = { file, glyphs: fontkit.create(file) };
+    this.fonts.set(name, font);
     return font;
   }
 
@@ -134,8 +148,6 @@ export class MenuPdfService {
     (
       doc as unknown as { _root: { data: Record<string, unknown> } }
     )._root.data.OutputIntents = [FOGRA39_OUTPUT_INTENT];
-    doc.registerFont(REGULAR, this.font(lang, REGULAR));
-    doc.registerFont(BOLD, this.font(lang, BOLD));
 
     const chunks: Buffer[] = [];
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -149,8 +161,34 @@ export class MenuPdfService {
     delete pageDictionary.UserUnit;
     const width = pageWidth - MARGIN_X * 2;
     // https://github.com/foliojs/pdfkit/blob/v0.21.0/docs/vector.md#color
-    const style = (font: string, size: number, color: Cmyk) =>
-      doc.font(font).fontSize(size).fillColor(color);
+    let weight = REGULAR;
+    const style = (fontWeight: string, size: number, color: Cmyk) => {
+      weight = fontWeight;
+      doc.fontSize(size).fillColor(color);
+    };
+    const families = [
+      ...new Set([MENU_PDF_FONT_FAMILIES[lang], ...FALLBACK_FONT_FAMILIES]),
+    ];
+    const registered = new Set<string>();
+    const fontFor = (text: string) => {
+      const codePoints = Array.from(text, (char) => char.codePointAt(0) ?? 0);
+      const name = families
+        .map((family) => `${family}-${weight}`)
+        .find((candidate) =>
+          codePoints.every(
+            (codePoint) =>
+              codePoint < 0x20 ||
+              this.font(candidate).glyphs.hasGlyphForCodePoint(codePoint),
+          ),
+        );
+      if (!name) throw badRequestError('menuPdfUnsupportedCharacter', { text });
+
+      if (!registered.has(name)) {
+        doc.registerFont(name, this.font(name).file);
+        registered.add(name);
+      }
+      return doc.font(name);
+    };
 
     doc.fillColor(MILK_WHITE).rect(0, 0, pageWidth, pageHeight).fill();
 
@@ -158,11 +196,14 @@ export class MenuPdfService {
       new Intl.DisplayNames([lang], { type: 'currency' }).of(menu.currency) ??
       menu.currency;
     style(REGULAR, px(11), MUTED);
-    const footerY = pageHeight - MARGIN_Y - doc.currentLineHeight();
-    doc.text(t('currency', { currency: currencyName }), MARGIN_X, footerY, {
-      lineBreak: false,
+    const currencyNote = t('currency', { currency: currencyName });
+    const footerY =
+      pageHeight - MARGIN_Y - fontFor(currencyNote).currentLineHeight();
+    doc.text(currencyNote, MARGIN_X, footerY, { lineBreak: false });
+    fontFor(t('allergens')).text(t('allergens'), MARGIN_X, footerY, {
+      width,
+      align: 'right',
     });
-    doc.text(t('allergens'), MARGIN_X, footerY, { width, align: 'right' });
 
     let y = MARGIN_Y;
     // https://github.com/foliojs/pdfkit/blob/v0.21.0/docs/text.md#text-measurements
@@ -172,7 +213,7 @@ export class MenuPdfService {
       options: PDFKit.Mixins.TextOptions,
       draw = true,
     ) => {
-      const height = doc.heightOfString(text, options);
+      const height = fontFor(text).heightOfString(text, options);
       if (draw) doc.text(text, x, y, options);
       y += height;
     };
@@ -251,7 +292,9 @@ export class MenuPdfService {
         paragraph(section.description, x, { width: columnWidth }, draw);
       }
 
-      const itemNotes = section.menuItems.map(notesOf);
+      const itemNotes = section.menuItems.map((item) => [
+        ...new Set(notesOf(item)),
+      ]);
       const sharedNotes =
         itemNotes.length > 1
           ? itemNotes[0].filter((note) =>
@@ -265,7 +308,8 @@ export class MenuPdfService {
         const priceText = listPrice ? price.format(Number(listPrice)) : '';
         style(REGULAR, px(16), INK);
         const nameOptions = {
-          width: columnWidth - doc.widthOfString(priceText) - mm(4),
+          width:
+            columnWidth - fontFor(priceText).widthOfString(priceText) - mm(4),
         };
         if (draw)
           doc.text(priceText, x, y, { width: columnWidth, align: 'right' });
@@ -283,7 +327,7 @@ export class MenuPdfService {
       }
 
       if (sharedNotes.length > 0) {
-        y += ITEM_GAP;
+        y += NOTE_GAP;
         style(REGULAR, px(12.5), MUTED);
         paragraph(sharedNotes.join('\n'), x, { width: columnWidth }, draw);
       }
