@@ -142,6 +142,40 @@ describe('MenuPdfService', () => {
     expect(content).not.toContain('DeviceRGB');
   });
 
+  it('marks the file as PDF/X-1a:2003 for the FOGRA39 printing condition', async () => {
+    publicMenusService.findOrderMenu.mockResolvedValue(
+      menuOf([{ name: '飲品', items: 2 }]),
+    );
+
+    const raw = (await service.orderMenu('org-1', 'zh-TW')).toString('latin1');
+    const infoValue = (key: string) => {
+      const [, id] = new RegExp(`/${key} (\\d+) 0 R`).exec(raw) ?? [];
+      return new RegExp(`\\n${id} 0 obj\\n(.*)\\nendobj`).exec(raw)?.[1];
+    };
+
+    expect(raw.startsWith('%PDF-1.4\n')).toBe(true);
+    expect(raw).toContain(
+      [
+        '/OutputIntents [<<',
+        '/Type /OutputIntent',
+        '/S /GTS_PDFX',
+        '/OutputConditionIdentifier (FOGRA39)',
+        '/RegistryName (http://www.color.org)',
+      ].join('\n'),
+    );
+    expect(raw).not.toContain('/DestOutputProfile');
+    expect(infoValue('GTS_PDFXVersion')).toBe('(PDF/X-1a:2003)');
+    expect(infoValue('Trapped')).toBe('/False');
+    expect(infoValue('Title')).toBeDefined();
+    expect(infoValue('ModDate')).toBe(infoValue('CreationDate'));
+    expect(raw).toMatch(/\/ID \[<[0-9a-f]+> <[0-9a-f]+>\]/);
+    expect(raw).toContain('/TrimBox [0 0 595.28 841.89]');
+    expect(raw).not.toContain('/UserUnit');
+    expect(raw).not.toContain('DeviceRGB');
+    expect(raw).not.toContain('/ExtGState');
+    expect(raw).not.toContain('/Annots');
+  });
+
   it('refuses a menu that does not fit on one page', async () => {
     publicMenusService.findOrderMenu.mockResolvedValue(
       menuOf([{ name: '飲品', items: 40 }]),

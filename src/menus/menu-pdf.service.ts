@@ -47,6 +47,25 @@ const BLOCK_GAP = mm(8);
 const ITEM_GAP = mm(3);
 const COLUMN_GAP = mm(12);
 
+// https://printtechnologies.org/standards/files/pdf-x-application-notes_v4-sep06.pdf
+// https://printtechnologies.org/standards/files/technote5413.pdf
+// https://registry.color.org/cmyk-registry/fogra39
+const FOGRA39_OUTPUT_INTENT = {
+  Type: 'OutputIntent',
+  S: 'GTS_PDFX',
+  OutputConditionIdentifier: new String('FOGRA39'),
+  RegistryName: new String('http://www.color.org'),
+  OutputCondition: new String(
+    'Offset commercial and specialty printing according to ISO 12647-2, paper type 1 or 2 (gloss or matte coated offset, 115 g/m2), screen frequency 60/cm',
+  ),
+  Info: new String('ISO 12647-2:2004 / Amd 1'),
+};
+// PDFKit 會把字串型的 Info 值寫成 PDF 字串，PDF/X 的 Trapped 必須是名稱 /False
+const TRAPPED_FALSE = {
+  [Symbol.toStringTag]: 'PDFName',
+  toString: () => '/False',
+};
+
 @Injectable()
 export class MenuPdfService {
   private readonly fonts = new Map<string, Buffer>();
@@ -98,12 +117,23 @@ export class MenuPdfService {
     const option = (name: string, values: string[]) =>
       t('option', { name, values: values.join(t('separator')) });
 
+    const createdAt = new Date();
     const doc = new PDFDocument({
       size: 'A4',
       margin: 0,
       lang,
-      info: { Title: storeName },
+      pdfVersion: '1.4',
+      info: {
+        Title: storeName,
+        CreationDate: createdAt,
+        ModDate: createdAt,
+        GTS_PDFXVersion: 'PDF/X-1a:2003',
+        Trapped: TRAPPED_FALSE,
+      } as PDFKit.DocumentInfo,
     });
+    (
+      doc as unknown as { _root: { data: Record<string, unknown> } }
+    )._root.data.OutputIntents = [FOGRA39_OUTPUT_INTENT];
     doc.registerFont(REGULAR, this.font(lang, REGULAR));
     doc.registerFont(BOLD, this.font(lang, BOLD));
 
@@ -114,6 +144,9 @@ export class MenuPdfService {
     );
 
     const { width: pageWidth, height: pageHeight } = doc.page;
+    const pageDictionary = doc.page.dictionary.data as Record<string, unknown>;
+    pageDictionary.TrimBox = [0, 0, pageWidth, pageHeight];
+    delete pageDictionary.UserUnit;
     const width = pageWidth - MARGIN_X * 2;
     // https://github.com/foliojs/pdfkit/blob/v0.21.0/docs/vector.md#color
     const style = (font: string, size: number, color: Cmyk) =>
