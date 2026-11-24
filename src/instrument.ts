@@ -6,7 +6,7 @@ import * as Sentry from '@sentry/nestjs';
 import { withoutQueryParams } from './common/utils/sentry-events.js';
 
 const clientIdentityKeys = {
-  deny: ['forwarded', '-ip', 'remote-', 'via', '-user'],
+  deny: ['forwarded', '-ip', 'remote-', 'via', '-user', 'referer'],
 };
 
 if (process.env.SENTRY_DSN)
