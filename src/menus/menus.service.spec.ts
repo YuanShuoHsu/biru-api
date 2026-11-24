@@ -370,6 +370,22 @@ describe('MenusService localized text filters and sorting', () => {
     ) =>
       (await service.menuItemAddOns('latte', query)).data.map(({ id }) => id);
 
+    it('列表帶出加購品項與分類名稱，總數套用同樣的篩選', async () => {
+      const { data, total } = await service.menuItemAddOns('latte', {
+        quickFilterValue: '美式',
+      });
+
+      expect(total).toBe(1);
+      expect(data).toEqual([
+        expect.objectContaining({
+          id: 'with-americano',
+          addOnMenuItemName: expect.objectContaining({ 'zh-TW': '美式' }),
+          addOnMenuSectionName: null,
+          addOnMenuItemSectionId: expect.any(String),
+        }),
+      ]);
+    });
+
     it.each(['zh', 'TW', '"'])(
       '快速搜尋 %s 不會因為語系鍵或 JSON 符號命中',
       async (value) => {
