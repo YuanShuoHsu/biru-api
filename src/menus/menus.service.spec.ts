@@ -381,7 +381,10 @@ describe('MenusService localized text filters and sorting', () => {
           id: 'with-americano',
           addOnMenuItemName: expect.objectContaining({ 'zh-TW': '美式' }),
           addOnMenuSectionName: null,
-          addOnMenuItemSectionId: expect.any(String),
+          addOnMenuItemSectionId: 'drinks',
+          addOnMenuItemSectionName: expect.objectContaining({
+            'zh-TW': '飲品',
+          }),
         }),
       ]);
     });

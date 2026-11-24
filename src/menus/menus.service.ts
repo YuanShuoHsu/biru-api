@@ -1233,6 +1233,13 @@ export class MenusService {
     const addOnMenuItem = alias(menuItem, 'add_on_menu_item');
     const addOnMenuSection = alias(menuSection, 'add_on_menu_section');
     const addOnMenuItemSection = alias(menuSection, 'add_on_menu_item_section');
+    const nameColumns = {
+      addOnMenuItemName: addOnMenuItem.name,
+      addOnMenuSectionName: addOnMenuSection.name,
+      addOnMenuItemSectionId: addOnMenuItemSection.id,
+      addOnMenuItemSectionName: addOnMenuItemSection.name,
+    };
+    // https://orm.drizzle.team/docs/dynamic-query-building
     const joinNames = <T extends PgSelect>(query: T) =>
       query
         .leftJoin(
@@ -1248,7 +1255,13 @@ export class MenusService {
           eq(addOnMenuItem.menuSectionId, addOnMenuItemSection.id),
         );
 
-    return { addOnMenuItem, addOnMenuSection, addOnMenuItemSection, joinNames };
+    return {
+      addOnMenuItem,
+      addOnMenuSection,
+      addOnMenuItemSection,
+      nameColumns,
+      joinNames,
+    };
   }
 
   private async findMenuItemAddOnById(id: string): Promise<
@@ -1259,16 +1272,12 @@ export class MenusService {
       addOnMenuItemSectionName: LocalizedText | null;
     }
   > {
-    const { addOnMenuItem, addOnMenuSection, addOnMenuItemSection, joinNames } =
-      this.menuItemAddOnWithNames();
+    const { nameColumns, joinNames } = this.menuItemAddOnWithNames();
     const [row] = await joinNames(
       this.db
         .select({
           ...getTableColumns(menuItemAddOn),
-          addOnMenuItemName: addOnMenuItem.name,
-          addOnMenuSectionName: addOnMenuSection.name,
-          addOnMenuItemSectionId: addOnMenuItemSection.id,
-          addOnMenuItemSectionName: addOnMenuItemSection.name,
+          ...nameColumns,
         })
         .from(menuItemAddOn)
         .$dynamic(),
@@ -1367,8 +1376,13 @@ export class MenusService {
     })[];
     total: number;
   }> {
-    const { addOnMenuItem, addOnMenuSection, addOnMenuItemSection, joinNames } =
-      this.menuItemAddOnWithNames();
+    const {
+      addOnMenuItem,
+      addOnMenuSection,
+      addOnMenuItemSection,
+      nameColumns,
+      joinNames,
+    } = this.menuItemAddOnWithNames();
 
     const {
       limit = 10,
@@ -1454,10 +1468,7 @@ export class MenusService {
         this.db
           .select({
             ...getTableColumns(menuItemAddOn),
-            addOnMenuItemName: addOnMenuItem.name,
-            addOnMenuSectionName: addOnMenuSection.name,
-            addOnMenuItemSectionId: addOnMenuItemSection.id,
-            addOnMenuItemSectionName: addOnMenuItemSection.name,
+            ...nameColumns,
           })
           .from(menuItemAddOn)
           .$dynamic(),
