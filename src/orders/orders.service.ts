@@ -22,6 +22,7 @@ import {
   gte,
   ilike,
   inArray,
+  isNotNull,
   isNull,
   lt,
   ne,
@@ -152,6 +153,7 @@ import type { UserOrderPaginationQueryDto } from './dto/user-order-pagination-qu
 
 import { isValidOrderAccessToken } from './order-access-token.js';
 import { OrderPricingService } from './order-pricing.service.js';
+import { isCountedOrder } from './counted-orders.js';
 import { isProblemAwaitingRecheck } from './problem-recheck.js';
 import {
   IN_FLIGHT_ORDER_TICKET_STATUSES,
@@ -1744,7 +1746,13 @@ export class OrdersService {
                 and(
                   eq(invoice.orderId, order.id),
                   or(
-                    inArray(invoice.status, ['pending', 'issuing']),
+                    eq(invoice.status, 'issuing'),
+                    and(
+                      eq(invoice.status, 'pending'),
+                      isNotNull(order.paymentDate),
+                      isCountedOrder,
+                      ne(order.orderStatus, 'OrderReturned'),
+                    ),
                     and(
                       ne(invoice.status, 'voided'),
                       gte(
