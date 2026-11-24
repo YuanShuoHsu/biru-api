@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { UserSession } from '@thallesp/nestjs-better-auth';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { I18nContext } from 'nestjs-i18n';
 
 import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
@@ -17,12 +17,15 @@ import {
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import { OrdersService } from '../orders/orders.service.js';
+import { isProblemAwaitingRecheck } from '../orders/problem-recheck.js';
 import { WaitlistService } from '../waitlist/waitlist.service.js';
 
 import type {
   CreatePushSubscriptionDto,
   DeletePushSubscriptionDto,
 } from './dto/push-subscription.dto.js';
+
+const ENDED_REOPEN_GRACE_MS = 24 * 60 * 60 * 1000;
 
 type PushViewer = Pick<UserSession['user'], 'id' | 'role'>;
 
@@ -93,6 +96,9 @@ export class PushService {
   }
 
   async purgeEnded(): Promise<number> {
+    const now = Date.now();
+    const settled = new Date(now - ENDED_REOPEN_GRACE_MS);
+
     return this.db.transaction(async (tx) => {
       await tx
         .update(pushSubscription)
@@ -103,7 +109,13 @@ export class PushService {
             tx
               .select({ id: order.id })
               .from(order)
-              .where(inArray(order.orderStatus, [...ORDER_ENDED_STATUSES])),
+              .where(
+                and(
+                  inArray(order.orderStatus, [...ORDER_ENDED_STATUSES]),
+                  lt(order.updatedAt, settled),
+                  sql`NOT (${isProblemAwaitingRecheck(now)})`,
+                ),
+              ),
           ),
         );
       await tx
@@ -116,7 +128,13 @@ export class PushService {
               .select({ id: waitlistTicket.id })
               .from(waitlistTicket)
               .where(
-                inArray(waitlistTicket.status, [...WAITLIST_ENDED_STATUSES]),
+                and(
+                  inArray(waitlistTicket.status, [...WAITLIST_ENDED_STATUSES]),
+                  lt(
+                    sql`COALESCE(${waitlistTicket.endedAt}, ${waitlistTicket.createdAt})`,
+                    settled,
+                  ),
+                ),
               ),
           ),
         );

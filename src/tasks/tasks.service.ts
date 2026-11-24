@@ -13,8 +13,8 @@ import { DeletedRecordsService } from '../deleted-records/deleted-records.servic
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import { InventoryNotificationsService } from '../inventory/inventory-notifications.service.js';
 import { OrderNotificationsService } from '../orders/order-notifications.service.js';
-import { PayrollRulesService } from '../payroll/payroll-rules.service.js';
 import { OrdersService } from '../orders/orders.service.js';
+import { PayrollRulesService } from '../payroll/payroll-rules.service.js';
 import { PointsService } from '../points/points.service.js';
 import { PushService } from '../push/push.service.js';
 import { SharedCartsService } from '../shared-carts/shared-carts.service.js';

@@ -25,6 +25,7 @@ import {
   isNull,
   lt,
   ne,
+  notExists,
   or,
   sql,
 } from 'drizzle-orm';
@@ -86,6 +87,7 @@ import { sumOrderItems } from '../common/utils/order-items.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import { CouponsService } from '../coupons/coupons.service.js';
 import { ECPAY_PENDING_RTN_CODES } from '../ecpay/dto/return-ecpay.dto.js';
+import { earliestVoidableInvoiceDate } from '../ecpay/utils/refund-plan.js';
 import {
   LOW_STOCK_REACHED_EVENT,
   type LowStockReachedEvent,
@@ -341,6 +343,8 @@ const refundedQuantitiesOf = (
 
 const PUBLIC_BOARD_LEAD_MS = 60 * 60 * 1000;
 const ADMIN_BOARD_LEAD_MS = 24 * 60 * 60 * 1000;
+
+const PERSONAL_DATA_ERASE_BATCH_SIZE = 1000;
 
 @Injectable()
 export class OrdersService {
@@ -1717,46 +1721,78 @@ export class OrdersService {
   }
 
   async erasePersonalData(): Promise<number> {
-    const cutoff = new Date(Date.now() - PERSONAL_DATA_RETENTION_MS);
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - PERSONAL_DATA_RETENTION_MS);
     const maskedName = sql`left(${order.customer}->>'name', 1) || '**'`;
-
-    return this.db.transaction(async (tx) => {
-      const erased = await tx
-        .update(order)
-        .set({
-          customer: sql`jsonb_build_object('name', ${maskedName})`,
-          idempotencyFingerprint: null,
-        })
-        .where(
-          and(
-            isNull(order.userId),
-            inArray(order.orderStatus, [...ORDER_ENDED_STATUSES]),
-            lt(order.updatedAt, cutoff),
-            or(
-              sql`${order.customer} - 'name' <> '{}'::jsonb`,
-              sql`${order.customer}->>'name' IS DISTINCT FROM ${maskedName}`,
-            ),
+    const due = this.db
+      .select({ id: order.id })
+      .from(order)
+      .where(
+        and(
+          isNull(order.userId),
+          inArray(order.orderStatus, [...ORDER_ENDED_STATUSES]),
+          lt(order.updatedAt, cutoff),
+          or(
+            sql`${order.customer} - 'name' <> '{}'::jsonb`,
+            sql`${order.customer}->>'name' IS DISTINCT FROM ${maskedName}`,
           ),
-        )
-        .returning({ id: order.id });
-      if (!erased.length) return 0;
-
-      await tx
-        .update(auditLog)
-        .set({
-          changes: sql`${auditLog.changes} - 'customer' - 'idempotencyFingerprint'`,
-        })
-        .where(
-          and(
-            eq(auditLog.resource, 'order'),
-            inArray(
-              auditLog.resourceId,
-              erased.map(({ id }) => id),
-            ),
+          notExists(
+            this.db
+              .select({ id: invoice.id })
+              .from(invoice)
+              .where(
+                and(
+                  eq(invoice.orderId, order.id),
+                  or(
+                    inArray(invoice.status, ['pending', 'issuing']),
+                    and(
+                      ne(invoice.status, 'voided'),
+                      gte(
+                        invoice.invoiceDate,
+                        earliestVoidableInvoiceDate(now),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ),
-        );
+        ),
+      )
+      .limit(PERSONAL_DATA_ERASE_BATCH_SIZE);
 
-      return erased.length;
-    });
+    let total = 0;
+    for (;;) {
+      const erased = await this.db.transaction(async (tx) => {
+        const rows = await tx
+          .update(order)
+          .set({
+            customer: sql`jsonb_build_object('name', ${maskedName})`,
+            idempotencyFingerprint: null,
+          })
+          .where(inArray(order.id, due))
+          .returning({ id: order.id });
+        if (!rows.length) return 0;
+
+        await tx
+          .update(auditLog)
+          .set({
+            changes: sql`${auditLog.changes} - 'customer' - 'idempotencyFingerprint'`,
+          })
+          .where(
+            and(
+              eq(auditLog.resource, 'order'),
+              inArray(
+                auditLog.resourceId,
+                rows.map(({ id }) => id),
+              ),
+            ),
+          );
+
+        return rows.length;
+      });
+
+      total += erased;
+      if (erased < PERSONAL_DATA_ERASE_BATCH_SIZE) return total;
+    }
   }
 }

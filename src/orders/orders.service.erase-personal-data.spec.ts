@@ -40,7 +40,14 @@ describe('OrdersService.erasePersonalData', () => {
          ('old-name-only', '{"name":"Lin"}', 'pickup', '3', 'OrderDelivered', 'Cash', 'org', 100, null, null, now() - interval '31 days'),
          ('recent-guest', ${contact}, 'pickup', '4', 'OrderDelivered', 'Cash', 'org', 100, null, null, now() - interval '29 days'),
          ('old-open', ${contact}, 'pickup', '5', 'OrderProcessing', 'Cash', 'org', 100, null, null, now() - interval '31 days'),
-         ('old-member', ${contact}, 'pickup', '6', 'OrderDelivered', 'Cash', 'org', 100, 'amy', null, now() - interval '31 days');
+         ('old-member', ${contact}, 'pickup', '6', 'OrderDelivered', 'Cash', 'org', 100, 'amy', null, now() - interval '31 days'),
+         ('old-pending-invoice', ${contact}, 'pickup', '7', 'OrderDelivered', 'Cash', 'org', 100, null, null, now() - interval '31 days'),
+         ('old-voidable-invoice', ${contact}, 'pickup', '8', 'OrderDelivered', 'Cash', 'org', 100, null, null, now() - interval '31 days'),
+         ('old-settled-invoice', ${contact}, 'pickup', '9', 'OrderDelivered', 'Cash', 'org', 100, null, null, now() - interval '31 days');
+       insert into invoice (id, order_id, type, status, invoice_date) values
+         ('pending', 'old-pending-invoice', 'personal', 'pending', null),
+         ('voidable', 'old-voidable-invoice', 'personal', 'issued', now()),
+         ('settled', 'old-settled-invoice', 'personal', 'issued', now() - interval '1 year');
        insert into audit_log (id, actor_name, actor_email, organization_id, resource, resource_id, action, changes, created_at) values
          ('audit-guest', 'Owner', 'owner@example.com', 'org', 'order', 'old-guest', 'update', '{"customer":{"before":{"name":"王小明"},"after":{"name":"王大明"}},"orderStatus":{"before":"OrderPickupAvailable","after":"OrderDelivered"}}', now()),
          ('audit-member', 'Owner', 'owner@example.com', 'org', 'order', 'old-member', 'update', '{"customer":{"before":{"name":"王小明"},"after":{"name":"王大明"}}}', now());`,
@@ -51,8 +58,8 @@ describe('OrdersService.erasePersonalData', () => {
     await client.close();
   });
 
-  it('keeps only a masked name on guest orders that ended over 30 days ago, and strips the customer from their audit log', async () => {
-    expect(await service.erasePersonalData()).toBe(3);
+  it('keeps only a masked name on guest orders that ended over 30 days ago and whose invoice can no longer be issued or voided, and strips the customer from their audit log', async () => {
+    expect(await service.erasePersonalData()).toBe(4);
 
     const { rows: orders } = await client.query<{
       id: string;
@@ -83,6 +90,21 @@ describe('OrdersService.erasePersonalData', () => {
         idempotency_fingerprint: null,
       },
       { id: 'old-open', customer: contact, idempotency_fingerprint: null },
+      {
+        id: 'old-pending-invoice',
+        customer: contact,
+        idempotency_fingerprint: null,
+      },
+      {
+        id: 'old-settled-invoice',
+        customer: { name: '王**' },
+        idempotency_fingerprint: null,
+      },
+      {
+        id: 'old-voidable-invoice',
+        customer: contact,
+        idempotency_fingerprint: null,
+      },
       { id: 'recent-guest', customer: contact, idempotency_fingerprint: null },
     ]);
 
