@@ -265,6 +265,8 @@
     "menuItemModifierGroupNotFound": "このオプショングループはこの商品に紐付けられていません。外された可能性があります",
     "menuItemNotFound": "品目が見つかりません。削除された可能性があります",
     "menuNotFound": "メニューが見つかりません。削除された可能性があります",
+    "menuPdfLanguageUnsupported": "PDFメニューは繁体字中国語・英語・日本語のみ対応しています。言語を切り替えてもう一度お試しください",
+    "menuPdfTooLong": "メニューがA4用紙1枚に収まりません。品目・説明・オプションを減らしてからもう一度お試しください",
     "menuSectionNotFound": "セクションが見つかりません。削除された可能性があります",
     "modifierGroupAttached": "このオプショングループはすでにこの商品に紐付けられています",
     "modifierGroupNotFound": "オプショングループが見つかりません。削除された可能性があります",
@@ -273,6 +275,13 @@
     "parentSectionDescendant": "カテゴリを自身のサブカテゴリの下に移動できません",
     "parentSectionNotFound": "親セクションが見つかりません。削除された可能性があります",
     "parentSectionSelf": "カテゴリを自身の親カテゴリに設定できません",
+    "pdf": {
+      "addOns": "追加",
+      "allergens": "アレルギーについてはスタッフにお尋ねください",
+      "currency": "価格は{currency}表示です",
+      "option": "{name}：{values}",
+      "separator": "・"
+    },
     "printerNotFound": "プリンターが見つかりません。削除された可能性があります",
     "promoDateRangeInvalid": "プロモーションの終了日は開始日より前にできません",
     "selectionCountInvalid": "最大選択数は最小選択数以上にしてください"
