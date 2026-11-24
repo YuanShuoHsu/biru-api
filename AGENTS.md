@@ -587,7 +587,7 @@ value). A new variable must be added to that schema with the rule the code actua
   the uploaded image URL is this plus the key
 - `SENTRY_DSN` — Sentry project DSN, read directly by `src/instrument.ts` before Nest boots; unset means Sentry is off.
   Only 5xx and non-`HttpException` errors are sent (from `AllExceptionsFilter` / `AllWsExceptionsFilter`), never 4xx,
-  with no cookies, bodies or IPs and only the user id
+  with no cookies, bodies, IPs, URL query strings or SQL params, and only the user id
 - `SENTRY_ENVIRONMENT` — Sentry `environment` of the events (e.g. `production`, `stage`)
 - `PORT` — HTTP port (default 3001)
 
