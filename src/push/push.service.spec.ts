@@ -211,4 +211,42 @@ describe('PushService', () => {
 
     expect(await rows()).toEqual([]);
   });
+
+  it('drops orders and tickets that ended a day ago from their subscriptions and deletes the anonymous ones left with nothing', async () => {
+    await client.exec(
+      `insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal, order_status, updated_at) values
+         ('done', '{"name":"客人"}', 'pickup', '2', 'Cash', 'org', 100, 'OrderDelivered', now() - interval '2 days'),
+         ('just-done', '{"name":"客人"}', 'pickup', '3', 'Cash', 'org', 100, 'OrderDelivered', now()),
+         ('rechecking', '{"name":"客人"}', 'pickup', '4', 'Cash', 'org', 100, 'OrderProblem', now() - interval '2 days');
+       insert into waitlist_ticket (id, organization_id, service_date, prefix, number, party_size, locale, status, ended_at) values
+         ('left', 'org', current_date, 'A', 3, 2, 'zh-TW', 'cancelled', now() - interval '2 days');
+       insert into push_subscription (id, endpoint, p256dh, auth, lang, app, user_id, order_id, waitlist_ticket_id) values
+         ('guest-done', 'https://push.example.com/1', 'k', 'a', 'zh-TW', 'storefront', null, 'done', null),
+         ('guest-left', 'https://push.example.com/2', 'k', 'a', 'zh-TW', 'storefront', null, null, 'left'),
+         ('guest-just-done', 'https://push.example.com/6', 'k', 'a', 'zh-TW', 'storefront', null, 'just-done', null),
+         ('guest-just-seated', 'https://push.example.com/7', 'k', 'a', 'zh-TW', 'storefront', null, null, 'seated'),
+         ('guest-rechecking', 'https://push.example.com/8', 'k', 'a', 'zh-TW', 'storefront', null, 'rechecking', null),
+         ('guest-open', 'https://push.example.com/3', 'k', 'a', 'zh-TW', 'storefront', null, 'o1', null),
+         ('guest-mixed', 'https://push.example.com/4', 'k', 'a', 'zh-TW', 'storefront', null, 'done', 't1'),
+         ('member-done', 'https://push.example.com/5', 'k', 'a', 'zh-TW', 'storefront', 'amy', 'done', 'left');`,
+    );
+
+    expect(await service.purgeEnded()).toBe(2);
+    expect(
+      (await rows())
+        .map(({ id, orderId, waitlistTicketId }) => ({
+          id,
+          orderId,
+          waitlistTicketId,
+        }))
+        .sort((a, b) => a.id.localeCompare(b.id)),
+    ).toEqual([
+      { id: 'guest-just-done', orderId: 'just-done', waitlistTicketId: null },
+      { id: 'guest-just-seated', orderId: null, waitlistTicketId: 'seated' },
+      { id: 'guest-mixed', orderId: null, waitlistTicketId: 't1' },
+      { id: 'guest-open', orderId: 'o1', waitlistTicketId: null },
+      { id: 'guest-rechecking', orderId: 'rechecking', waitlistTicketId: null },
+      { id: 'member-done', orderId: null, waitlistTicketId: null },
+    ]);
+  });
 });

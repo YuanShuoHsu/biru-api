@@ -265,6 +265,8 @@
     "menuItemModifierGroupNotFound": "這個選項群組沒有掛載到這個品項，可能已被移除",
     "menuItemNotFound": "找不到這個品項，可能已被刪除",
     "menuNotFound": "找不到這個菜單，可能已被刪除",
+    "menuPdfTooLong": "菜單內容超過一頁 A4，請減少品項、描述或選項後再試",
+    "menuPdfUnsupportedCharacter": "菜單 PDF 無法印出這些字元：{text}，請修改後再試",
     "menuSectionNotFound": "找不到這個分類，可能已被刪除",
     "modifierGroupAttached": "這個選項群組已經掛載到這個品項",
     "modifierGroupNotFound": "找不到這個選項群組，可能已被刪除",
@@ -273,6 +275,13 @@
     "parentSectionDescendant": "分類不能移到自己的子分類底下",
     "parentSectionNotFound": "找不到上層分類，可能已被刪除",
     "parentSectionSelf": "分類不能設為自己的上層分類",
+    "pdf": {
+      "addOns": "加購",
+      "allergens": "過敏原請洽店員",
+      "currency": "價格以{currency}計",
+      "option": "{name}：{values}",
+      "separator": "・"
+    },
     "printerNotFound": "找不到這台印表機，可能已被移除",
     "promoDateRangeInvalid": "促銷結束日不能早於開始日",
     "selectionCountInvalid": "最多選擇數量不能少於最少選擇數量"

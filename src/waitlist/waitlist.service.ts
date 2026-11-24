@@ -25,6 +25,7 @@ import {
   ADMIN_BOARD_COLUMN_LIMIT,
   ADMIN_BOARD_DONE_COLUMN_LIMIT,
 } from '../common/constants/board.js';
+import { PERSONAL_DATA_RETENTION_MS } from '../common/constants/personal-data.js';
 import {
   DAY_MS,
   PLATFORM_TIMEZONE,
@@ -125,7 +126,6 @@ import {
 } from './waitlist-rules.js';
 
 const STALE_TICKET_MS = 24 * 60 * 60 * 1000;
-const PERSONAL_DATA_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const PUBLIC_CALLED_TICKET_LIMIT = 5;
 
 const inTodayQueue = (organizationId: string, now = new Date()) =>

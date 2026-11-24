@@ -383,4 +383,49 @@ describe('ChecklistRunsService', () => {
       total: 1,
     });
   });
+
+  it('歷史紀錄的每一份只帶出自己那天填寫的項目', async () => {
+    const snapshot = JSON.stringify({
+      name: '開店',
+      timing: 'opening',
+      items: [
+        { id: 'light', label: '開燈', type: 'check' },
+        { id: 'fridge', ...temperature },
+      ],
+    });
+    await client.query(
+      `insert into checklist_run (id, organization_id, business_date, template_snapshot) values
+        ('r1', 'biru', '2026-11-01', $1), ('r2', 'biru', '2026-11-02', $1)`,
+      [snapshot],
+    );
+    await client.exec(`
+      insert into checklist_run_item (id, run_id, item_id, item_snapshot, checked, value, out_of_range, action_note, filled_by_name) values
+        ('i1', 'r1', 'light', '{}', true, null, false, null, 'Amy'),
+        ('i2', 'r2', 'fridge', '{}', null, 9, true, '移到備用冰箱', 'Amy');
+    `);
+
+    const { data } = await service.findRuns('biru', {});
+
+    expect(data.map(({ id, items }) => ({ id, items }))).toMatchObject([
+      {
+        id: 'r2',
+        items: [
+          { id: 'light', checked: null, filledByName: null },
+          {
+            id: 'fridge',
+            value: 9,
+            outOfRange: true,
+            actionNote: '移到備用冰箱',
+          },
+        ],
+      },
+      {
+        id: 'r1',
+        items: [
+          { id: 'light', checked: true, filledByName: 'Amy' },
+          { id: 'fridge', value: null, outOfRange: false },
+        ],
+      },
+    ]);
+  });
 });

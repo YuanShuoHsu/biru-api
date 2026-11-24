@@ -22,19 +22,27 @@ import {
   gte,
   ilike,
   inArray,
+  isNotNull,
   isNull,
   lt,
   ne,
+  notExists,
   or,
   sql,
 } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import { I18nContext } from 'nestjs-i18n';
+import { auditLog } from '../db/schema/audit.js';
 import { ecpayPaymentAttempt } from '../db/schema/ecpay-payment-attempts.js';
 import type { Invoice, InvoicePrintJob } from '../db/schema/invoices.js';
 import { invoice } from '../db/schema/invoices.js';
 import type { OrderStatus, PaymentMethod } from '../db/schema/orders.js';
-import { ORDER_FLOW_STATUSES, order, orderItem } from '../db/schema/orders.js';
+import {
+  ORDER_ENDED_STATUSES,
+  ORDER_FLOW_STATUSES,
+  order,
+  orderItem,
+} from '../db/schema/orders.js';
 import type { Organization } from '../db/schema/organizations.js';
 import { member, organization } from '../db/schema/organizations.js';
 import type { OrderTicketJob, Printer } from '../db/schema/printers.js';
@@ -49,6 +57,7 @@ import {
   ADMIN_BOARD_COLUMN_LIMIT,
   ADMIN_BOARD_DONE_COLUMN_LIMIT,
 } from '../common/constants/board.js';
+import { PERSONAL_DATA_RETENTION_MS } from '../common/constants/personal-data.js';
 import {
   STORE_UTC_OFFSET,
   STORE_UTC_OFFSET_MS,
@@ -83,6 +92,7 @@ import { sumOrderItems } from '../common/utils/order-items.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import { CouponsService } from '../coupons/coupons.service.js';
 import { ECPAY_PENDING_RTN_CODES } from '../ecpay/dto/return-ecpay.dto.js';
+import { earliestVoidableInvoiceDate } from '../ecpay/utils/refund-plan.js';
 import {
   LOW_STOCK_REACHED_EVENT,
   type LowStockReachedEvent,
@@ -147,6 +157,7 @@ import type { UserOrderPaginationQueryDto } from './dto/user-order-pagination-qu
 
 import { isValidOrderAccessToken } from './order-access-token.js';
 import { OrderPricingService } from './order-pricing.service.js';
+import { isCountedOrder } from './counted-orders.js';
 import { isProblemAwaitingRecheck } from './problem-recheck.js';
 import {
   IN_FLIGHT_ORDER_TICKET_STATUSES,
@@ -349,6 +360,8 @@ const ORDER_SORT_NULLS: Partial<Record<string, NullsAs>> = {
   invoiceType: 'last',
   invoiceStatus: 'last',
 };
+
+const PERSONAL_DATA_ERASE_BATCH_SIZE = 1000;
 
 @Injectable()
 export class OrdersService {
@@ -1734,5 +1747,99 @@ export class OrdersService {
 
     if (cancelled.length)
       this.logger.log(`自動取消 ${cancelled.length} 筆逾時未付款訂單`);
+  }
+
+  async erasePersonalData(): Promise<number> {
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - PERSONAL_DATA_RETENTION_MS);
+    const maskedName = sql`left(${order.customer}->>'name', 1) || '**'`;
+    const isDue = and(
+      isNull(order.userId),
+      inArray(order.orderStatus, [...ORDER_ENDED_STATUSES]),
+      lt(order.updatedAt, cutoff),
+      or(
+        sql`${order.customer} - 'name' <> '{}'::jsonb`,
+        sql`${order.customer}->>'name' IS DISTINCT FROM ${maskedName}`,
+      ),
+      notExists(
+        this.db
+          .select({ id: invoice.id })
+          .from(invoice)
+          .where(
+            and(
+              eq(invoice.orderId, order.id),
+              or(
+                eq(invoice.status, 'issuing'),
+                and(
+                  eq(invoice.status, 'pending'),
+                  isNotNull(order.paymentDate),
+                  isCountedOrder,
+                  ne(order.orderStatus, 'OrderReturned'),
+                ),
+                and(
+                  ne(invoice.status, 'voided'),
+                  gte(invoice.invoiceDate, earliestVoidableInvoiceDate(now)),
+                ),
+              ),
+            ),
+          ),
+      ),
+    );
+
+    let total = 0;
+    for (;;) {
+      const erased = await this.db.transaction(async (tx) => {
+        const due = await tx
+          .select({ id: order.id })
+          .from(order)
+          .where(isDue)
+          .limit(PERSONAL_DATA_ERASE_BATCH_SIZE)
+          .for('update');
+        const ids = due.map(({ id }) => id);
+        if (!ids.length) return 0;
+
+        await tx
+          .update(invoice)
+          .set({
+            email: sql`(SELECT NULLIF(${order.customer}->>'email', '') FROM ${order} WHERE ${order.id} = ${invoice.orderId})`,
+          })
+          .where(
+            and(
+              inArray(invoice.orderId, ids),
+              eq(invoice.status, 'issued'),
+              isNull(invoice.email),
+            ),
+          );
+
+        const rows = await tx
+          .update(order)
+          .set({
+            customer: sql`jsonb_build_object('name', ${maskedName})`,
+            idempotencyFingerprint: null,
+          })
+          .where(inArray(order.id, ids))
+          .returning({ id: order.id });
+
+        await tx
+          .update(auditLog)
+          .set({
+            changes: sql`${auditLog.changes} - 'customer' - 'idempotencyFingerprint'`,
+          })
+          .where(
+            and(
+              eq(auditLog.resource, 'order'),
+              inArray(
+                auditLog.resourceId,
+                rows.map(({ id }) => id),
+              ),
+            ),
+          );
+
+        return rows.length;
+      });
+
+      total += erased;
+      if (erased < PERSONAL_DATA_ERASE_BATCH_SIZE) return total;
+    }
   }
 }

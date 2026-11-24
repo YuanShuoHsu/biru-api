@@ -18,6 +18,8 @@ export const menuErrorCodes = [
   'menuItemModifierGroupNotFound',
   'menuItemNotFound',
   'menuNotFound',
+  'menuPdfTooLong',
+  'menuPdfUnsupportedCharacter',
   'menuSectionNotFound',
   'modifierGroupAttached',
   'modifierGroupNotFound',
@@ -33,14 +35,19 @@ export const menuErrorCodes = [
 
 export type MenuErrorCode = (typeof menuErrorCodes)[number];
 
-const errorBody = (code: MenuErrorCode) => ({
+const errorBody = (code: MenuErrorCode, args?: Record<string, unknown>) => ({
   code,
   message:
-    I18nContext.current<I18nTranslations>()?.t(`common.menus.${code}`) ?? code,
+    I18nContext.current<I18nTranslations>()?.t(`common.menus.${code}`, {
+      args,
+    }) ?? code,
 });
 
-export const badRequestError = (code: MenuErrorCode) =>
-  new BadRequestException({ error: 'Bad Request', ...errorBody(code) });
+export const badRequestError = (
+  code: MenuErrorCode,
+  args?: Record<string, unknown>,
+) =>
+  new BadRequestException({ error: 'Bad Request', ...errorBody(code, args) });
 
 export const conflictError = (code: MenuErrorCode) =>
   new ConflictException({ error: 'Conflict', ...errorBody(code) });
