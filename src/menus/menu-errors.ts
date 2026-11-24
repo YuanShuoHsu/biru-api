@@ -2,7 +2,6 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
-  UnprocessableEntityException,
 } from '@nestjs/common';
 
 import { I18nContext } from 'nestjs-i18n';
@@ -50,9 +49,3 @@ export const conflictError = (code: MenuErrorCode) =>
 
 export const notFoundError = (code: MenuErrorCode) =>
   new NotFoundException({ error: 'Not Found', ...errorBody(code) });
-
-export const unprocessableEntityError = (code: MenuErrorCode) =>
-  new UnprocessableEntityException({
-    error: 'Unprocessable Entity',
-    ...errorBody(code),
-  });

@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { inflateSync } from 'node:zlib';
 
 import type { HttpException } from '@nestjs/common';
@@ -8,7 +9,7 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import type { OrderMenuResponseDto } from './dto/order-menu-response.dto.js';
-import { MenuPdfService } from './menu-pdf.service.js';
+import { MENU_PDF_LANGUAGES, MenuPdfService } from './menu-pdf.service.js';
 import type { PublicMenusService } from './menus-public.service.js';
 
 const translationsOf = (lang: string) =>
@@ -19,8 +20,8 @@ const translationsOf = (lang: string) =>
     ),
   ) as Record<string, unknown>;
 
-const i18n = {
-  t: (key: string, { lang, args }: { lang: string; args?: object }) =>
+const t = vi.fn(
+  (key: string, { lang, args }: { lang: string; args?: object }) =>
     Object.entries(args ?? {}).reduce(
       (text, [name, value]) => text.replace(`{${name}}`, String(value)),
       key
@@ -31,7 +32,18 @@ const i18n = {
           translationsOf(lang),
         ) as string,
     ),
-} as unknown as I18nService<I18nTranslations>;
+);
+const i18n = { t } as unknown as I18nService<I18nTranslations>;
+
+const require = createRequire(import.meta.url);
+const fontkit = createRequire(require.resolve('pdfkit'))('fontkit') as {
+  create: (buffer: Buffer) => {
+    hasGlyphForCodePoint: (codePoint: number) => boolean;
+  };
+};
+const fonts = ['NotoSansTC-Regular', 'NotoSansTC-Bold'].map((name) =>
+  fontkit.create(readFileSync(`assets/fonts/${name}.ttf`)),
+);
 
 const menuOf = (sections: { name: string; items: number }[]) =>
   ({
@@ -53,7 +65,11 @@ const menuOf = (sections: { name: string; items: number }[]) =>
           },
         ],
         addOns: [
-          { menuItems: [{ name: '加麵', offers: [{ price: '20.00' }] }] },
+          {
+            menuItems: [
+              { id: 'noodle', name: '加麵', offers: [{ price: '20.00' }] },
+            ],
+          },
         ],
       })),
     })),
@@ -133,12 +149,12 @@ describe('MenuPdfService', () => {
       .catch((caught: unknown) => caught);
 
     expect(responseOf(error)).toEqual([
-      422,
+      400,
       expect.objectContaining({ code: 'menuPdfTooLong' }),
     ]);
   });
 
-  it.each(['ko', 'zh-CN'] as const)(
+  it.each(['ja', 'ko', 'zh-CN'] as const)(
     'refuses %s, whose glyphs the font lacks',
     async (lang) => {
       const error: unknown = await service
@@ -157,7 +173,7 @@ describe('MenuPdfService', () => {
     publicMenusService.findOrderMenu.mockResolvedValue(null);
 
     const error: unknown = await service
-      .orderMenu('org-1', 'ja')
+      .orderMenu('org-1', 'en')
       .catch((caught: unknown) => caught);
 
     expect(responseOf(error)).toEqual([
@@ -165,4 +181,55 @@ describe('MenuPdfService', () => {
       expect.objectContaining({ code: 'menuNotFound' }),
     ]);
   });
+
+  it('lists an add-on reached twice once and skips option groups without options', async () => {
+    const menu = menuOf([{ name: '義大利麵', items: 1 }]);
+    const [item] = menu.sections[0].menuItems;
+    item.modifierGroups.push({
+      displayName: '醬料',
+      modifiers: [],
+    } as unknown as (typeof item.modifierGroups)[number]);
+    item.addOns.push({
+      menuItems: [
+        { id: 'noodle', name: '加麵', offers: [{ price: '20.00' }] },
+        { id: 'egg', name: '加蛋', offers: [{ price: '15.00' }] },
+      ],
+    } as unknown as (typeof item.addOns)[number]);
+    publicMenusService.findOrderMenu.mockResolvedValue(menu);
+
+    await service.orderMenu('org-1', 'zh-TW');
+
+    const options = t.mock.calls
+      .filter(([key]) => key === 'common.menus.pdf.option')
+      .map(([, { args }]) => args as { name: string; values: string })
+      .map(({ name, values }) => [name, values]);
+    expect(Object.fromEntries(options)).toEqual({
+      辣度: '不辣・大辣\u00a0+10',
+      加購: '加麵\u00a0+20・加蛋\u00a0+15',
+    });
+  });
+
+  it.each(MENU_PDF_LANGUAGES)(
+    'has glyphs in both fonts for every %s label',
+    (lang) => {
+      const labels = Object.values(
+        (translationsOf(lang).menus as { pdf: Record<string, string> }).pdf,
+      );
+      const text = [
+        ...labels,
+        new Intl.DisplayNames([lang], { type: 'currency' }).of('TWD'),
+        new Intl.NumberFormat(lang, { signDisplay: 'exceptZero' }).format(
+          1234567890,
+        ),
+        '\u00a0',
+      ].join('');
+
+      for (const font of fonts)
+        expect(
+          Array.from(text).filter(
+            (char) => !font.hasGlyphForCodePoint(char.codePointAt(0) ?? 0),
+          ),
+        ).toEqual([]);
+    },
+  );
 });

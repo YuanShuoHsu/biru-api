@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { Inject, Injectable } from '@nestjs/common';
@@ -14,11 +15,7 @@ import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import type { OrderMenuResponseDto } from './dto/order-menu-response.dto.js';
-import {
-  badRequestError,
-  notFoundError,
-  unprocessableEntityError,
-} from './menu-errors.js';
+import { badRequestError, notFoundError } from './menu-errors.js';
 import { PublicMenusService } from './menus-public.service.js';
 
 type Cmyk = [number, number, number, number];
@@ -28,7 +25,7 @@ type PdfLabel = 'addOns' | 'allergens' | 'currency' | 'option' | 'separator';
 const FONT_DIR = join(process.cwd(), 'assets', 'fonts');
 const REGULAR = 'NotoSansTC-Regular';
 const BOLD = 'NotoSansTC-Bold';
-const LANGUAGES_WITHOUT_GLYPHS: Language[] = ['ko', 'zh-CN'];
+export const MENU_PDF_LANGUAGES: Language[] = ['en', 'zh-TW'];
 
 const BLUE_GREY: Cmyk = [62, 36, 31, 25];
 const INK: Cmyk = [80, 57, 50, 55];
@@ -46,6 +43,11 @@ const COLUMN_GAP = mm(12);
 
 @Injectable()
 export class MenuPdfService {
+  private readonly fonts = {
+    [REGULAR]: readFileSync(join(FONT_DIR, `${REGULAR}.ttf`)),
+    [BOLD]: readFileSync(join(FONT_DIR, `${BOLD}.ttf`)),
+  };
+
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly i18n: I18nService<I18nTranslations>,
@@ -53,7 +55,7 @@ export class MenuPdfService {
   ) {}
 
   async orderMenu(organizationId: string, lang: Language): Promise<Buffer> {
-    if (LANGUAGES_WITHOUT_GLYPHS.includes(lang))
+    if (!MENU_PDF_LANGUAGES.includes(lang))
       throw badRequestError('menuPdfLanguageUnsupported');
 
     const [menu, store] = await Promise.all([
@@ -92,8 +94,8 @@ export class MenuPdfService {
       lang,
       info: { Title: storeName },
     });
-    doc.registerFont(REGULAR, join(FONT_DIR, `${REGULAR}.ttf`));
-    doc.registerFont(BOLD, join(FONT_DIR, `${BOLD}.ttf`));
+    doc.registerFont(REGULAR, this.fonts[REGULAR]);
+    doc.registerFont(BOLD, this.fonts[BOLD]);
 
     const chunks: Buffer[] = [];
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -103,7 +105,7 @@ export class MenuPdfService {
 
     const { width: pageWidth, height: pageHeight } = doc.page;
     const width = pageWidth - MARGIN_X * 2;
-    // https://github.com/foliojs/pdfkit/blob/master/docs/vector.md#color
+    // https://github.com/foliojs/pdfkit/blob/v0.21.0/docs/vector.md#color
     const style = (font: string, size: number, color: Cmyk) =>
       doc.font(font).fontSize(size).fillColor(color);
 
@@ -120,7 +122,7 @@ export class MenuPdfService {
     doc.text(t('allergens'), MARGIN_X, footerY, { width, align: 'right' });
 
     let y = MARGIN_Y;
-    // https://github.com/foliojs/pdfkit/blob/master/docs/text.md#text-measurements
+    // https://github.com/foliojs/pdfkit/blob/v0.21.0/docs/text.md#text-measurements
     const paragraph = (
       text: string,
       x: number,
@@ -186,16 +188,24 @@ export class MenuPdfService {
           doc.text(priceText, x, y, { width: columnWidth, align: 'right' });
         paragraph(item.name, x, nameOptions, draw);
 
-        const addOnItems = item.addOns.flatMap(({ menuItems }) => menuItems);
+        const addOnItems = [
+          ...new Map(
+            item.addOns
+              .flatMap(({ menuItems }) => menuItems)
+              .map((addOn) => [addOn.id, addOn]),
+          ).values(),
+        ];
         const notes = [
-          ...item.modifierGroups.map(({ displayName, modifiers }) =>
-            option(
-              displayName,
-              modifiers.map((modifier) =>
-                withSurcharge(modifier.displayName, modifier.priceAdjustment),
+          ...item.modifierGroups
+            .filter(({ modifiers }) => modifiers.length > 0)
+            .map(({ displayName, modifiers }) =>
+              option(
+                displayName,
+                modifiers.map((modifier) =>
+                  withSurcharge(modifier.displayName, modifier.priceAdjustment),
+                ),
               ),
             ),
-          ),
           ...(addOnItems.length > 0
             ? [
                 option(
@@ -233,8 +243,7 @@ export class MenuPdfService {
       },
       [heights.length, stackHeight(heights)],
     );
-    if (tallest > columnHeight)
-      throw unprocessableEntityError('menuPdfTooLong');
+    if (tallest > columnHeight) throw badRequestError('menuPdfTooLong');
 
     [menu.sections.slice(0, split), menu.sections.slice(split)].forEach(
       (column, index) => {

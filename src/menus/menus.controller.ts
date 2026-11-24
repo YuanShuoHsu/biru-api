@@ -112,7 +112,8 @@ export class MenusController {
     name: 'lang',
     enum: languagesEnum.enumValues,
     required: false,
-    description: '未帶或不支援時依 x-lang、Accept-Language；ko、zh-CN 回 400',
+    description:
+      '未帶或不支援時依 x-lang、Accept-Language；只提供 zh-TW、en，其他語系回 400',
   })
   @ApiProduces('application/pdf')
   @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })

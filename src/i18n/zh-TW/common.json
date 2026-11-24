@@ -265,7 +265,7 @@
     "menuItemModifierGroupNotFound": "這個選項群組沒有掛載到這個品項，可能已被移除",
     "menuItemNotFound": "找不到這個品項，可能已被刪除",
     "menuNotFound": "找不到這個菜單，可能已被刪除",
-    "menuPdfLanguageUnsupported": "PDF 菜單只提供繁體中文、英文和日文，請切換語言後再試",
+    "menuPdfLanguageUnsupported": "PDF 菜單只提供繁體中文和英文，請切換語言後再試",
     "menuPdfTooLong": "菜單內容超過一頁 A4，請減少品項、描述或選項後再試",
     "menuSectionNotFound": "找不到這個分類，可能已被刪除",
     "modifierGroupAttached": "這個選項群組已經掛載到這個品項",

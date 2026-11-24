@@ -265,7 +265,7 @@
     "menuItemModifierGroupNotFound": "このオプショングループはこの商品に紐付けられていません。外された可能性があります",
     "menuItemNotFound": "品目が見つかりません。削除された可能性があります",
     "menuNotFound": "メニューが見つかりません。削除された可能性があります",
-    "menuPdfLanguageUnsupported": "PDFメニューは繁体字中国語・英語・日本語のみ対応しています。言語を切り替えてもう一度お試しください",
+    "menuPdfLanguageUnsupported": "PDFメニューは繁体字中国語と英語のみ対応しています。言語を切り替えてもう一度お試しください",
     "menuPdfTooLong": "メニューがA4用紙1枚に収まりません。品目・説明・オプションを減らしてからもう一度お試しください",
     "menuSectionNotFound": "セクションが見つかりません。削除された可能性があります",
     "modifierGroupAttached": "このオプショングループはすでにこの商品に紐付けられています",
