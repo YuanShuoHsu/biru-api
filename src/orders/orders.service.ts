@@ -1726,52 +1726,51 @@ export class OrdersService {
     const now = new Date();
     const cutoff = new Date(now.getTime() - PERSONAL_DATA_RETENTION_MS);
     const maskedName = sql`left(${order.customer}->>'name', 1) || '**'`;
-    const due = this.db
-      .select({ id: order.id })
-      .from(order)
-      .where(
-        and(
-          isNull(order.userId),
-          inArray(order.orderStatus, [...ORDER_ENDED_STATUSES]),
-          lt(order.updatedAt, cutoff),
-          or(
-            sql`${order.customer} - 'name' <> '{}'::jsonb`,
-            sql`${order.customer}->>'name' IS DISTINCT FROM ${maskedName}`,
-          ),
-          notExists(
-            this.db
-              .select({ id: invoice.id })
-              .from(invoice)
-              .where(
+    const isDue = and(
+      isNull(order.userId),
+      inArray(order.orderStatus, [...ORDER_ENDED_STATUSES]),
+      lt(order.updatedAt, cutoff),
+      or(
+        sql`${order.customer} - 'name' <> '{}'::jsonb`,
+        sql`${order.customer}->>'name' IS DISTINCT FROM ${maskedName}`,
+      ),
+      notExists(
+        this.db
+          .select({ id: invoice.id })
+          .from(invoice)
+          .where(
+            and(
+              eq(invoice.orderId, order.id),
+              or(
+                eq(invoice.status, 'issuing'),
                 and(
-                  eq(invoice.orderId, order.id),
-                  or(
-                    eq(invoice.status, 'issuing'),
-                    and(
-                      eq(invoice.status, 'pending'),
-                      isNotNull(order.paymentDate),
-                      isCountedOrder,
-                      ne(order.orderStatus, 'OrderReturned'),
-                    ),
-                    and(
-                      ne(invoice.status, 'voided'),
-                      gte(
-                        invoice.invoiceDate,
-                        earliestVoidableInvoiceDate(now),
-                      ),
-                    ),
-                  ),
+                  eq(invoice.status, 'pending'),
+                  isNotNull(order.paymentDate),
+                  isCountedOrder,
+                  ne(order.orderStatus, 'OrderReturned'),
+                ),
+                and(
+                  ne(invoice.status, 'voided'),
+                  gte(invoice.invoiceDate, earliestVoidableInvoiceDate(now)),
                 ),
               ),
+            ),
           ),
-        ),
-      )
-      .orderBy(order.id)
-      .limit(PERSONAL_DATA_ERASE_BATCH_SIZE);
+      ),
+    );
 
     let total = 0;
     for (;;) {
       const erased = await this.db.transaction(async (tx) => {
+        const due = await tx
+          .select({ id: order.id })
+          .from(order)
+          .where(isDue)
+          .limit(PERSONAL_DATA_ERASE_BATCH_SIZE)
+          .for('update');
+        const ids = due.map(({ id }) => id);
+        if (!ids.length) return 0;
+
         await tx
           .update(invoice)
           .set({
@@ -1779,7 +1778,7 @@ export class OrdersService {
           })
           .where(
             and(
-              inArray(invoice.orderId, due),
+              inArray(invoice.orderId, ids),
               eq(invoice.status, 'issued'),
               isNull(invoice.email),
             ),
@@ -1791,9 +1790,8 @@ export class OrdersService {
             customer: sql`jsonb_build_object('name', ${maskedName})`,
             idempotencyFingerprint: null,
           })
-          .where(inArray(order.id, due))
+          .where(inArray(order.id, ids))
           .returning({ id: order.id });
-        if (!rows.length) return 0;
 
         await tx
           .update(auditLog)
