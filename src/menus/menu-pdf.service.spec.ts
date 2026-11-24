@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import { inflateSync } from 'node:zlib';
 
 import type { HttpException } from '@nestjs/common';
-import type { I18nService } from 'nestjs-i18n';
+import { I18nContext, type I18nService } from 'nestjs-i18n';
 import PDFDocument from 'pdfkit';
 
 import { languagesEnum } from '../db/schema/enums.js';
@@ -98,6 +98,55 @@ const responseOf = (error: unknown) =>
     (error as HttpException).getStatus(),
     (error as HttpException).getResponse(),
   ] as const;
+
+const mm = (value: number) => (value * 72) / 25.4;
+const COLUMN_WIDTH = (595.28 - mm(40) - mm(12)) / 2;
+const COLUMN_RIGHTS = [mm(20) + COLUMN_WIDTH, 595.28 - mm(20)];
+
+const recordText = () => {
+  const original = PDFDocument.prototype.text;
+  const drawn: {
+    text: string;
+    column: number;
+    x: number;
+    y: number;
+    right: number;
+    bottom: number;
+  }[] = [];
+  vi.spyOn(PDFDocument.prototype, 'text').mockImplementation(function (
+    this: PDFKit.PDFDocument,
+    text: string,
+    x: number,
+    y: number,
+    options?: PDFKit.Mixins.TextOptions,
+  ) {
+    drawn.push({
+      text,
+      column: x < COLUMN_RIGHTS[0] ? 0 : 1,
+      x,
+      y,
+      right: x + this.widthOfString(text, options),
+      bottom: y + this.currentLineHeight(true),
+    });
+    return original.call(this, text, x, y, options);
+  } as never);
+
+  const lines = (column: number) => {
+    const rows = new Map<number, typeof drawn>();
+    for (const entry of drawn.filter((run) => run.column === column))
+      rows.set(entry.y, [...(rows.get(entry.y) ?? []), entry]);
+    return [...rows]
+      .sort(([a], [b]) => a - b)
+      .map(([y, runs]) => ({
+        y,
+        text: runs
+          .sort((a, b) => a.x - b.x)
+          .map(({ text }) => text)
+          .join(''),
+      }));
+  };
+  return { drawn, lines };
+};
 
 describe('MenuPdfService', () => {
   const publicMenusService = { findOrderMenu: vi.fn() };
@@ -233,28 +282,100 @@ describe('MenuPdfService', () => {
       },
     ] as unknown as typeof pasta.addOns;
     publicMenusService.findOrderMenu.mockResolvedValue(menu);
-    const text = vi.spyOn(PDFDocument.prototype, 'text');
+    const { lines } = recordText();
 
     await service.orderMenu('org-1', 'zh-TW');
 
-    const drawn = text.mock.calls.map(([value, , y]) => ({ value, y }));
-    const yOf = (value: string) =>
-      drawn.filter((call) => call.value === value).map((call) => call.y);
-    expect(yOf('辣度：不辣・大辣\u00a0+10')).toHaveLength(1);
-    expect(yOf('辣度：不辣・大辣\u00a0+10')[0]).toBeGreaterThan(
-      yOf('義大利麵 2')[0] as number,
-    );
-    expect(yOf('加購：加麵\u00a0+20')).toHaveLength(1);
-    expect(yOf('加購：加蛋\u00a0+15')).toHaveLength(1);
-    expect(yOf('辣度：不辣・大辣\u00a0+10\n加購：加麵\u00a0+20')).toHaveLength(
-      1,
-    );
+    const texts = (column: number) => lines(column).map(({ text }) => text);
+    const pastaLines = texts(0);
+    const heading = pastaLines.indexOf('義大利麵');
+    expect(pastaLines.slice(heading, heading + 8)).toEqual([
+      '義大利麵',
+      '義大利麵 1140',
+      '冷萃麥茶加氣泡水，上層鋪咖啡奶蓋。',
+      '加購：加麵\u00a0+20',
+      '義大利麵 2140',
+      '冷萃麥茶加氣泡水，上層鋪咖啡奶蓋。',
+      '加購：加蛋\u00a0+15',
+      '辣度：不辣・大辣\u00a0+10',
+    ]);
+    const dessertLines = texts(1);
+    const dessert = dessertLines.indexOf('甜點');
+    expect(dessertLines.slice(dessert, dessert + 5)).toEqual([
+      '甜點',
+      '甜點 1140',
+      '冷萃麥茶加氣泡水，上層鋪咖啡奶蓋。',
+      '辣度：不辣・大辣\u00a0+10',
+      '加購：加麵\u00a0+20',
+    ]);
   });
 
-  it('draws text the language font lacks with the first font that covers it', async () => {
+  it('wraps long text within its column', async () => {
     const menu = menuOf([{ name: '飲品', items: 2 }]);
-    menu.sections[0].menuItems[0].name = '碧露咖啡';
+    menu.sections[0].menuItems[0].description =
+      'Cold brew barley tea topped with sparkling water and a silky coffee milk foam, served iced only. 冷萃麥茶加氣泡水，上層鋪咖啡奶蓋。僅供冷飲，不提供熱飲。';
     publicMenusService.findOrderMenu.mockResolvedValue(menu);
+    const { drawn, lines } = recordText();
+
+    await service.orderMenu('org-1', 'zh-TW');
+
+    const description = lines(0).filter(({ text }) =>
+      /Cold|barley|foam|iced|冷萃|熱飲/.test(text),
+    );
+    expect(description.length).toBeGreaterThan(2);
+    expect(description.map(({ text }) => text).join(' ')).toContain(
+      'served iced only.',
+    );
+    for (const { text } of description) expect(text).not.toMatch(/^ | $/);
+    for (const { column, right } of drawn)
+      expect(right).toBeLessThanOrEqual(COLUMN_RIGHTS[column] + 0.01);
+  });
+
+  it('keeps every line it draws above the footer when the page is nearly full', async () => {
+    const render = async (items: number) => {
+      publicMenusService.findOrderMenu.mockResolvedValue(
+        menuOf([
+          { name: '飲品', items },
+          { name: '甜點', items },
+        ]),
+      );
+      return service.orderMenu('org-1', 'zh-TW');
+    };
+    let items = 1;
+    while (
+      await render(items + 1).then(
+        () => true,
+        () => false,
+      )
+    )
+      items += 1;
+    const { drawn } = recordText();
+
+    await render(items);
+
+    const footerY = Math.max(...drawn.map(({ y }) => y));
+    const content = drawn.filter(({ y }) => y < footerY);
+    expect(
+      Math.max(...content.map(({ bottom }) => bottom)),
+    ).toBeLessThanOrEqual(footerY - mm(8) + 0.01);
+    expect(
+      responseOf(await render(items + 1).catch((caught: unknown) => caught)),
+    ).toEqual([400, expect.objectContaining({ code: 'menuPdfTooLong' })]);
+  });
+
+  it('draws each character the language font lacks with the first font that has it', async () => {
+    const menu = menuOf([{ name: '飲品', items: 2 }]);
+    const [first] = menu.sections[0].menuItems;
+    first.name = '碧露咖啡';
+    first.addOns = [
+      {
+        menuItems: [
+          { id: 'mushroom', name: '加野菇', offers: [{ price: '20.00' }] },
+        ],
+      },
+    ] as unknown as typeof first.addOns;
+    publicMenusService.findOrderMenu.mockResolvedValue(menu);
+    const { lines } = recordText();
 
     const pdf = await service.orderMenu('org-1', 'ko');
     const raw = pdf.toString('latin1');
@@ -266,11 +387,18 @@ describe('MenuPdfService', () => {
     expect(raw).toContain('+NotoSansTC-Regular');
     expect(glyphIds.length).toBeGreaterThan(0);
     expect(glyphIds).not.toContain('0000');
+    expect(lines(0).map(({ text }) => text)).toEqual(
+      expect.arrayContaining(['碧露咖啡140', '추가 구매: 加野菇\u00a0+20']),
+    );
   });
 
-  it('refuses text no font can draw', async () => {
+  it('refuses text no font can draw and names only those characters', async () => {
+    vi.spyOn(I18nContext, 'current').mockReturnValue({
+      t: (key: string, { args }: { args: object }) =>
+        `${key} ${JSON.stringify(args)}`,
+    } as unknown as I18nContext);
     const menu = menuOf([{ name: '飲品', items: 1 }]);
-    menu.sections[0].menuItems[0].name = '拿鐵 \u{1F600}';
+    menu.sections[0].menuItems[0].name = '拿鐵 \u{1F600} 好喝 \u{1F600}';
     publicMenusService.findOrderMenu.mockResolvedValue(menu);
 
     const error: unknown = await service
@@ -279,7 +407,10 @@ describe('MenuPdfService', () => {
 
     expect(responseOf(error)).toEqual([
       400,
-      expect.objectContaining({ code: 'menuPdfUnsupportedCharacter' }),
+      expect.objectContaining({
+        code: 'menuPdfUnsupportedCharacter',
+        message: `common.menus.menuPdfUnsupportedCharacter ${JSON.stringify({ text: '\u{1F600}' })}`,
+      }),
     ]);
   });
 

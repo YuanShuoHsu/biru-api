@@ -17,6 +17,7 @@ import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import type { OrderMenuResponseDto } from './dto/order-menu-response.dto.js';
 import { badRequestError, notFoundError } from './menu-errors.js';
+import { createTextLayout, type TextStyle } from './menu-pdf-layout.js';
 import { PublicMenusService } from './menus-public.service.js';
 
 type Cmyk = [number, number, number, number];
@@ -170,25 +171,28 @@ export class MenuPdfService {
       ...new Set([MENU_PDF_FONT_FAMILIES[lang], ...FALLBACK_FONT_FAMILIES]),
     ];
     const registered = new Set<string>();
-    const fontFor = (text: string) => {
-      const codePoints = Array.from(text, (char) => char.codePointAt(0) ?? 0);
-      const name = families
+    const fontOf = (char: string) => {
+      const codePoint = char.codePointAt(0) ?? 0;
+      return families
         .map((family) => `${family}-${weight}`)
-        .find((candidate) =>
-          codePoints.every(
-            (codePoint) =>
-              codePoint < 0x20 ||
-              this.font(candidate).glyphs.hasGlyphForCodePoint(codePoint),
-          ),
-        );
-      if (!name) throw badRequestError('menuPdfUnsupportedCharacter', { text });
-
-      if (!registered.has(name)) {
-        doc.registerFont(name, this.font(name).file);
-        registered.add(name);
-      }
-      return doc.font(name);
+        .find((name) => this.font(name).glyphs.hasGlyphForCodePoint(codePoint));
     };
+    const { layout, draw: drawLines } = createTextLayout(doc, (text) => {
+      const pieces = Array.from(text, (char) => ({ char, font: fontOf(char) }));
+      const unsupported = pieces.filter(({ font }) => !font);
+      if (unsupported.length > 0)
+        throw badRequestError('menuPdfUnsupportedCharacter', {
+          text: [...new Set(unsupported.map(({ char }) => char))].join(' '),
+        });
+
+      return pieces.map(({ char, font = '' }) => {
+        if (!registered.has(font)) {
+          doc.registerFont(font, this.font(font).file);
+          registered.add(font);
+        }
+        return { char, font };
+      });
+    });
 
     doc.fillColor(MILK_WHITE).rect(0, 0, pageWidth, pageHeight).fill();
 
@@ -196,25 +200,25 @@ export class MenuPdfService {
       new Intl.DisplayNames([lang], { type: 'currency' }).of(menu.currency) ??
       menu.currency;
     style(REGULAR, px(11), MUTED);
-    const currencyNote = t('currency', { currency: currencyName });
-    const footerY =
-      pageHeight - MARGIN_Y - fontFor(currencyNote).currentLineHeight();
-    doc.text(currencyNote, MARGIN_X, footerY, { lineBreak: false });
-    fontFor(t('allergens')).text(t('allergens'), MARGIN_X, footerY, {
+    const currencyNote = layout(t('currency', { currency: currencyName }), {
+      width,
+    });
+    const footerY = pageHeight - MARGIN_Y - currencyNote.height;
+    drawLines(currencyNote.lines, MARGIN_X, footerY, { width });
+    drawLines(layout(t('allergens'), { width }).lines, MARGIN_X, footerY, {
       width,
       align: 'right',
     });
 
     let y = MARGIN_Y;
-    // https://github.com/foliojs/pdfkit/blob/v0.21.0/docs/text.md#text-measurements
     const paragraph = (
       text: string,
       x: number,
-      options: PDFKit.Mixins.TextOptions,
+      textStyle: TextStyle,
       draw = true,
     ) => {
-      const height = fontFor(text).heightOfString(text, options);
-      if (draw) doc.text(text, x, y, options);
+      const { lines, height } = layout(text, textStyle);
+      if (draw) drawLines(lines, x, y, textStyle);
       y += height;
     };
 
@@ -307,13 +311,16 @@ export class MenuPdfService {
         const listPrice = item.offers[0]?.price;
         const priceText = listPrice ? price.format(Number(listPrice)) : '';
         style(REGULAR, px(16), INK);
-        const nameOptions = {
-          width:
-            columnWidth - fontFor(priceText).widthOfString(priceText) - mm(4),
-        };
-        if (draw)
-          doc.text(priceText, x, y, { width: columnWidth, align: 'right' });
-        paragraph(item.name, x, nameOptions, draw);
+        const priceStyle: TextStyle = { width: columnWidth, align: 'right' };
+        const priceLayout = layout(priceText, priceStyle);
+        const name = layout(item.name, {
+          width: columnWidth - (priceLayout.lines[0]?.width ?? 0) - mm(4),
+        });
+        if (draw) {
+          drawLines(priceLayout.lines, x, y, priceStyle);
+          drawLines(name.lines, x, y, { width: columnWidth });
+        }
+        y += Math.max(priceLayout.height, name.height);
 
         const notes = itemNotes[index].filter(
           (note) => !sharedNotes.includes(note),
