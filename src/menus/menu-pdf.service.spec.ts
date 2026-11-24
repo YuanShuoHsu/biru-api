@@ -4,13 +4,13 @@ import { inflateSync } from 'node:zlib';
 
 import type { HttpException } from '@nestjs/common';
 import type { I18nService } from 'nestjs-i18n';
+import PDFDocument from 'pdfkit';
 
+import { languagesEnum } from '../db/schema/enums.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import type { OrderMenuResponseDto } from './dto/order-menu-response.dto.js';
-import { languagesEnum } from '../db/schema/enums.js';
-
 import { MENU_PDF_FONT_FAMILIES, MenuPdfService } from './menu-pdf.service.js';
 import type { PublicMenusService } from './menus-public.service.js';
 
@@ -216,6 +216,37 @@ describe('MenuPdfService', () => {
       404,
       expect.objectContaining({ code: 'menuNotFound' }),
     ]);
+  });
+
+  it('prints the option lines every item of a section shares once after its items', async () => {
+    const menu = menuOf([
+      { name: '義大利麵', items: 2 },
+      { name: '甜點', items: 1 },
+    ]);
+    const [, pasta] = menu.sections[0].menuItems;
+    pasta.addOns = [
+      {
+        menuItems: [{ id: 'egg', name: '加蛋', offers: [{ price: '15.00' }] }],
+      },
+    ] as unknown as typeof pasta.addOns;
+    publicMenusService.findOrderMenu.mockResolvedValue(menu);
+    const text = vi.spyOn(PDFDocument.prototype, 'text');
+
+    await service.orderMenu('org-1', 'zh-TW');
+
+    const drawn = text.mock.calls.map(([value, , y]) => ({ value, y }));
+    const yOf = (value: string) =>
+      drawn.filter((call) => call.value === value).map((call) => call.y);
+    expect(yOf('辣度：不辣・大辣\u00a0+10')).toHaveLength(1);
+    expect(yOf('辣度：不辣・大辣\u00a0+10')[0]).toBeGreaterThan(
+      yOf('義大利麵 2')[0] as number,
+    );
+    expect(yOf('加購：加麵\u00a0+20')).toHaveLength(1);
+    expect(yOf('加購：加蛋\u00a0+15')).toHaveLength(1);
+    expect(yOf('辣度：不辣・大辣\u00a0+10\n加購：加麵\u00a0+20')).toHaveLength(
+      1,
+    );
+    text.mockRestore();
   });
 
   it('lists an add-on reached twice once and skips option groups without options', async () => {

@@ -190,6 +190,38 @@ export class MenuPdfService {
     const columnTop = y + BLOCK_GAP;
     const columnHeight = footerY - BLOCK_GAP - columnTop;
 
+    const notesOf = (item: Section['menuItems'][number]) => {
+      const addOnItems = [
+        ...new Map(
+          item.addOns
+            .flatMap(({ menuItems }) => menuItems)
+            .map((addOn) => [addOn.id, addOn]),
+        ).values(),
+      ];
+      return [
+        ...item.modifierGroups
+          .filter(({ modifiers }) => modifiers.length > 0)
+          .map(({ displayName, modifiers }) =>
+            option(
+              displayName,
+              modifiers.map((modifier) =>
+                withSurcharge(modifier.displayName, modifier.priceAdjustment),
+              ),
+            ),
+          ),
+        ...(addOnItems.length > 0
+          ? [
+              option(
+                t('addOns'),
+                addOnItems.map((addOn) =>
+                  withSurcharge(addOn.name, addOn.offers[0]?.price ?? null),
+                ),
+              ),
+            ]
+          : []),
+      ];
+    };
+
     const drawSection = (
       section: Section,
       x: number,
@@ -219,7 +251,15 @@ export class MenuPdfService {
         paragraph(section.description, x, { width: columnWidth }, draw);
       }
 
-      for (const item of section.menuItems) {
+      const itemNotes = section.menuItems.map(notesOf);
+      const sharedNotes =
+        itemNotes.length > 1
+          ? itemNotes[0].filter((note) =>
+              itemNotes.every((notes) => notes.includes(note)),
+            )
+          : [];
+
+      for (const [index, item] of section.menuItems.entries()) {
         y += ITEM_GAP;
         const listPrice = item.offers[0]?.price;
         const priceText = listPrice ? price.format(Number(listPrice)) : '';
@@ -231,41 +271,21 @@ export class MenuPdfService {
           doc.text(priceText, x, y, { width: columnWidth, align: 'right' });
         paragraph(item.name, x, nameOptions, draw);
 
-        const addOnItems = [
-          ...new Map(
-            item.addOns
-              .flatMap(({ menuItems }) => menuItems)
-              .map((addOn) => [addOn.id, addOn]),
-          ).values(),
-        ];
-        const notes = [
-          ...item.modifierGroups
-            .filter(({ modifiers }) => modifiers.length > 0)
-            .map(({ displayName, modifiers }) =>
-              option(
-                displayName,
-                modifiers.map((modifier) =>
-                  withSurcharge(modifier.displayName, modifier.priceAdjustment),
-                ),
-              ),
-            ),
-          ...(addOnItems.length > 0
-            ? [
-                option(
-                  t('addOns'),
-                  addOnItems.map((addOn) =>
-                    withSurcharge(addOn.name, addOn.offers[0]?.price ?? null),
-                  ),
-                ),
-              ]
-            : []),
-        ];
+        const notes = itemNotes[index].filter(
+          (note) => !sharedNotes.includes(note),
+        );
         style(REGULAR, px(12.5), MUTED);
         for (const text of [item.description, notes.join('\n')]) {
           if (!text) continue;
           y += mm(1);
           paragraph(text, x, { width: columnWidth }, draw);
         }
+      }
+
+      if (sharedNotes.length > 0) {
+        y += ITEM_GAP;
+        style(REGULAR, px(12.5), MUTED);
+        paragraph(sharedNotes.join('\n'), x, { width: columnWidth }, draw);
       }
 
       return y - top;
