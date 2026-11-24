@@ -7,10 +7,9 @@ export type TextStyle = {
 type Run = { font: string; text: string; width: number };
 type Line = { runs: Run[]; width: number; height: number };
 
-const BREAKS_AROUND =
-  /[\p{Script=Han}\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}]/u;
-const NO_BREAK_BEFORE = /^[ 、。，．：；！？）」』】〉》・ー…]/u;
-const NO_BREAK_AFTER = /[ （「『【〈《]$/u;
+const BREAKS_AROUND = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
+const NO_BREAK_BEFORE = /^[\u00a0、。，．：；！？）」』】〉》・ー…]/u;
+const NO_BREAK_AFTER = /[\u00a0（「『【〈《]$/u;
 
 const textOf = (pieces: GlyphPiece[]) =>
   pieces.map(({ char }) => char).join('');

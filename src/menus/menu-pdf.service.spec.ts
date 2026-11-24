@@ -392,6 +392,33 @@ describe('MenuPdfService', () => {
     );
   });
 
+  it('breaks Korean text only between words', async () => {
+    const addOns = ['면 추가', '버섯 추가', '베이컨 추가 많이', '치킨 추가'];
+    const menu = menuOf([{ name: '파스타', items: 1 }]);
+    const [pasta] = menu.sections[0].menuItems;
+    pasta.addOns = [
+      {
+        menuItems: addOns.map((name) => ({
+          id: name,
+          name,
+          offers: [{ price: '20.00' }],
+        })),
+      },
+    ] as unknown as typeof pasta.addOns;
+    publicMenusService.findOrderMenu.mockResolvedValue(menu);
+    const { lines } = recordText();
+
+    await service.orderMenu('org-1', 'ko');
+
+    const texts = lines(0).map(({ text }) => text);
+    const start = texts.findIndex((text) => text.startsWith('추가 구매'));
+    const note = texts.slice(start, start + 2);
+    expect(note[1]).toMatch(/^\p{Script=Hangul}/u);
+    const words = note.flatMap((text) => text.split(/[ ,:\u00a0]+/));
+    for (const name of addOns.flatMap((addOn) => addOn.split(' ')))
+      expect(words).toContain(name);
+  });
+
   it('refuses text no font can draw and names only those characters', async () => {
     vi.spyOn(I18nContext, 'current').mockReturnValue({
       t: (key: string, { args }: { args: object }) =>
