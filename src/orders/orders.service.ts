@@ -30,11 +30,17 @@ import {
 } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import { I18nContext } from 'nestjs-i18n';
+import { auditLog } from '../db/schema/audit.js';
 import { ecpayPaymentAttempt } from '../db/schema/ecpay-payment-attempts.js';
 import type { Invoice, InvoicePrintJob } from '../db/schema/invoices.js';
 import { invoice } from '../db/schema/invoices.js';
 import type { OrderStatus, PaymentMethod } from '../db/schema/orders.js';
-import { ORDER_FLOW_STATUSES, order, orderItem } from '../db/schema/orders.js';
+import {
+  ORDER_ENDED_STATUSES,
+  ORDER_FLOW_STATUSES,
+  order,
+  orderItem,
+} from '../db/schema/orders.js';
 import type { Organization } from '../db/schema/organizations.js';
 import { member, organization } from '../db/schema/organizations.js';
 import type { OrderTicketJob, Printer } from '../db/schema/printers.js';
@@ -49,6 +55,7 @@ import {
   ADMIN_BOARD_COLUMN_LIMIT,
   ADMIN_BOARD_DONE_COLUMN_LIMIT,
 } from '../common/constants/board.js';
+import { PERSONAL_DATA_RETENTION_MS } from '../common/constants/personal-data.js';
 import {
   STORE_UTC_OFFSET,
   STORE_UTC_OFFSET_MS,
@@ -1707,5 +1714,49 @@ export class OrdersService {
 
     if (cancelled.length)
       this.logger.log(`自動取消 ${cancelled.length} 筆逾時未付款訂單`);
+  }
+
+  async erasePersonalData(): Promise<number> {
+    const cutoff = new Date(Date.now() - PERSONAL_DATA_RETENTION_MS);
+    const maskedName = sql`left(${order.customer}->>'name', 1) || '**'`;
+
+    return this.db.transaction(async (tx) => {
+      const erased = await tx
+        .update(order)
+        .set({
+          customer: sql`jsonb_build_object('name', ${maskedName})`,
+          idempotencyFingerprint: null,
+        })
+        .where(
+          and(
+            isNull(order.userId),
+            inArray(order.orderStatus, [...ORDER_ENDED_STATUSES]),
+            lt(order.updatedAt, cutoff),
+            or(
+              sql`${order.customer} - 'name' <> '{}'::jsonb`,
+              sql`${order.customer}->>'name' IS DISTINCT FROM ${maskedName}`,
+            ),
+          ),
+        )
+        .returning({ id: order.id });
+      if (!erased.length) return 0;
+
+      await tx
+        .update(auditLog)
+        .set({
+          changes: sql`${auditLog.changes} - 'customer' - 'idempotencyFingerprint'`,
+        })
+        .where(
+          and(
+            eq(auditLog.resource, 'order'),
+            inArray(
+              auditLog.resourceId,
+              erased.map(({ id }) => id),
+            ),
+          ),
+        );
+
+      return erased.length;
+    });
   }
 }

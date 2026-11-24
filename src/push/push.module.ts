@@ -10,5 +10,6 @@ import { PushService } from './push.service.js';
   imports: [OrdersModule, WaitlistModule],
   controllers: [PushController],
   providers: [PushService],
+  exports: [PushService],
 })
 export class PushModule {}

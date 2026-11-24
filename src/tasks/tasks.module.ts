@@ -7,6 +7,7 @@ import { InventoryModule } from '../inventory/inventory.module.js';
 import { OrdersModule } from '../orders/orders.module.js';
 import { PayrollModule } from '../payroll/payroll.module.js';
 import { PointsModule } from '../points/points.module.js';
+import { PushModule } from '../push/push.module.js';
 import { SharedCartsModule } from '../shared-carts/shared-carts.module.js';
 import { WaitlistModule } from '../waitlist/waitlist.module.js';
 
@@ -21,6 +22,7 @@ import { TasksService } from './tasks.service.js';
     OrdersModule,
     PayrollModule,
     PointsModule,
+    PushModule,
     SharedCartsModule,
     WaitlistModule,
   ],

@@ -211,4 +211,31 @@ describe('PushService', () => {
 
     expect(await rows()).toEqual([]);
   });
+
+  it('drops ended orders and tickets from their subscriptions and deletes the anonymous ones left with nothing', async () => {
+    await client.exec(
+      `insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal, order_status) values ('done', '{"name":"客人"}', 'pickup', '2', 'Cash', 'org', 100, 'OrderDelivered') on conflict do nothing;
+       insert into push_subscription (id, endpoint, p256dh, auth, lang, app, user_id, order_id, waitlist_ticket_id) values
+         ('guest-done', 'https://push.example.com/1', 'k', 'a', 'zh-TW', 'storefront', null, 'done', null),
+         ('guest-seated', 'https://push.example.com/2', 'k', 'a', 'zh-TW', 'storefront', null, null, 'seated'),
+         ('guest-open', 'https://push.example.com/3', 'k', 'a', 'zh-TW', 'storefront', null, 'o1', null),
+         ('guest-mixed', 'https://push.example.com/4', 'k', 'a', 'zh-TW', 'storefront', null, 'done', 't1'),
+         ('member-done', 'https://push.example.com/5', 'k', 'a', 'zh-TW', 'storefront', 'amy', 'done', 'seated');`,
+    );
+
+    expect(await service.purgeEnded()).toBe(2);
+    expect(
+      (await rows())
+        .map(({ id, orderId, waitlistTicketId }) => ({
+          id,
+          orderId,
+          waitlistTicketId,
+        }))
+        .sort((a, b) => a.id.localeCompare(b.id)),
+    ).toEqual([
+      { id: 'guest-mixed', orderId: null, waitlistTicketId: 't1' },
+      { id: 'guest-open', orderId: 'o1', waitlistTicketId: null },
+      { id: 'member-done', orderId: null, waitlistTicketId: null },
+    ]);
+  });
 });
