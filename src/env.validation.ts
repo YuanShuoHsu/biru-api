@@ -78,6 +78,8 @@ export const envSchema = z
       )
       .optional(),
     FIELD_ENCRYPTION_KEYS: z.string().optional(),
+    SENTRY_DSN: optionalUrl,
+    SENTRY_ENVIRONMENT: z.string().optional(),
     PORT: z
       .string()
       .regex(/^[1-9]\d*$/, 'must be a port number')

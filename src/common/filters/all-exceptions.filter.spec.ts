@@ -1,19 +1,29 @@
-import { type ArgumentsHost, NotFoundException } from '@nestjs/common';
+import {
+  type ArgumentsHost,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import type { HttpAdapterHost } from '@nestjs/core';
 
+import { captureException } from '@sentry/nestjs';
 import { DrizzleQueryError } from 'drizzle-orm';
 import { I18nContext, I18nValidationException } from 'nestjs-i18n';
 
 import { AllExceptionsFilter } from './all-exceptions.filter.js';
 
+vi.mock('@sentry/nestjs', () => ({ captureException: vi.fn() }));
+
 describe('AllExceptionsFilter', () => {
-  const setup = () => {
+  const setup = (request: { user?: { id: string } | null } = {}) => {
     const reply = vi.fn();
     const adapterHost = {
       httpAdapter: { reply, getRequestUrl: () => '/api/images/x' },
     } as unknown as HttpAdapterHost;
     const host = {
-      switchToHttp: () => ({ getRequest: () => ({}), getResponse: () => ({}) }),
+      switchToHttp: () => ({
+        getRequest: () => request,
+        getResponse: () => ({}),
+      }),
     } as unknown as ArgumentsHost;
     vi.spyOn(I18nContext, 'current').mockReturnValue({
       lang: 'en',
@@ -29,6 +39,7 @@ describe('AllExceptionsFilter', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.mocked(captureException).mockClear();
   });
 
   it.each(['22021', '22P05'])(
@@ -123,5 +134,37 @@ describe('AllExceptionsFilter', () => {
       expect.objectContaining({ statusCode: 500 }),
       500,
     );
+  });
+
+  it.each([
+    ['HttpException 4xx', new NotFoundException()],
+    ['驗證錯誤', new I18nValidationException([])],
+    ['資料庫拒收的文字', { cause: { code: '22021' } }],
+  ])('%s 不送 Sentry', (_, exception) => {
+    const { catch: handle } = setup();
+
+    handle(exception);
+
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it('非 HttpException 的錯誤送 Sentry，只帶使用者 id', () => {
+    const { catch: handle } = setup({ user: { id: 'user-1' } });
+    const error = new Error('boom');
+
+    handle(error);
+
+    expect(captureException).toHaveBeenCalledWith(error, {
+      user: { id: 'user-1' },
+    });
+  });
+
+  it('5xx 的 HttpException 送 Sentry，未登入不帶使用者', () => {
+    const { catch: handle } = setup({ user: null });
+    const exception = new ServiceUnavailableException();
+
+    handle(exception);
+
+    expect(captureException).toHaveBeenCalledWith(exception, undefined);
   });
 });
