@@ -28,6 +28,11 @@ jobs:
             echo "::error::Actions variable ${{ matrix.variable }} is not set"
             exit 1
           fi
-          curl --fail --silent --show-error --max-time 120 \
+          status=$(curl --fail --silent --show-error --max-time 120 \
             --retry 5 --retry-delay 30 --retry-all-errors \
-            "${API_URL%/}/api/health"
+            --output /dev/null --write-out '%{http_code}' \
+            "${API_URL%/}/api/health")
+          if [ "$status" != 200 ]; then
+            echo "::error::${API_URL%/}/api/health answered $status"
+            exit 1
+          fi
