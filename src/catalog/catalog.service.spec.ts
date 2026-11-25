@@ -276,6 +276,19 @@ describe('CatalogService', () => {
     ]);
   });
 
+  it('reorderSections 不動獨家分類，列表品牌分類在前', async () => {
+    await service.reorderSections(['other-local', 'local', 'coffee', 'drinks']);
+
+    expect(
+      (await service.sections()).map(({ id, sortOrder }) => [id, sortOrder]),
+    ).toEqual([
+      ['coffee', 0],
+      ['drinks', 1],
+      ['local', 0],
+      ['other-local', 0],
+    ]);
+  });
+
   it('sections 不回傳圖片本體', async () => {
     await db
       .update(catalogSection)

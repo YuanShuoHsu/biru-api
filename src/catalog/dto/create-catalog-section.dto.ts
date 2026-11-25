@@ -1,7 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { Transform } from 'class-transformer';
-import { IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+} from 'class-validator';
 import {
   IMAGE_DATA_URL_MAX_LENGTH,
   IMAGE_DATA_URL_PATTERN,
@@ -23,6 +29,7 @@ export class CreateCatalogSectionDto {
   })
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   parentCatalogSectionId?: string | null;
 
   @ApiProperty({

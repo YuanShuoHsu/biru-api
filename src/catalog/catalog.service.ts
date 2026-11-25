@@ -4,6 +4,7 @@ import { asc, eq, isNull, sql } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { Transaction } from '../attendance/attendance-audit.js';
+import { orderByDirection } from '../common/utils/data-grid-sort.js';
 import { reorderSortOrders } from '../common/utils/sort-order.js';
 import {
   catalogItem,
@@ -94,7 +95,11 @@ export class CatalogService {
   sections(): Promise<WithImageRef<CatalogSection>[]> {
     return this.db.query.catalogSection.findMany({
       ...imageRefQuery,
-      orderBy: [asc(catalogSection.sortOrder), asc(catalogSection.id)],
+      orderBy: [
+        orderByDirection(catalogSection.ownerOrganizationId, 'asc', 'lowest'),
+        asc(catalogSection.sortOrder),
+        asc(catalogSection.id),
+      ],
     });
   }
 
@@ -137,7 +142,12 @@ export class CatalogService {
   }
 
   async reorderSections(ids: string[]): Promise<void> {
-    await reorderSortOrders(this.db, catalogSection, ids);
+    await reorderSortOrders(
+      this.db,
+      catalogSection,
+      ids,
+      isNull(catalogSection.ownerOrganizationId),
+    );
   }
 
   async deleteSection(id: string): Promise<CatalogSection> {
