@@ -25,6 +25,7 @@ import type {
   PrepTimeResponseDto,
 } from './dto/prep-estimate-response.dto.js';
 import { BOARD_AT, BOARD_WINDOW_MS } from './order-board-window.js';
+import { awaitsCustomerCup } from './own-cup.js';
 import {
   type ObservedPace,
   type QueuedOrder,
@@ -215,12 +216,25 @@ export class PrepEstimateService {
           utcTimestampParam(new Date(now.getTime() - BOARD_WINDOW_MS)),
         ),
       ),
-      with: { items: { columns: { addOns: true, menuItemId: true } } },
+      with: {
+        items: {
+          columns: {
+            addOns: true,
+            cupReceivedAt: true,
+            menuItemId: true,
+            modifiers: true,
+          },
+        },
+      },
+    });
+    const making = processing.flatMap((found) => {
+      const items = found.items.filter((item) => !awaitsCustomerCup(item));
+      return found.items.length && !items.length ? [] : [{ ...found, items }];
     });
 
     const menuItemIds = [
       ...new Set(
-        processing.flatMap(({ items }) =>
+        making.flatMap(({ items }) =>
           items.flatMap((item) => [
             item.menuItemId,
             ...(item.addOns ?? []).map((addOn) => addOn.menuItemId),
@@ -230,7 +244,7 @@ export class PrepEstimateService {
     ];
     const leadTimeOf = await this.leadTimesOf(menuItemIds);
 
-    return processing.map(({ items, pickupTime }) => ({
+    return making.map(({ items, pickupTime }) => ({
       pickupTime,
       prepMinutes: orderPrepMinutes(
         org.pickupLeadMinutes,

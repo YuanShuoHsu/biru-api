@@ -339,6 +339,7 @@
   },
   "orders": {
     "cashUnavailableForMode": "Cash payment isn't available for this ordering method.",
+    "cupAlreadyReceived": "The cup for this item has already been received",
     "idempotencyConflict": "Your order details have changed. Please submit again.",
     "inStoreQrCodeRequired": "Please order by scanning the QR code in store.",
     "invalidTable": "This table QR code is invalid. Please scan the QR code on your table again.",
@@ -352,6 +353,7 @@
     "modifierUnavailable": "\"{name}\" is currently unavailable",
     "modifierUnavailableForMode": "\"{name}\" isn't available for this ordering method",
     "notAwaitingPayment": "This order can no longer be paid. The payment deadline may have passed or its status has changed.",
+    "notOwnCupItem": "This item is not served in the customer's own cup",
     "onlinePaymentNotRequired": "This order does not need to be paid online.",
     "orderItemNotFound": "This item could not be found in the order.",
     "orderItemRefunded": "This item has been fully refunded.",

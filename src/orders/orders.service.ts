@@ -171,9 +171,11 @@ import {
   CANCEL_UNPAID_ORDER,
   findTransition,
   getAvailableTransitions,
+  isOrderTicketPrintable,
   type OrderTransitionRule,
   toAdminOrder,
 } from './order-transitions.js';
+import { awaitsCustomerCup, isOwnCupItem } from './own-cup.js';
 import { BOARD_AT, BOARD_WINDOW_MS } from './order-board-window.js';
 import { pickupHoursError } from './pickup-hours.js';
 import { POINTS_SNAPSHOT_SET } from './points-snapshot.js';
@@ -1109,13 +1111,17 @@ export class OrdersService {
           ),
         );
       const items = current.items
-        .filter(({ id }) => !stationItemIds || stationItemIds.has(id))
+        .filter(
+          (item) =>
+            (!stationItemIds || stationItemIds.has(item.id)) &&
+            !awaitsCustomerCup(item),
+        )
         .map((item) => ({
           ...item,
           refundedQuantity: refundedQuantities.get(item.id) ?? 0,
         }));
 
-      return stationItemIds && !items.length
+      return !items.length && (stationItemIds || current.items.length)
         ? []
         : [Object.assign(toAdminOrderWithInvoice(current), { items })];
     });
@@ -1406,6 +1412,66 @@ export class OrdersService {
     } satisfies OrderUpdatedEvent);
 
     return updated;
+  }
+
+  async receiveOrderItemCup(
+    organizationSlug: string,
+    orderId: string,
+    orderItemId: string,
+  ): Promise<OrderItemResponseDto> {
+    const org = await this.getOrgBySlug(organizationSlug);
+
+    const received = await this.db.transaction(async (tx) => {
+      const [found] = await tx
+        .select({ orderStatus: order.orderStatus })
+        .from(order)
+        .where(and(eq(order.id, orderId), eq(order.sellerId, org.id)))
+        .for('update');
+      if (!found) throw notFoundError('orderNotFound');
+      if (!isOrderTicketPrintable(found.orderStatus))
+        throw badRequestError('statusChanged');
+
+      const [item] = await tx
+        .select()
+        .from(orderItem)
+        .where(
+          and(eq(orderItem.id, orderItemId), eq(orderItem.orderId, orderId)),
+        );
+      if (!item) throw notFoundError('orderItemNotFound');
+      if (!isOwnCupItem(item)) throw badRequestError('notOwnCupItem');
+
+      if (
+        (refundedQuantitiesOf(
+          await tx
+            .select({ items: refund.items })
+            .from(refund)
+            .where(eq(refund.orderId, orderId)),
+        ).get(item.id) ?? 0) >= item.orderQuantity
+      )
+        throw badRequestError('orderItemRefunded');
+
+      const [updated] = await tx
+        .update(orderItem)
+        .set({ cupReceivedAt: new Date() })
+        .where(
+          and(eq(orderItem.id, orderItemId), isNull(orderItem.cupReceivedAt)),
+        )
+        .returning();
+      if (!updated) throw conflictError('cupAlreadyReceived');
+
+      await this.orderTicketService.enqueueOrder(tx, orderId, org.id, [
+        orderItemId,
+      ]);
+
+      return updated;
+    });
+
+    this.eventEmitter.emit(ORDER_UPDATED_EVENT, {
+      orderId,
+      organizationId: org.id,
+    } satisfies OrderUpdatedEvent);
+
+    return received;
   }
 
   async createPaymentAttempt(
