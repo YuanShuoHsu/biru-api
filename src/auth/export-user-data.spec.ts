@@ -210,12 +210,13 @@ describe('POST /export-user-data', () => {
       [ann],
     );
     await client.query(
-      `insert into payroll_tax_identity (employee_id, organization_id, encrypted_tax_id, encrypted_address) values
-         ('ann-employee', 'biru', $1, $2),
-         ('bo-employee', 'biru', $3, $4)`,
+      `insert into payroll_tax_identity (employee_id, organization_id, encrypted_tax_id, encrypted_address, residence_country_code, encrypted_foreign_tax_id) values
+         ('ann-employee', 'biru', $1, $2, 'JP', $3),
+         ('bo-employee', 'biru', $4, $5, null, null)`,
       [
-        encryptField('A123456789'),
+        encryptField('A800000014'),
         encryptField('桃園市大園區中正東路一段 1 號'),
+        encryptField('NOTIN'),
         encryptField('B223456789'),
         encryptField('台北市中正區 2 號'),
       ],
@@ -308,9 +309,10 @@ describe('POST /export-user-data', () => {
         taxIdentities: [
           {
             employeeId: 'ann-employee',
-            taxIdMasked: 'A12****789',
+            taxId: 'A800000014',
             address: '桃園市大園區中正東路一段 1 號',
-            foreignTaxIdMasked: null,
+            residenceCountryCode: 'JP',
+            foreignTaxId: 'NOTIN',
           },
         ],
       },
@@ -342,7 +344,7 @@ describe('POST /export-user-data', () => {
     expect(text).not.toContain('bo@example.com');
     expect(text).not.toContain('bo-');
     expect(text).not.toContain('ann-draft-payslip');
-    expect(text).not.toContain('A123456789');
+    expect(text).not.toContain('B223456789');
     expect(text).not.toContain('impersonation-agent');
   });
 

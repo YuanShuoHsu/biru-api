@@ -11,7 +11,6 @@ import * as z from 'zod';
 
 import { decryptField } from '../common/utils/field-encryption.js';
 import * as schema from '../db/schema/index.js';
-import { maskTaxId } from '../payroll/tax-ids.js';
 
 import { authDb } from './auth-transaction.js';
 
@@ -310,12 +309,12 @@ const userData = async (userId: string) => {
       payslips,
       taxIdentities: taxIdentities.map((identity) => ({
         employeeId: identity.employeeId,
-        taxIdMasked: maskTaxId(decryptField(identity.encryptedTaxId)),
+        taxId: decryptField(identity.encryptedTaxId),
         address: decryptField(identity.encryptedAddress),
         residenceCountryCode: identity.residenceCountryCode,
-        foreignTaxIdMasked:
+        foreignTaxId:
           identity.encryptedForeignTaxId &&
-          maskTaxId(decryptField(identity.encryptedForeignTaxId)),
+          decryptField(identity.encryptedForeignTaxId),
         updatedAt: identity.updatedAt,
       })),
     },
