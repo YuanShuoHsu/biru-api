@@ -11,6 +11,7 @@ import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
 import { orderTicketJob, printer } from '../db/schema/printers.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { ORDER_UPDATED_EVENT } from '../events/order-updated.event.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 import {
   PRINTER_OFFLINE_AFTER_MS,
@@ -24,15 +25,17 @@ describe('OrderTicketService 離線掃描（PGlite）', () => {
 
   let client: PGlite;
   let db: ReturnType<typeof drizzle<typeof schema>>;
+  let eventEmitter: EventEmitter2;
   let service: OrderTicketService;
 
   beforeAll(async () => {
     client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
+    eventEmitter = new EventEmitter2();
     service = new OrderTicketService(
       db as unknown as DrizzleDB,
-      new EventEmitter2(),
+      eventEmitter,
       { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
       new PrintersService(
         db as unknown as DrizzleDB,
@@ -108,5 +111,25 @@ describe('OrderTicketService 離線掃描（PGlite）', () => {
     expect(await jobsOf('o1')).toEqual([
       expect.objectContaining({ status: 'sent' }),
     ]);
+  });
+
+  it('同一張訂單有多張工作轉成結果不明時，只推播一次訂單更新', async () => {
+    await sendOrder({
+      sentAt: new Date(Date.now() - PRINTER_OFFLINE_AFTER_MS - 1),
+    });
+    await client.exec(
+      `create temp table job_copy as select * from order_ticket_job;
+       update job_copy set id = 'job-copy';
+       insert into order_ticket_job select * from job_copy;
+       drop table job_copy;`,
+    );
+    const emitted: unknown[] = [];
+    const record = (event: unknown) => emitted.push(event);
+    eventEmitter.on(ORDER_UPDATED_EVENT, record);
+
+    await service.markOfflineJobsUnknown();
+    eventEmitter.off(ORDER_UPDATED_EVENT, record);
+
+    expect(emitted).toEqual([{ orderId: 'o1', organizationId: ORG }]);
   });
 });
