@@ -81,6 +81,16 @@
     "title": "{name}，您确定要删除账号吗？",
     "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
   },
+  "send_two_factor_otp": {
+    "address": "{productName}",
+    "expiry": "此验证码有效期为 3 分钟，请勿提供给任何人。",
+    "intro": "请输入下方验证码，完成您 {productName} 账号的两步验证。",
+    "preheader": "请使用此验证码完成 {productName} 的两步验证。",
+    "salutation": "谢谢，<br>{productName} 团队",
+    "security_notice": "出于安全考量，此请求来自使用 {browser_name} 的 {operating_system} 设备。如果这不是您本人的操作，可能有他人正尝试登录您的账户，请忽略此邮件并立即更改密码，如有疑问请<a href=\"{support_url}\">联系客服</a>。",
+    "subject": "您的 {productName} 验证码",
+    "title": "{name}，这是您的验证码"
+  },
   "send_verification_email": {
     "action_button": "确认电子邮件",
     "address": "{productName}",
