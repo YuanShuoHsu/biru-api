@@ -140,6 +140,16 @@
     "cashDeviceRefillEmpty": "補充する金種を1つ以上入力してください",
     "idempotencyConflict": "再送内容が変更されています。フォームを開き直してください。"
   },
+  "catalog": {
+    "catalogSectionHasItems": "このカテゴリにはまだ商品があります。先に移動または削除してください",
+    "catalogSectionHasSubsections": "このカテゴリにはまだサブカテゴリがあります。先に移動または削除してください",
+    "catalogSectionInUse": "店舗にこのカテゴリの設定が残っているため、まだ削除できません",
+    "catalogSectionNotFound": "カテゴリが見つかりません。削除された可能性があります",
+    "parentCatalogSectionDescendant": "カテゴリを自身のサブカテゴリの下に移動できません",
+    "parentCatalogSectionNotFound": "親カテゴリが見つかりません。削除された可能性があります",
+    "parentCatalogSectionOwnerMismatch": "親カテゴリはブランドのカテゴリか、同じ店舗の限定カテゴリである必要があります",
+    "parentCatalogSectionSelf": "カテゴリを自身の親カテゴリに設定できません"
+  },
   "checklists": {
     "checklistActionNoteRequired": "範囲外の数値は、対応内容を入力してから保存してください。",
     "checklistItemInvalidRange": "数値項目の下限は上限を超えられません。",

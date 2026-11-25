@@ -197,6 +197,16 @@ export type I18nTranslations = {
             "cashDeviceRefillEmpty": string;
             "idempotencyConflict": string;
         };
+        "catalog": {
+            "catalogSectionHasItems": string;
+            "catalogSectionHasSubsections": string;
+            "catalogSectionInUse": string;
+            "catalogSectionNotFound": string;
+            "parentCatalogSectionDescendant": string;
+            "parentCatalogSectionNotFound": string;
+            "parentCatalogSectionOwnerMismatch": string;
+            "parentCatalogSectionSelf": string;
+        };
         "checklists": {
             "checklistActionNoteRequired": string;
             "checklistItemInvalidRange": string;

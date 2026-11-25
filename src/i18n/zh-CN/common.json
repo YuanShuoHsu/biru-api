@@ -140,6 +140,16 @@
     "cashDeviceRefillEmpty": "请至少填写一种补币面额",
     "idempotencyConflict": "重试内容已变更，请关闭表单重新操作。"
   },
+  "catalog": {
+    "catalogSectionHasItems": "此分类下还有商品，请先移动或删除",
+    "catalogSectionHasSubsections": "此分类下还有子分类，请先移动或删除",
+    "catalogSectionInUse": "仍有门店设置了此分类，暂时无法删除",
+    "catalogSectionNotFound": "找不到分类，可能已被删除",
+    "parentCatalogSectionDescendant": "分类不能移到自己的子分类下",
+    "parentCatalogSectionNotFound": "找不到上层分类，可能已被删除",
+    "parentCatalogSectionOwnerMismatch": "上层分类必须是品牌分类，或同一门店的独家分类",
+    "parentCatalogSectionSelf": "分类不能设为自己的上层分类"
+  },
   "checklists": {
     "checklistActionNoteRequired": "数值超出范围时，请填写处理说明后再保存。",
     "checklistItemInvalidRange": "数值项目的下限不能大于上限。",
