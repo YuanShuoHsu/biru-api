@@ -418,6 +418,62 @@ describe('InvoicePrinterService（PGlite）', () => {
     await expect(service.printerOnline(ORG)).resolves.toBe(false);
   });
 
+  const sweepOffline = async (service: InvoicePrinterService) => {
+    const lastSeenAt = new Date(Date.now() - PRINTER_OFFLINE_AFTER_MS - 1);
+    await db
+      .update(printerTable)
+      .set({ lastSeenAt })
+      .where(eq(printerTable.organizationId, ORG));
+    await db
+      .update(invoicePrintJob)
+      .set({ sentAt: lastSeenAt, status: 'sent' });
+    await service.markOfflineJobsUnknown();
+  };
+
+  it('同一張發票的正本與補印都轉成結果不明時，只推播一次訂單更新', async () => {
+    const { emit, printers, service } = createService();
+    await addInvoice('1');
+    const { printer } = await register(service);
+    await service.enqueue('1', ORG, 'reprint');
+    await printers.poll(printer);
+    emit.mockClear();
+
+    await sweepOffline(service);
+
+    expect(emit.mock.calls).toEqual([
+      [ORDER_UPDATED_EVENT, { orderId: 'order-1', organizationId: ORG }],
+    ]);
+  });
+
+  it('作廢重開的兩張發票屬於同一張訂單，轉成結果不明時只推播一次訂單更新', async () => {
+    const { emit, printers, service } = createService();
+    await addInvoice('1', { status: 'voided' });
+    await db.insert(invoice).values({
+      id: '2',
+      invoiceDate: new Date('2026-09-23T07:10:00Z'),
+      invoiceNumber: 'LO00000002',
+      orderId: 'order-1',
+      status: 'issued',
+      type: 'personal',
+    });
+    const { printer } = await register(service);
+    await service.enqueue('1', ORG, 'original');
+    await service.enqueue('2', ORG, 'original');
+    await printers.poll(printer);
+    expect(
+      (await db.select().from(invoicePrintJob)).map(
+        ({ invoiceId }) => invoiceId,
+      ),
+    ).toEqual(expect.arrayContaining(['1', '2']));
+    emit.mockClear();
+
+    await sweepOffline(service);
+
+    expect(emit.mock.calls).toEqual([
+      [ORDER_UPDATED_EVENT, { orderId: 'order-1', organizationId: ORG }],
+    ]);
+  });
+
   it('離線的印表機在掃描途中回來取走的工作，不會被轉成結果不明', async () => {
     const { printers, service } = createService();
     await addInvoice('1');

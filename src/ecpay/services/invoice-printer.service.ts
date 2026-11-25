@@ -91,7 +91,7 @@ export class InvoicePrinterService implements PrintJobSource {
     if (!invoiceIds.length) return;
 
     const rows = await this.db
-      .select({ orderId: invoice.orderId })
+      .selectDistinct({ orderId: invoice.orderId })
       .from(invoice)
       .where(inArray(invoice.id, invoiceIds));
 
@@ -161,8 +161,14 @@ export class InvoicePrinterService implements PrintJobSource {
         organizationId: invoicePrintJob.organizationId,
       });
 
+    const invoiceIdsByOrganization = new Map<string, string[]>();
     for (const { invoiceId, organizationId } of stuck)
-      await this.emitOrdersUpdated(organizationId, [invoiceId]);
+      invoiceIdsByOrganization.set(organizationId, [
+        ...(invoiceIdsByOrganization.get(organizationId) ?? []),
+        invoiceId,
+      ]);
+    for (const [organizationId, invoiceIds] of invoiceIdsByOrganization)
+      await this.emitOrdersUpdated(organizationId, invoiceIds);
   }
 
   async registerPrinter(
