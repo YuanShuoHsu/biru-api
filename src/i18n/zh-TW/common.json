@@ -134,9 +134,9 @@
     "scheduleInvalid": "開始時間必須早於結束時間"
   },
   "cashDevices": {
-    "cashDeviceInactive": "這台現金機已停用，請先改為啟用再記錄補幣或收鈔",
-    "cashDeviceInUse": "這台現金機已有交易紀錄，無法刪除，請改為停用",
-    "cashDeviceNotFound": "找不到這台現金機，可能已被刪除",
+    "cashDeviceInactive": "這台現金機台已停用，請先改為啟用再記錄補幣或收鈔",
+    "cashDeviceInUse": "這台現金機台已有交易紀錄，無法刪除，請改為停用",
+    "cashDeviceNotFound": "找不到這台現金機台，可能已被刪除",
     "cashDeviceRefillEmpty": "請至少填寫一種補幣面額",
     "idempotencyConflict": "重試內容已變更，請關閉表單重新操作。"
   },
