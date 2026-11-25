@@ -141,6 +141,16 @@
     "cashDeviceRefillEmpty": "請至少填寫一種補幣面額",
     "idempotencyConflict": "重試內容已變更，請關閉表單重新操作。"
   },
+  "catalog": {
+    "catalogSectionHasItems": "此分類底下還有商品，請先移動或刪除",
+    "catalogSectionHasSubsections": "此分類底下還有子分類，請先移動或刪除",
+    "catalogSectionInUse": "仍有門市設定了此分類，暫時無法刪除",
+    "catalogSectionNotFound": "找不到分類，可能已被刪除",
+    "parentCatalogSectionDescendant": "分類不能移到自己的子分類底下",
+    "parentCatalogSectionNotFound": "找不到上層分類，可能已被刪除",
+    "parentCatalogSectionOwnerMismatch": "上層分類必須是品牌分類，或同一門市的獨家分類",
+    "parentCatalogSectionSelf": "分類不能設為自己的上層分類"
+  },
   "checklists": {
     "checklistActionNoteRequired": "數值超出範圍時，請填寫處置說明後再儲存。",
     "checklistItemInvalidRange": "數值項目的下限不能大於上限。",

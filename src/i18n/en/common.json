@@ -141,6 +141,16 @@
     "cashDeviceRefillEmpty": "Enter at least one denomination to refill",
     "idempotencyConflict": "The retry payload changed; close and reopen the form."
   },
+  "catalog": {
+    "catalogSectionHasItems": "This section still has items. Move or delete them first",
+    "catalogSectionHasSubsections": "This section still has subsections. Move or delete them first",
+    "catalogSectionInUse": "Stores still have settings for this section, so it can't be deleted yet",
+    "catalogSectionNotFound": "The section wasn't found. It may have been deleted",
+    "parentCatalogSectionDescendant": "A section can't be moved under its own subsection",
+    "parentCatalogSectionNotFound": "The parent section wasn't found. It may have been deleted",
+    "parentCatalogSectionOwnerMismatch": "The parent section must be a brand section or a section exclusive to the same store",
+    "parentCatalogSectionSelf": "A section can't be its own parent"
+  },
   "checklists": {
     "checklistActionNoteRequired": "Enter what was done about the out-of-range value before saving.",
     "checklistItemInvalidRange": "The minimum of a number item can't be greater than its maximum.",
