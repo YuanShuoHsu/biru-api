@@ -6,10 +6,12 @@ import {
   createAuthEndpoint,
   sensitiveSessionMiddleware,
 } from 'better-auth/api';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import * as z from 'zod';
 
+import { decryptField } from '../common/utils/field-encryption.js';
 import * as schema from '../db/schema/index.js';
+import { maskTaxId } from '../payroll/tax-ids.js';
 
 import { authDb } from './auth-transaction.js';
 
@@ -189,7 +191,10 @@ const userData = async (userId: string) => {
       columns: { providerId: true, createdAt: true },
     }),
     db.query.session.findMany({
-      where: eq(schema.session.userId, userId),
+      where: and(
+        eq(schema.session.userId, userId),
+        isNull(schema.session.impersonatedBy),
+      ),
       columns: {
         createdAt: true,
         updatedAt: true,
@@ -248,38 +253,42 @@ const userData = async (userId: string) => {
   ]);
 
   const employeeIds = employees.map(({ id }) => id);
-  const [shifts, events, requests, leaveCases, payslips] = employeeIds.length
-    ? await Promise.all([
-        db.query.attendanceShift.findMany({
-          where: inArray(schema.attendanceShift.employeeId, employeeIds),
-          columns: { missingClockOutRemindedAt: false },
-          orderBy: schema.attendanceShift.startsAt,
-        }),
-        db.query.attendanceEvent.findMany({
-          where: inArray(schema.attendanceEvent.employeeId, employeeIds),
-          columns: { idempotencyKey: false },
-          orderBy: schema.attendanceEvent.occurredAt,
-        }),
-        db.query.attendanceRequest.findMany({
-          where: inArray(schema.attendanceRequest.employeeId, employeeIds),
-          columns: { reviewedBy: false },
-          orderBy: schema.attendanceRequest.startsAt,
-        }),
-        db.query.attendanceLeaveCase.findMany({
-          where: inArray(schema.attendanceLeaveCase.employeeId, employeeIds),
-          columns: { createdBy: false },
-          orderBy: schema.attendanceLeaveCase.startsAt,
-        }),
-        db.query.payrollStatement.findMany({
-          where: and(
-            inArray(schema.payrollStatement.employeeId, employeeIds),
-            eq(schema.payrollStatement.status, 'published'),
-          ),
-          columns: PAYSLIP_COLUMNS,
-          orderBy: schema.payrollStatement.month,
-        }),
-      ])
-    : [[], [], [], [], []];
+  const [shifts, events, requests, leaveCases, payslips, taxIdentities] =
+    employeeIds.length
+      ? await Promise.all([
+          db.query.attendanceShift.findMany({
+            where: inArray(schema.attendanceShift.employeeId, employeeIds),
+            columns: { missingClockOutRemindedAt: false },
+            orderBy: schema.attendanceShift.startsAt,
+          }),
+          db.query.attendanceEvent.findMany({
+            where: inArray(schema.attendanceEvent.employeeId, employeeIds),
+            columns: { idempotencyKey: false },
+            orderBy: schema.attendanceEvent.occurredAt,
+          }),
+          db.query.attendanceRequest.findMany({
+            where: inArray(schema.attendanceRequest.employeeId, employeeIds),
+            columns: { reviewedBy: false },
+            orderBy: schema.attendanceRequest.startsAt,
+          }),
+          db.query.attendanceLeaveCase.findMany({
+            where: inArray(schema.attendanceLeaveCase.employeeId, employeeIds),
+            columns: { createdBy: false },
+            orderBy: schema.attendanceLeaveCase.startsAt,
+          }),
+          db.query.payrollStatement.findMany({
+            where: and(
+              inArray(schema.payrollStatement.employeeId, employeeIds),
+              eq(schema.payrollStatement.status, 'published'),
+            ),
+            columns: PAYSLIP_COLUMNS,
+            orderBy: schema.payrollStatement.month,
+          }),
+          db.query.payrollTaxIdentity.findMany({
+            where: inArray(schema.payrollTaxIdentity.employeeId, employeeIds),
+          }),
+        ])
+      : [[], [], [], [], [], []];
 
   return {
     exportedAt: new Date(),
@@ -292,7 +301,24 @@ const userData = async (userId: string) => {
     waitlistTickets,
     pushSubscriptions,
     sharedCarts,
-    employment: { employees, shifts, events, requests, leaveCases, payslips },
+    employment: {
+      employees,
+      shifts,
+      events,
+      requests,
+      leaveCases,
+      payslips,
+      taxIdentities: taxIdentities.map((identity) => ({
+        employeeId: identity.employeeId,
+        taxIdMasked: maskTaxId(decryptField(identity.encryptedTaxId)),
+        address: decryptField(identity.encryptedAddress),
+        residenceCountryCode: identity.residenceCountryCode,
+        foreignTaxIdMasked:
+          identity.encryptedForeignTaxId &&
+          maskTaxId(decryptField(identity.encryptedForeignTaxId)),
+        updatedAt: identity.updatedAt,
+      })),
+    },
   };
 };
 
@@ -309,6 +335,11 @@ export const exportUserData = () =>
         },
         async (ctx) => {
           const { session } = ctx.context;
+          if (session.session.impersonatedBy)
+            throw new APIError('FORBIDDEN', {
+              message: 'User data cannot be exported while impersonating',
+              code: 'IMPERSONATED_SESSION_CANNOT_EXPORT_USER_DATA',
+            });
           const account =
             await ctx.context.internalAdapter.findCredentialAccount(
               session.user.id,

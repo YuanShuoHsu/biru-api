@@ -395,8 +395,8 @@ constructor(@Inject(DRIZZLE) private db: DrizzleDB) {}
 ### Roles & Auth
 
 The `better-auth` instance is configured in `src/auth/index.ts` (admin, organization, and
-multiSession plugins) and mounted at `/api/auth/*`. There are **two separate authorization
-layers** — don't confuse them:
+multiSession plugins, plus the project's own `exportUserData`) and mounted at `/api/auth/*`.
+There are **two separate authorization layers** — don't confuse them:
 
 **1. Platform admin** — `user.role` (plain `text` column on `user`, set to `'user'` on signup).
 Guarded by `AdminGuard` (`src/common/guards/admin.guard.ts`), which only passes for
@@ -519,7 +519,8 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   removes any `x-biru-client-ip` the caller sent and, once `rateLimitEnabled()`, sets it to that IP;
   `advanced.ipAddress.ipAddressHeaders` reads only that header. While `rateLimitEnabled()` is false the header is never
   set, so sessions store no IP, and a `customRules` catch-all drops every limit except the stricter built-in ones
-  (sign-in, sign-up, password and verification mails), which then share one bucket per path platform-wide — set
+  (sign-in, sign-up, password and verification mails) and plugin rules stricter than the default, such as the member data
+  export's 3 / 60s (`src/auth/export-user-data.ts`), which then share one bucket per path platform-wide — set
   `CLIENT_IP_HEADER` to give them per-client buckets.
 - Also applied: `helmet`, `cookieParser`, CORS restricted to
   `NEXT_URL` + `NEXT_ADMIN_URL` with credentials

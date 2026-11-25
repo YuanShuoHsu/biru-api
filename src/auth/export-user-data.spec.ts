@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 
 import { createPGlite } from '../../test/pglite.js';
 import type { Transaction } from '../attendance/attendance-audit.js';
+import { encryptField } from '../common/utils/field-encryption.js';
 import * as schema from '../db/schema/index.js';
 
 import { runInAuthTransaction } from './auth-transaction.js';
@@ -82,6 +83,8 @@ describe('POST /export-user-data', () => {
     request('/export-user-data', body, cookies[name]);
 
   beforeAll(async () => {
+    vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret-test-secret-test-secret');
+    vi.stubEnv('FIELD_ENCRYPTION_KEYS', '');
     client = createPGlite();
     const pglite = drizzle(client, { schema });
     await migrate(pglite, { migrationsFolder: './drizzle' });
@@ -206,9 +209,26 @@ describe('POST /export-user-data', () => {
          ('bo-draft-payslip', 'biru', 'bo-employee', 'Bo', '2026-10', 'bo-draft-key', 'draft', '{}', 'draft', $1, null)`,
       [ann],
     );
+    await client.query(
+      `insert into payroll_tax_identity (employee_id, organization_id, encrypted_tax_id, encrypted_address) values
+         ('ann-employee', 'biru', $1, $2),
+         ('bo-employee', 'biru', $3, $4)`,
+      [
+        encryptField('A123456789'),
+        encryptField('桃園市大園區中正東路一段 1 號'),
+        encryptField('B223456789'),
+        encryptField('台北市中正區 2 號'),
+      ],
+    );
+    await client.query(
+      `insert into session (id, token, user_id, expires_at, updated_at, user_agent, impersonated_by)
+       values ('ann-impersonated', 'ann-impersonated-token', $1, now() + interval '1 hour', now(), 'impersonation-agent', $2)`,
+      [ann, bo],
+    );
   }, 60_000);
 
   afterAll(async () => {
+    vi.unstubAllEnvs();
     await client.close();
   });
 
@@ -285,6 +305,14 @@ describe('POST /export-user-data', () => {
         requests: [],
         leaveCases: [],
         payslips: [{ id: 'ann-published-payslip' }],
+        taxIdentities: [
+          {
+            employeeId: 'ann-employee',
+            taxIdMasked: 'A12****789',
+            address: '桃園市大園區中正東路一段 1 號',
+            foreignTaxIdMasked: null,
+          },
+        ],
       },
     });
     expect(data.accounts).toEqual(
@@ -314,6 +342,27 @@ describe('POST /export-user-data', () => {
     expect(text).not.toContain('bo@example.com');
     expect(text).not.toContain('bo-');
     expect(text).not.toContain('ann-draft-payslip');
+    expect(text).not.toContain('A123456789');
+    expect(text).not.toContain('impersonation-agent');
+  });
+
+  it('模擬登入的 session 不能下載', async () => {
+    await client.query(
+      `update session set impersonated_by = (select id from "user" where email = 'bo@example.com')
+       where user_id = (select id from "user" where email = 'cy@example.com')`,
+    );
+
+    const response = await exportData('cy');
+
+    await client.query(
+      `update session set impersonated_by = null
+       where user_id = (select id from "user" where email = 'cy@example.com')`,
+    );
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({
+      code: 'IMPERSONATED_SESSION_CANNOT_EXPORT_USER_DATA',
+      message: '模擬登入時無法下載該會員的資料，請由本人登入後下載',
+    });
   });
 
   it('每 60 秒最多 3 次，第 4 次回 429', async () => {
