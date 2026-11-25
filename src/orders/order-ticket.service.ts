@@ -1064,8 +1064,14 @@ export class OrderTicketService implements PrintJobSource {
         organizationId: orderTicketJob.organizationId,
       });
 
+    const orderIdsByOrganization = new Map<string, string[]>();
     for (const { orderId, organizationId } of stuck)
-      this.emitOrdersUpdated(organizationId, [orderId]);
+      orderIdsByOrganization.set(organizationId, [
+        ...(orderIdsByOrganization.get(organizationId) ?? []),
+        orderId,
+      ]);
+    for (const [organizationId, orderIds] of orderIdsByOrganization)
+      this.emitOrdersUpdated(organizationId, orderIds);
   }
 
   private describeItem(
