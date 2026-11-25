@@ -1,0 +1,1 @@
+CREATE INDEX "cashDeviceEvent_deviceId_occurredAt_idx" ON "cash_device_event" USING btree ("device_id","occurred_at");
