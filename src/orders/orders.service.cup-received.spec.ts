@@ -73,6 +73,7 @@ describe('OrdersService.receiveOrderItemCup', () => {
        insert into "order" (id, customer, mode, order_number, order_status, payment_method, confirmation_number, seller_id, subtotal, created_at) values
          ('processing', '{"name":"客人"}', 'counter', '1', 'OrderProcessing', 'Cash', 'c1', 'org', 290, now()),
          ('due', '{"name":"客人"}', 'counter', '2', 'OrderPaymentDue', 'Cash', 'c2', 'org', 95, now()),
+         ('ready', '{"name":"客人"}', 'counter', '5', 'OrderPickupAvailable', 'Cash', 'c5', 'org', 95, now()),
          ('elsewhere', '{"name":"客人"}', 'counter', '3', 'OrderProcessing', 'Cash', 'c3', 'other', 95, now()),
          ('refunded', '{"name":"客人"}', 'counter', '4', 'OrderProcessing', 'Credit', 'c4', 'org', 95, now());
        insert into order_item (id, order_id, menu_item_id, menu_item_name, order_quantity, unit_price, modifiers, add_ons) values
@@ -80,6 +81,7 @@ describe('OrdersService.receiveOrderItemCup', () => {
          ('add-on-cup', 'processing', 'm2', '蛋糕', 1, 195, null, '${OWN_CUP_ADD_ON}'),
          ('glass', 'processing', 'm1', '拿鐵', 1, 100, null, null),
          ('unpaid-cup', 'due', 'm1', '拿鐵', 1, 95, '${OWN_CUP}', null),
+         ('ready-cup', 'ready', 'm1', '拿鐵', 1, 95, '${OWN_CUP}', null),
          ('foreign-cup', 'elsewhere', 'm1', '拿鐵', 1, 95, '${OWN_CUP}', null),
          ('refunded-cup', 'refunded', 'm1', '拿鐵', 1, 95, '${OWN_CUP}', null);
        insert into refund (id, order_id, amount, scope, channel, items, status) values
@@ -115,6 +117,7 @@ describe('OrdersService.receiveOrderItemCup', () => {
     expect(emit).toHaveBeenCalledWith(ORDER_UPDATED_EVENT, {
       orderId: 'processing',
       organizationId: 'org',
+      prepEstimateChanged: true,
     });
   });
 
@@ -176,6 +179,17 @@ describe('OrdersService.receiveOrderItemCup', () => {
       response: { code: 'statusChanged' },
     });
     expect(await cupReceivedAtOf('unpaid-cup')).toBeNull();
+  });
+
+  it('訂單已可取餐時拒絕，製作畫面已看不到這張單', async () => {
+    await expect(
+      service.receiveOrderItemCup('biru', 'ready', 'ready-cup'),
+    ).rejects.toMatchObject({
+      status: 400,
+      response: { code: 'statusChanged' },
+    });
+    expect(await cupReceivedAtOf('ready-cup')).toBeNull();
+    expect(enqueueOrder).not.toHaveBeenCalled();
   });
 
   it('已全數退款的品項拒絕', async () => {

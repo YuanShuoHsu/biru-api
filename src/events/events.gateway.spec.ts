@@ -79,6 +79,22 @@ describe('EventsGateway prepEstimateUpdated', () => {
     expect(emit).toHaveBeenCalledWith('prepEstimateUpdated', estimate);
   });
 
+  it('訂單更新帶 prepEstimateChanged 時才重算', async () => {
+    const { findByOrganizationId, gateway } = setup(['org:org']);
+
+    gateway.handleOrderUpdated({ orderId: 'o1', organizationId: 'org' });
+    await nextTick();
+    expect(findByOrganizationId).not.toHaveBeenCalled();
+
+    gateway.handleOrderUpdated({
+      orderId: 'o1',
+      organizationId: 'org',
+      prepEstimateChanged: true,
+    });
+    await nextTick();
+    expect(findByOrganizationId).toHaveBeenCalledOnce();
+  });
+
   it('沒有訂閱者的店不重算', async () => {
     const { findByOrganizationId, gateway } = setup(['org:other']);
 

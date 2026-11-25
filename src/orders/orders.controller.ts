@@ -266,7 +266,7 @@ export class OrdersController {
     via: { table: 'orderItem', ownerColumn: 'orderId' },
   })
   @ApiOperation({
-    summary: '收到客人的自備杯，把這杯排進工作單（訂單製作中或可取餐才可）',
+    summary: '收到客人的自備杯，把這杯排進工作單（訂單製作中才可）',
   })
   @ApiCreatedResponse({ type: OrderItemResponseDto })
   receiveItemCup(

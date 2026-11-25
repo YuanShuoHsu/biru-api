@@ -26,6 +26,7 @@ import {
   isNull,
   lt,
   ne,
+  not,
   notExists,
   or,
   sql,
@@ -171,11 +172,14 @@ import {
   CANCEL_UNPAID_ORDER,
   findTransition,
   getAvailableTransitions,
-  isOrderTicketPrintable,
   type OrderTransitionRule,
   toAdminOrder,
 } from './order-transitions.js';
-import { awaitsCustomerCup, isOwnCupItem } from './own-cup.js';
+import {
+  awaitsCustomerCup,
+  awaitsCustomerCupSql,
+  isOwnCupItem,
+} from './own-cup.js';
 import { BOARD_AT, BOARD_WINDOW_MS } from './order-board-window.js';
 import { pickupHoursError } from './pickup-hours.js';
 import { POINTS_SNAPSHOT_SET } from './points-snapshot.js';
@@ -1074,6 +1078,22 @@ export class OrdersService {
                 ),
             )
           : undefined,
+        or(
+          notExists(
+            this.db
+              .select({ id: orderItem.id })
+              .from(orderItem)
+              .where(eq(orderItem.orderId, order.id)),
+          ),
+          exists(
+            this.db
+              .select({ id: orderItem.id })
+              .from(orderItem)
+              .where(
+                and(eq(orderItem.orderId, order.id), not(awaitsCustomerCupSql)),
+              ),
+          ),
+        ),
       ),
       orderBy: [
         asc(sql`COALESCE(${order.pickupTime}, ${order.paymentDate})`),
@@ -1121,7 +1141,7 @@ export class OrdersService {
           refundedQuantity: refundedQuantities.get(item.id) ?? 0,
         }));
 
-      return !items.length && (stationItemIds || current.items.length)
+      return stationItemIds && !items.length
         ? []
         : [Object.assign(toAdminOrderWithInvoice(current), { items })];
     });
@@ -1428,7 +1448,7 @@ export class OrdersService {
         .where(and(eq(order.id, orderId), eq(order.sellerId, org.id)))
         .for('update');
       if (!found) throw notFoundError('orderNotFound');
-      if (!isOrderTicketPrintable(found.orderStatus))
+      if (found.orderStatus !== 'OrderProcessing')
         throw badRequestError('statusChanged');
 
       const [item] = await tx
@@ -1469,6 +1489,7 @@ export class OrdersService {
     this.eventEmitter.emit(ORDER_UPDATED_EVENT, {
       orderId,
       organizationId: org.id,
+      prepEstimateChanged: true,
     } satisfies OrderUpdatedEvent);
 
     return received;

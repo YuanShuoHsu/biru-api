@@ -242,16 +242,15 @@ export class EventsGateway implements OnGatewayConnection {
       .to(publicOrdersBoardRoom(organizationId))
       .emit('orderBoardUpdated');
 
-    if (
-      PREP_ESTIMATE_ROOM_PREFIXES.some((prefix) =>
-        this.server.adapter.rooms.has(`${prefix}${organizationId}`),
-      )
-    )
-      this.schedulePrepEstimate(organizationId);
+    this.refreshSubscribedPrepEstimate(organizationId);
   }
 
   @OnEvent(ORDER_UPDATED_EVENT)
-  handleOrderUpdated({ orderId, organizationId }: OrderUpdatedEvent) {
+  handleOrderUpdated({
+    orderId,
+    organizationId,
+    prepEstimateChanged,
+  }: OrderUpdatedEvent) {
     this.server.to(orderRoom(orderId)).emit('orderUpdated');
     void this.emitToAuthorized(
       ordersBoardRoom(organizationId),
@@ -259,6 +258,17 @@ export class EventsGateway implements OnGatewayConnection {
       { order: ['read'] },
       'orderUpdated',
     );
+
+    if (prepEstimateChanged) this.refreshSubscribedPrepEstimate(organizationId);
+  }
+
+  private refreshSubscribedPrepEstimate(organizationId: string) {
+    if (
+      PREP_ESTIMATE_ROOM_PREFIXES.some((prefix) =>
+        this.server.adapter.rooms.has(`${prefix}${organizationId}`),
+      )
+    )
+      this.schedulePrepEstimate(organizationId);
   }
 
   @SubscribeMessage('joinPublicOrdersBoard')

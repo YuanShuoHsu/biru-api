@@ -1,4 +1,6 @@
-import type { OrderItem } from '../db/schema/orders.js';
+import { type SQL, sql } from 'drizzle-orm';
+
+import { type OrderItem, orderItem } from '../db/schema/orders.js';
 
 export const isOwnCupItem = ({
   addOns,
@@ -11,3 +13,6 @@ export const isOwnCupItem = ({
 export const awaitsCustomerCup = (
   item: Pick<OrderItem, 'addOns' | 'cupReceivedAt' | 'modifiers'>,
 ): boolean => !item.cupReceivedAt && isOwnCupItem(item);
+
+// https://www.postgresql.org/docs/current/functions-json.html#FUNCTIONS-SQLJSON-PATH
+export const awaitsCustomerCupSql: SQL = sql`(${orderItem.cupReceivedAt} is null and (jsonb_path_exists(coalesce(${orderItem.modifiers}, '[]'), '$[*] ? (@.customerProvidedCup == true)') or jsonb_path_exists(coalesce(${orderItem.addOns}, '[]'), '$[*].modifiers[*] ? (@.customerProvidedCup == true)')))`;
