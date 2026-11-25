@@ -134,6 +134,7 @@
     "scheduleInvalid": "开始时间必须早于结束时间"
   },
   "cashDevices": {
+    "cashDeviceCollectionEmpty": "请填写机台回报金额或实际存入金额，两者不能都是 0",
     "cashDeviceInactive": "这台现金机台已停用，请先改为启用再记录补币或收钞",
     "cashDeviceInUse": "这台现金机台已有交易记录，无法删除，请改为停用",
     "cashDeviceNotFound": "找不到这台现金机台，可能已被删除",

@@ -220,6 +220,37 @@ describe('CashDevicesService', () => {
       expect(response).toMatchObject({ code: 'cashDeviceRefillEmpty' });
     });
 
+    it('回報與存入都為 0 的收鈔回 400 cashDeviceCollectionEmpty', async () => {
+      const device = await service.create('biru', { name: '櫃台' });
+
+      const { error, response } = await codeOf(
+        service.collect('biru', device.id, 'staff', {
+          idempotencyKey: KEY,
+          reportedAmount: 0,
+          depositedAmount: 0,
+        }),
+      );
+
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect(response).toMatchObject({ code: 'cashDeviceCollectionEmpty' });
+    });
+
+    it('只有一邊為 0 的收鈔照常記下，差額即為短少或溢收', async () => {
+      const device = await service.create('biru', { name: '櫃台' });
+
+      const event = await service.collect('biru', device.id, 'staff', {
+        idempotencyKey: KEY,
+        reportedAmount: 500,
+        depositedAmount: 0,
+      });
+
+      expect(event).toMatchObject({
+        reportedAmount: '500.00',
+        depositedAmount: '0.00',
+        difference: '-500.00',
+      });
+    });
+
     it('收鈔記下機台回報與實際存入金額，回應帶差額', async () => {
       const device = await service.create('biru', { name: '櫃台' });
 
@@ -286,8 +317,8 @@ describe('CashDevicesService', () => {
         refill(device.id, { '10': 1 }, OTHER_KEY),
         service.collect('biru', device.id, 'staff', {
           idempotencyKey: OTHER_KEY,
-          reportedAmount: 0,
-          depositedAmount: 0,
+          reportedAmount: 100,
+          depositedAmount: 100,
         }),
       ]) {
         const { error, response } = await codeOf(attempt);
@@ -304,8 +335,8 @@ describe('CashDevicesService', () => {
         refill(other.id),
         service.collect('biru', other.id, 'staff', {
           idempotencyKey: KEY,
-          reportedAmount: 0,
-          depositedAmount: 0,
+          reportedAmount: 100,
+          depositedAmount: 100,
         }),
         service.findEvents('biru', other.id, {}),
       ]) {

@@ -134,6 +134,7 @@
     "scheduleInvalid": "開始時間必須早於結束時間"
   },
   "cashDevices": {
+    "cashDeviceCollectionEmpty": "請填寫機台回報金額或實際存入金額，兩者不能都是 0",
     "cashDeviceInactive": "這台現金機台已停用，請先改為啟用再記錄補幣或收鈔",
     "cashDeviceInUse": "這台現金機台已有交易紀錄，無法刪除，請改為停用",
     "cashDeviceNotFound": "找不到這台現金機台，可能已被刪除",

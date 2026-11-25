@@ -134,6 +134,7 @@
     "scheduleInvalid": "開始日時は終了日時より前にしてください"
   },
   "cashDevices": {
+    "cashDeviceCollectionEmpty": "機器報告額または実際の入金額を入力してください。両方を 0 にはできません",
     "cashDeviceInactive": "この現金端末は無効になっています。釣銭補充や紙幣回収を記録する前に有効にしてください",
     "cashDeviceInUse": "この現金端末には取引記録があるため削除できません。代わりに無効にしてください",
     "cashDeviceNotFound": "現金端末が見つかりません。削除された可能性があります",
