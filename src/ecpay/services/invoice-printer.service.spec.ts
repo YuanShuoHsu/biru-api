@@ -418,6 +418,34 @@ describe('InvoicePrinterService（PGlite）', () => {
     await expect(service.printerOnline(ORG)).resolves.toBe(false);
   });
 
+  it('同一張訂單有多張工作轉成結果不明時，只推播一次訂單更新', async () => {
+    const { emit, printers, service } = createService();
+    await addInvoice('1');
+    const { printer } = await register(service);
+    await printers.poll(printer);
+    await client.exec(
+      `create temp table job_copy as select * from invoice_print_job;
+       update job_copy set id = 'job-copy', copy = 'reprint';
+       insert into invoice_print_job select * from job_copy;
+       drop table job_copy;`,
+    );
+    const lastSeenAt = new Date(Date.now() - PRINTER_OFFLINE_AFTER_MS - 1);
+    await db
+      .update(printerTable)
+      .set({ lastSeenAt })
+      .where(eq(printerTable.organizationId, ORG));
+    await db
+      .update(invoicePrintJob)
+      .set({ sentAt: lastSeenAt, status: 'sent' });
+    emit.mockClear();
+
+    await service.markOfflineJobsUnknown();
+
+    expect(emit.mock.calls).toEqual([
+      [ORDER_UPDATED_EVENT, { orderId: 'order-1', organizationId: ORG }],
+    ]);
+  });
+
   it('離線的印表機在掃描途中回來取走的工作，不會被轉成結果不明', async () => {
     const { printers, service } = createService();
     await addInvoice('1');
