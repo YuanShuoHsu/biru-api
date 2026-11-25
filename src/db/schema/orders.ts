@@ -82,7 +82,6 @@ export interface OrderItemModifierSnapshot {
   modifierId: string;
   modifierName: string;
   priceAdjustment: string | null;
-  // 舊快照沒有此欄
   customerProvidedCup?: boolean;
 }
 

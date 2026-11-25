@@ -434,6 +434,19 @@ describe('OrderPricingService.resolveOrderItems', () => {
       expect(item.unitPrice).toBe('0.00');
     });
 
+    it('帶小數的售價折到 0 元時，單價不會變成 -0.00', async () => {
+      const item = await resolve(
+        cartItemOf({ modifiers: { sealing: ['own-cup', 'own-cup-2'] } }),
+        {
+          groups: [cupGroupOf(latte.id, 2)],
+          modifiers: [ownCup, modifierOf('own-cup-2', true, '2.09')],
+          price: '0.01',
+        },
+      );
+
+      expect(item.unitPrice).toBe('0.00');
+    });
+
     it('同一杯選了多個自備杯選項只折一次', async () => {
       const item = await resolve(
         cartItemOf({ modifiers: { sealing: ['own-cup', 'own-cup-2'] } }),

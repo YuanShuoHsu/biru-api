@@ -520,7 +520,7 @@ export class OrderPricingService {
         menuItemId: item.id,
         menuItemName: getName(item.name),
         menuSectionIds: sectionAncestry(parentSectionIdOf, item.menuSectionId),
-        unitPrice: unitPrice.toFixed(2),
+        unitPrice: Math.max(0, unitPrice).toFixed(2),
         // 訂單成立當下的幣別快照；店家日後改幣別不影響已成立的訂單
         priceCurrency,
         orderQuantity: cartItem.quantity,
