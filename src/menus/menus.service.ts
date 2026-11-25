@@ -14,7 +14,7 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
+import { alias, type PgSelect } from 'drizzle-orm/pg-core';
 import { v4 as uuidv4 } from 'uuid';
 import { I18nContext } from 'nestjs-i18n';
 
@@ -1260,8 +1260,35 @@ export class MenusService {
     const addOnMenuItem = alias(menuItem, 'add_on_menu_item');
     const addOnMenuSection = alias(menuSection, 'add_on_menu_section');
     const addOnMenuItemSection = alias(menuSection, 'add_on_menu_item_section');
+    const nameColumns = {
+      addOnMenuItemName: addOnMenuItem.name,
+      addOnMenuSectionName: addOnMenuSection.name,
+      addOnMenuItemSectionId: addOnMenuItemSection.id,
+      addOnMenuItemSectionName: addOnMenuItemSection.name,
+    };
+    // https://orm.drizzle.team/docs/dynamic-query-building
+    const joinNames = <T extends PgSelect>(query: T) =>
+      query
+        .leftJoin(
+          addOnMenuItem,
+          eq(menuItemAddOn.addOnMenuItemId, addOnMenuItem.id),
+        )
+        .leftJoin(
+          addOnMenuSection,
+          eq(menuItemAddOn.addOnMenuSectionId, addOnMenuSection.id),
+        )
+        .leftJoin(
+          addOnMenuItemSection,
+          eq(addOnMenuItem.menuSectionId, addOnMenuItemSection.id),
+        );
 
-    return { addOnMenuItem, addOnMenuSection, addOnMenuItemSection };
+    return {
+      addOnMenuItem,
+      addOnMenuSection,
+      addOnMenuItemSection,
+      nameColumns,
+      joinNames,
+    };
   }
 
   private async findMenuItemAddOnById(id: string): Promise<
@@ -1272,30 +1299,16 @@ export class MenusService {
       addOnMenuItemSectionName: LocalizedText | null;
     }
   > {
-    const { addOnMenuItem, addOnMenuSection, addOnMenuItemSection } =
-      this.menuItemAddOnWithNames();
-    const [row] = await this.db
-      .select({
-        ...getTableColumns(menuItemAddOn),
-        addOnMenuItemName: addOnMenuItem.name,
-        addOnMenuSectionName: addOnMenuSection.name,
-        addOnMenuItemSectionId: addOnMenuItemSection.id,
-        addOnMenuItemSectionName: addOnMenuItemSection.name,
-      })
-      .from(menuItemAddOn)
-      .leftJoin(
-        addOnMenuItem,
-        eq(menuItemAddOn.addOnMenuItemId, addOnMenuItem.id),
-      )
-      .leftJoin(
-        addOnMenuSection,
-        eq(menuItemAddOn.addOnMenuSectionId, addOnMenuSection.id),
-      )
-      .leftJoin(
-        addOnMenuItemSection,
-        eq(addOnMenuItem.menuSectionId, addOnMenuItemSection.id),
-      )
-      .where(eq(menuItemAddOn.id, id));
+    const { nameColumns, joinNames } = this.menuItemAddOnWithNames();
+    const [row] = await joinNames(
+      this.db
+        .select({
+          ...getTableColumns(menuItemAddOn),
+          ...nameColumns,
+        })
+        .from(menuItemAddOn)
+        .$dynamic(),
+    ).where(eq(menuItemAddOn.id, id));
 
     return row;
   }
@@ -1390,8 +1403,13 @@ export class MenusService {
     })[];
     total: number;
   }> {
-    const { addOnMenuItem, addOnMenuSection, addOnMenuItemSection } =
-      this.menuItemAddOnWithNames();
+    const {
+      addOnMenuItem,
+      addOnMenuSection,
+      addOnMenuItemSection,
+      nameColumns,
+      joinNames,
+    } = this.menuItemAddOnWithNames();
 
     const {
       limit = 10,
@@ -1477,47 +1495,22 @@ export class MenusService {
     );
 
     const [data, [{ total }]] = await Promise.all([
-      this.db
-        .select({
-          ...getTableColumns(menuItemAddOn),
-          addOnMenuItemName: addOnMenuItem.name,
-          addOnMenuSectionName: addOnMenuSection.name,
-          addOnMenuItemSectionId: addOnMenuItemSection.id,
-          addOnMenuItemSectionName: addOnMenuItemSection.name,
-        })
-        .from(menuItemAddOn)
-        .leftJoin(
-          addOnMenuItem,
-          eq(menuItemAddOn.addOnMenuItemId, addOnMenuItem.id),
-        )
-        .leftJoin(
-          addOnMenuSection,
-          eq(menuItemAddOn.addOnMenuSectionId, addOnMenuSection.id),
-        )
-        .leftJoin(
-          addOnMenuItemSection,
-          eq(addOnMenuItem.menuSectionId, addOnMenuItemSection.id),
-        )
+      joinNames(
+        this.db
+          .select({
+            ...getTableColumns(menuItemAddOn),
+            ...nameColumns,
+          })
+          .from(menuItemAddOn)
+          .$dynamic(),
+      )
         .where(where)
         .orderBy(...orderBy)
         .limit(limit)
         .offset(offset),
-      this.db
-        .select({ total: count() })
-        .from(menuItemAddOn)
-        .leftJoin(
-          addOnMenuItem,
-          eq(menuItemAddOn.addOnMenuItemId, addOnMenuItem.id),
-        )
-        .leftJoin(
-          addOnMenuSection,
-          eq(menuItemAddOn.addOnMenuSectionId, addOnMenuSection.id),
-        )
-        .leftJoin(
-          addOnMenuItemSection,
-          eq(addOnMenuItem.menuSectionId, addOnMenuItemSection.id),
-        )
-        .where(where),
+      joinNames(
+        this.db.select({ total: count() }).from(menuItemAddOn).$dynamic(),
+      ).where(where),
     ]);
 
     return { data, total };
