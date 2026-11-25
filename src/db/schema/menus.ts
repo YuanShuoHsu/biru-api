@@ -434,6 +434,10 @@ export const modifierRelations = relations(modifier, ({ one }) => ({
     fields: [modifier.modifierGroupId],
     references: [modifierGroup.id],
   }),
+  catalogModifier: one(catalogModifier, {
+    fields: [modifier.catalogModifierId],
+    references: [catalogModifier.id],
+  }),
 }));
 
 export const menuItemModifierGroupRelations = relations(

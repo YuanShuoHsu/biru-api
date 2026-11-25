@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { I18nContext } from 'nestjs-i18n';
 
+import { OWN_CUP_DISCOUNT } from '../common/constants/own-cup.js';
 import { SERVING_TEMPERATURE_OF_LEVEL } from '../common/constants/serving-temperature.js';
 import { platformDateString } from '../common/constants/timezone.js';
 import { toLanguage } from '../common/utils/language.js';
@@ -151,6 +152,28 @@ const sumModifierAdjustments = (
 ): number =>
   modifiers.reduce((sum, mod) => sum + Number(mod.priceAdjustment ?? 0), 0);
 
+const discountOwnCup = (
+  modifiers: OrderItemModifierSnapshot[],
+  basePrice: number,
+): OrderItemModifierSnapshot[] => {
+  const ownCup = modifiers.find((mod) => mod.customerProvidedCup);
+  if (!ownCup) return modifiers;
+  const discount = Math.min(
+    OWN_CUP_DISCOUNT,
+    basePrice + sumModifierAdjustments(modifiers),
+  );
+  return modifiers.map((mod) =>
+    mod === ownCup
+      ? {
+          ...mod,
+          priceAdjustment: (
+            Number(mod.priceAdjustment ?? 0) - discount
+          ).toFixed(2),
+        }
+      : mod,
+  );
+};
+
 type Customization = Omit<CreateOrderItemDto, 'quantity'>;
 
 export interface ResolvedOrderItem {
@@ -220,7 +243,10 @@ export class OrderPricingService {
         ? this.db.query.modifier.findMany({
             columns: { image: false },
             where: inArray(modifier.id, allModifierIds),
-            with: { modifierGroup: true },
+            with: {
+              catalogModifier: { columns: { customerProvidedCup: true } },
+              modifierGroup: true,
+            },
           })
         : Promise.resolve([]),
       this.db.query.offer.findMany({
@@ -421,6 +447,9 @@ export class OrderPricingService {
             modifierId: mod.id,
             modifierName: getName(mod.displayName),
             priceAdjustment: mod.priceAdjustment,
+            ...(mod.catalogModifier?.customerProvidedCup && {
+              customerProvidedCup: true,
+            }),
           };
         }),
       );
@@ -437,11 +466,15 @@ export class OrderPricingService {
         addOn.servingTemperatureLevel,
       );
       const sweetnessLevel = resolveSweetnessLevel(item, addOn.sweetnessLevel);
+      const unitPrice = getOfferPrice(item);
       return {
         menuItemId: item.id,
         menuItemName: getName(item.name),
-        unitPrice: getOfferPrice(item),
-        modifiers: resolveModifierSnapshots(item, addOn.modifiers),
+        unitPrice,
+        modifiers: discountOwnCup(
+          resolveModifierSnapshots(item, addOn.modifiers),
+          Number(unitPrice),
+        ),
         servingTemperatureLevel,
         sweetnessLevel,
       };
@@ -457,13 +490,17 @@ export class OrderPricingService {
         item,
         cartItem.sweetnessLevel,
       );
-      const itemModifiers = resolveModifierSnapshots(item, cartItem.modifiers);
+      const itemPrice = Number(getOfferPrice(item));
+      const itemModifiers = discountOwnCup(
+        resolveModifierSnapshots(item, cartItem.modifiers),
+        itemPrice,
+      );
       const addOns = cartItem.addOns.map((addOn) =>
         resolveAddOnSnapshot(item, addOn),
       );
 
       const unitPrice =
-        Number(getOfferPrice(item)) +
+        itemPrice +
         sumModifierAdjustments(itemModifiers) +
         addOns.reduce(
           (sum, addOn) =>

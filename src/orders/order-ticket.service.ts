@@ -659,7 +659,13 @@ export class OrderTicketService implements PrintJobSource {
   ): Promise<OrderTicketJob[]> {
     const [items, covering] = await Promise.all([
       tx
-        .select({ id: orderItem.id, menuItemId: orderItem.menuItemId })
+        .select({
+          addOns: orderItem.addOns,
+          cupReceivedAt: orderItem.cupReceivedAt,
+          id: orderItem.id,
+          menuItemId: orderItem.menuItemId,
+          modifiers: orderItem.modifiers,
+        })
         .from(orderItem)
         .where(eq(orderItem.orderId, orderId)),
       tx
@@ -679,9 +685,13 @@ export class OrderTicketService implements PrintJobSource {
       covering.flatMap(({ orderItemIds }) => orderItemIds),
     );
     const pending = items.filter(
-      ({ id }) =>
+      ({ addOns, cupReceivedAt, id, modifiers }) =>
         !covered.has(id) &&
-        (!onlyOrderItemIds || onlyOrderItemIds.includes(id)),
+        (!onlyOrderItemIds || onlyOrderItemIds.includes(id)) &&
+        (cupReceivedAt ||
+          ![modifiers, ...(addOns ?? []).map((addOn) => addOn.modifiers)]
+            .flatMap((mods) => mods ?? [])
+            .some((mod) => mod.customerProvidedCup)),
     );
     if (!pending.length) return [];
 

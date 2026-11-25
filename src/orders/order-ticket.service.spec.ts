@@ -9,7 +9,10 @@ import type { I18nService } from 'nestjs-i18n';
 import { createPGlite } from '../../test/pglite.js';
 
 import * as schema from '../db/schema/index.js';
-import { printer as printerTable } from '../db/schema/printers.js';
+import {
+  orderTicketJob,
+  printer as printerTable,
+} from '../db/schema/printers.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 import { PrintersService } from '../printers/printers.service.js';
@@ -157,5 +160,82 @@ describe('OrderTicketService 出單機（PGlite）', () => {
         response: { code: 'printerNotFound' },
         status: 404,
       });
+  });
+
+  describe('自備環保杯的品項收杯後才出單', () => {
+    const ownCup = JSON.stringify([
+      {
+        customerProvidedCup: true,
+        modifierGroupId: 'sealing',
+        modifierGroupName: '封口方式',
+        modifierId: 'own-cup',
+        modifierName: '自備環保杯',
+        priceAdjustment: '-5.00',
+      },
+    ]);
+
+    const insertItem = (
+      id: string,
+      {
+        addOns = null,
+        cupReceivedAt = null,
+        modifiers = null,
+      }: {
+        addOns?: string | null;
+        cupReceivedAt?: Date | null;
+        modifiers?: string | null;
+      } = {},
+    ) =>
+      client.query(
+        `insert into order_item (id, order_id, menu_item_id, menu_item_name, unit_price, order_quantity, add_ons, modifiers, cup_received_at)
+         values ($1, 'o1', 'm1', '{}', 100, 1, $2, $3, $4)`,
+        [id, addOns, modifiers, cupReceivedAt],
+      );
+
+    const enqueuedItemIds = async () => {
+      await db.transaction((tx) =>
+        service.enqueueOrder(tx as unknown as DrizzleDB, 'o1', ORG),
+      );
+      const jobs = await db
+        .select({ orderItemIds: orderTicketJob.orderItemIds })
+        .from(orderTicketJob)
+        .where(eq(orderTicketJob.orderId, 'o1'));
+      return jobs.flatMap(({ orderItemIds }) => orderItemIds).sort();
+    };
+
+    beforeEach(async () => {
+      await service.createPrinter('biru', '吧台');
+      await client.query(
+        `insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal, order_status)
+         values ('o1', '{"name":"王小明"}', 'counter', '1', 'Cash', $1, 300, 'OrderProcessing')`,
+        [ORG],
+      );
+    });
+
+    it('還沒收杯的自備杯品項不出單，同張訂單其他品項照常出單', async () => {
+      await insertItem('plain');
+      await insertItem('own-cup', { modifiers: ownCup });
+      await insertItem('own-cup-add-on', {
+        addOns: JSON.stringify([
+          {
+            menuItemId: 'm2',
+            menuItemName: '美式',
+            modifiers: JSON.parse(ownCup),
+            unitPrice: '60.00',
+          },
+        ]),
+      });
+
+      expect(await enqueuedItemIds()).toEqual(['plain']);
+    });
+
+    it('收杯後出單', async () => {
+      await insertItem('own-cup', {
+        cupReceivedAt: new Date(),
+        modifiers: ownCup,
+      });
+
+      expect(await enqueuedItemIds()).toEqual(['own-cup']);
+    });
   });
 });

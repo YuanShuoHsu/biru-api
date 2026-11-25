@@ -188,6 +188,9 @@ export const catalogModifier = pgTable(
     displayName: jsonb('display_name').notNull().$type<LocalizedText>(),
     image: text('image'),
     priceAdjustment: numeric('price_adjustment', { precision: 10, scale: 2 }),
+    customerProvidedCup: boolean('customer_provided_cup')
+      .notNull()
+      .default(false),
     sortOrder: integer('sort_order').notNull().default(0),
     ...timestamps,
   },
