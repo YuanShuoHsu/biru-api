@@ -90,12 +90,16 @@ async function main() {
         .select({ image })
         .from(table)
         .where(and(eq(idColumn, id), isDataUrl));
-      if (!row?.image || !parseImageDataUrl(row.image)) {
+      if (!row?.image) {
         skipped++;
         continue;
       }
       if (accepts && !accepts(row.image)) {
         rejected++;
+        continue;
+      }
+      if (!parseImageDataUrl(row.image)) {
+        skipped++;
         continue;
       }
       if (!apply) continue;
