@@ -7,11 +7,11 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 import type { I18nService } from 'nestjs-i18n';
 
 import { createPGlite } from '../../test/pglite.js';
-import { ORDER_UPDATED_EVENT } from '../events/order-updated.event.js';
 
 import * as schema from '../db/schema/index.js';
 import { orderTicketJob, printer } from '../db/schema/printers.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { ORDER_UPDATED_EVENT } from '../events/order-updated.event.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 import {
   PRINTER_OFFLINE_AFTER_MS,
@@ -120,12 +120,15 @@ describe('OrderTicketService 離線掃描（PGlite）', () => {
     await client.exec(
       `create temp table job_copy as select * from order_ticket_job;
        update job_copy set id = 'job-copy';
-       insert into order_ticket_job select * from job_copy;`,
+       insert into order_ticket_job select * from job_copy;
+       drop table job_copy;`,
     );
     const emitted: unknown[] = [];
-    eventEmitter.on(ORDER_UPDATED_EVENT, (event) => emitted.push(event));
+    const record = (event: unknown) => emitted.push(event);
+    eventEmitter.on(ORDER_UPDATED_EVENT, record);
 
     await service.markOfflineJobsUnknown();
+    eventEmitter.off(ORDER_UPDATED_EVENT, record);
 
     expect(emitted).toEqual([{ orderId: 'o1', organizationId: ORG }]);
   });
