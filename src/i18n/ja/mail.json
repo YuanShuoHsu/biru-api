@@ -81,6 +81,16 @@
     "title": "{name}さん、アカウントを削除しますか？",
     "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
   },
+  "send_two_factor_otp": {
+    "address": "{productName}",
+    "expiry": "このコードの有効期限は3分です。誰にも教えないでください。",
+    "intro": "以下の認証コードを入力して、{productName} アカウントの2段階認証を完了してください。",
+    "preheader": "この認証コードで {productName} の2段階認証を完了してください。",
+    "salutation": "ありがとうございます。<br>{productName} チーム",
+    "security_notice": "セキュリティのため、このリクエストは{browser_name}を使用する{operating_system}デバイスから受信しました。ご本人による操作でない場合は、第三者がパスワードを知っている可能性があります。このメールを無視して直ちにパスワードを変更するか、ご不明な点があれば<a href=\"{support_url}\">サポートにお問い合わせ</a>ください。",
+    "subject": "{productName} の認証コード",
+    "title": "{name}さん、認証コードをお送りします"
+  },
   "send_verification_email": {
     "action_button": "メールアドレスを確認",
     "address": "{productName}",

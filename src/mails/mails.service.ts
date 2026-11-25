@@ -126,6 +126,7 @@ const ACCOUNT_MAIL_SUBJECTS = {
   'send-delete-account-verification':
     'mail.send_delete_account_verification.subject',
   'send-reset-password': 'mail.send_reset_password.subject',
+  'send-two-factor-otp': 'mail.send_two_factor_otp.subject',
   'send-verification-email': 'mail.send_verification_email.subject',
 } as const;
 
@@ -471,6 +472,15 @@ export class MailsService {
           smtp: { code, responseCode },
         });
       });
+  }
+
+  public async sendTwoFactorOtp(
+    { user, otp }: { user: AccountMailRecipient; otp: string },
+    request?: Request,
+  ): Promise<void> {
+    await this.sendAccountMail('send-two-factor-otp', user, request, () => ({
+      otp,
+    }));
   }
 
   public async sendVerificationEmail(

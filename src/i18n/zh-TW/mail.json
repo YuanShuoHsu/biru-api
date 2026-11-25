@@ -81,6 +81,16 @@
     "title": "{name}，您確定要刪除帳號嗎？",
     "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
   },
+  "send_two_factor_otp": {
+    "address": "{productName}",
+    "expiry": "此驗證碼有效期為 3 分鐘，請勿提供給任何人。",
+    "intro": "請輸入下方驗證碼，完成您 {productName} 帳號的兩步驟驗證。",
+    "preheader": "請使用此驗證碼完成 {productName} 的兩步驟驗證。",
+    "salutation": "謝謝，<br>{productName} 團隊",
+    "security_notice": "基於安全考量，此請求來自使用 {browser_name} 的 {operating_system} 裝置。如果這不是您本人的操作，代表他人可能已知道您的密碼，請忽略此郵件並立即更改密碼，如有疑問請<a href=\"{support_url}\">聯繫客服</a>。",
+    "subject": "您的 {productName} 驗證碼",
+    "title": "{name}，這是您的驗證碼"
+  },
   "send_verification_email": {
     "action_button": "確認電子郵件",
     "address": "{productName}",

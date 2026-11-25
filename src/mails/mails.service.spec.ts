@@ -9,6 +9,7 @@ import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 
 import { PGlite } from '@electric-sql/pglite';
+import type { OTPOptions } from 'better-auth/plugins';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
@@ -649,6 +650,12 @@ describe('MailsService 語系', () => {
       { sign_in_url: 'http://localhost:3000/ja/auth/sign-in' },
       (req) => service.onPasswordReset({ user }, req),
     ],
+    [
+      'sendTwoFactorOtp',
+      'send-two-factor-otp',
+      { otp: '012345' },
+      (req) => service.sendTwoFactorOtp({ user, otp: '012345' }, req),
+    ],
   ])('%s 寄出 %s 與共用的帳號信內容', async (_, template, extra, send) => {
     await send(request());
 
@@ -667,6 +674,39 @@ describe('MailsService 語系', () => {
       },
     });
   });
+
+  it.each<[Language, string, string]>([
+    ['en', 'Your Biru Coffee verification code', 'valid for 3 minutes'],
+    ['ja', 'Biru Coffee の認証コード', '有効期限は3分'],
+    ['ko', 'Biru Coffee 인증 코드', '3분 동안 유효'],
+    ['zh-CN', '您的 Biru Coffee 验证码', '有效期为 3 分钟'],
+    ['zh-TW', '您的 Biru Coffee 驗證碼', '有效期為 3 分鐘'],
+  ])(
+    '兩步驟驗證碼信用收件人的 %s 寫出驗證碼與有效時間',
+    async (lang, subject, expiry) => {
+      const sendOTP: NonNullable<OTPOptions['sendOTP']> = (
+        { user, otp },
+        ctx,
+      ) => service.sendTwoFactorOtp({ user, otp }, ctx?.request);
+      const member = {
+        id: 'ann',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        email: 'ann@example.com',
+        emailVerified: true,
+        lang,
+        name: 'Ann',
+        twoFactorEnabled: true,
+      };
+
+      await sendOTP({ user: member, otp: '012345' });
+
+      expect(sent[0].subject).toBe(subject);
+      expect(sent[0].html).toContain('012345');
+      expect(sent[0].html).toContain(expiry);
+      expect(sent[0].html).toContain('href="mailto:support@example.com"');
+    },
+  );
 
   it('better-auth 的連結無法解析時不寄信', async () => {
     const calls = vi.mocked(sendMail).mock.calls.length;

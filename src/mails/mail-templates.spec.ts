@@ -16,6 +16,7 @@ const SECURITY_NOTICE_TEMPLATES = [
   'send-change-email-confirmation',
   'send-delete-account-verification',
   'send-reset-password',
+  'send-two-factor-otp',
   'send-verification-email',
 ];
 
@@ -60,6 +61,7 @@ describe('mail templates', () => {
   const base = {
     home_url: 'http://localhost:3000/zh-TW',
     i18nLang: 'zh-TW',
+    otp: '012345',
     productName: 'Biru Coffee',
     sign_in_url: 'http://localhost:3000/zh-TW/auth/sign-in',
     support_url: 'mailto:support@example.com',

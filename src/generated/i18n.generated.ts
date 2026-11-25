@@ -6,18 +6,23 @@ import type { Path } from "nestjs-i18n";
 /* prettier-ignore */
 export type I18nTranslations = {
     "auth": {
+        "ACCOUNT_TEMPORARILY_LOCKED": string;
+        "BACKUP_CODES_NOT_ENABLED": string;
         "BANNED_USER": string;
         "CREDENTIAL_ACCOUNT_NOT_FOUND": string;
         "EMAIL_ALREADY_VERIFIED": string;
         "EMAIL_VERIFICATION_REQUIRED_BEFORE_ACCEPTING_OR_REJECTING_INVITATION": string;
         "FAILED_TO_UNLINK_LAST_ACCOUNT": string;
         "FIRST_NAME_REQUIRED": string;
+        "INVALID_BACKUP_CODE": string;
+        "INVALID_CODE": string;
         "INVALID_DINE_IN_TABLE_COUNT": string;
         "INVALID_EMAIL_OR_PASSWORD": string;
         "INVALID_IMAGE": string;
         "INVALID_PASSWORD": string;
         "INVALID_SESSION_TOKEN": string;
         "INVALID_TOKEN": string;
+        "INVALID_TWO_FACTOR_COOKIE": string;
         "INVALID_USER": string;
         "INVITATION_NOT_FOUND": string;
         "MEMBER_NOT_FOUND": string;
@@ -28,11 +33,19 @@ export type I18nTranslations = {
         "ORGANIZATION_NOT_FOUND": string;
         "ORGANIZATION_REQUIRES_AN_OWNER": string;
         "ORGANIZATION_SLUG_ALREADY_TAKEN": string;
+        "OTP_HAS_EXPIRED": string;
+        "OTP_NOT_CONFIGURED": string;
+        "OTP_NOT_ENABLED": string;
         "PASSWORD_TOO_LONG": string;
         "PHONE_NUMBER_ALREADY_EXISTS": string;
         "PLATFORM_ADMIN_MEMBER_PROTECTED": string;
         "TEAM_NOT_FOUND": string;
         "TOKEN_EXPIRED": string;
+        "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE": string;
+        "TOTP_ALREADY_ENABLED": string;
+        "TOTP_NOT_CONFIGURED": string;
+        "TOTP_NOT_ENABLED": string;
+        "TWO_FACTOR_NOT_ENABLED": string;
         "UNAUTHORIZED": string;
         "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL": string;
         "USER_HAS_EMPLOYMENT_RECORDS": string;
@@ -738,6 +751,16 @@ export type I18nTranslations = {
             "subject": string;
             "title": string;
             "trouble_hint": string;
+        };
+        "send_two_factor_otp": {
+            "address": string;
+            "expiry": string;
+            "intro": string;
+            "preheader": string;
+            "salutation": string;
+            "security_notice": string;
+            "subject": string;
+            "title": string;
         };
         "send_verification_email": {
             "action_button": string;
