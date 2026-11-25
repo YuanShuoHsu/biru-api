@@ -19,6 +19,10 @@ export const IMAGE_KINDS = [
 
 export type ImageKind = (typeof IMAGE_KINDS)[number];
 
+export const SWEPT_IMAGE_KINDS = [...IMAGE_KINDS, 'organization'] as const;
+
+export type SweptImageKind = (typeof SWEPT_IMAGE_KINDS)[number];
+
 const IMAGE_EXTENSIONS = {
   'image/avif': 'avif',
   'image/gif': 'gif',

@@ -281,6 +281,7 @@ describe('ImageOrphansService', () => {
       'catalogSection/',
       'catalogItem/',
       'catalogModifier/',
+      'organization/',
     ]);
     expect(
       listCalls()
@@ -303,6 +304,72 @@ describe('ImageOrphansService', () => {
     await createService().sweep(true);
 
     expect(deletedKeys()).not.toContain('menuItem/copied.png');
+  });
+
+  it('門市 logo 以欄位、已刪除的列與 7 天內換下的舊圖為參照，不合法的網址略過', async () => {
+    await db.insert(schema.organization).values({
+      id: 'org-1',
+      name: 'Biru',
+      slug: 'biru',
+      createdAt: new Date(),
+      addressCountry: 'TW',
+      addressLocality: '大安區',
+      addressRegion: '臺北市',
+      streetAddress: '復興南路一段 1 號',
+      logo: `${PUBLIC_URL}/organization/current.webp`,
+    });
+    await db.insert(schema.deletedRecord).values({
+      batchId: 3,
+      tableName: 'organization',
+      recordId: 'org-2',
+      data: { id: 'org-2', logo: `${PUBLIC_URL}/organization/deleted.webp` },
+    });
+    const rows = [
+      {
+        id: 'audit-org-1',
+        before: `${PUBLIC_URL}/organization/replaced.webp`,
+      },
+      { id: 'audit-org-2', before: 'https://[invalid' },
+    ].map(({ id, before }) => ({
+      id,
+      actorName: 'Admin',
+      actorEmail: 'admin@example.com',
+      resource: 'organization' as const,
+      resourceId: 'org-1',
+      action: 'update' as const,
+      changes: {
+        logo: { before, after: `${PUBLIC_URL}/organization/current.webp` },
+      },
+      createdAt: sql`now() - interval '6 days'`,
+    }));
+    await db.insert(schema.auditLog).values(rows);
+    objects['organization/'] = [
+      { Key: 'organization/current.webp', LastModified: OLD },
+      { Key: 'organization/deleted.webp', LastModified: OLD },
+      { Key: 'organization/replaced.webp', LastModified: OLD },
+      { Key: 'organization/orphan.webp', LastModified: OLD },
+    ];
+
+    try {
+      const result = await createService().sweep(false);
+
+      expect(kindOf(result, 'organization')?.keys).toEqual([
+        'organization/orphan.webp',
+      ]);
+    } finally {
+      await db.delete(schema.auditLog).where(
+        inArray(
+          schema.auditLog.id,
+          rows.map(({ id }) => id),
+        ),
+      );
+      await db
+        .delete(schema.deletedRecord)
+        .where(sql`${schema.deletedRecord.batchId} = 3`);
+      await db
+        .delete(schema.organization)
+        .where(sql`${schema.organization.id} = 'org-1'`);
+    }
   });
 
   it('其他 prefix 的物件不會被刪', async () => {
