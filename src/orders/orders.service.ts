@@ -35,7 +35,7 @@ import { I18nContext } from 'nestjs-i18n';
 import { auditLog } from '../db/schema/audit.js';
 import { ecpayPaymentAttempt } from '../db/schema/ecpay-payment-attempts.js';
 import type { Invoice, InvoicePrintJob } from '../db/schema/invoices.js';
-import { invoice } from '../db/schema/invoices.js';
+import { invoice, invoicePrintJob } from '../db/schema/invoices.js';
 import type { OrderStatus, PaymentMethod } from '../db/schema/orders.js';
 import {
   ORDER_ENDED_STATUSES,
@@ -307,6 +307,26 @@ const ORDER_RECEIPT_INVOICE_COLUMNS = {
   printResetCount: true,
   createdAt: true,
   updatedAt: true,
+} as const;
+
+const ADMIN_ORDER_RELATIONS = {
+  invoices: {
+    with: {
+      printJobs: {
+        where: inArray(invoicePrintJob.status, [
+          ...IN_FLIGHT_PRINT_JOB_STATUSES,
+        ]),
+        orderBy: desc(invoicePrintJob.createdAt),
+        limit: 1,
+      },
+    },
+  },
+  items: true,
+  orderTicketJobs: {
+    where: ne(orderTicketJob.status, 'cancelled'),
+    orderBy: asc(orderTicketJob.createdAt),
+    with: { printer: { columns: { name: true } } },
+  },
 } as const;
 
 const toAdminOrderWithInvoice = <
@@ -875,24 +895,7 @@ export class OrdersService {
         orderBy,
         limit,
         offset,
-        with: {
-          invoices: {
-            with: {
-              printJobs: {
-                where: (jobs, { inArray }) =>
-                  inArray(jobs.status, [...IN_FLIGHT_PRINT_JOB_STATUSES]),
-                orderBy: (jobs, { desc }) => desc(jobs.createdAt),
-                limit: 1,
-              },
-            },
-          },
-          items: true,
-          orderTicketJobs: {
-            where: (jobs, { ne }) => ne(jobs.status, 'cancelled'),
-            orderBy: (jobs, { asc }) => asc(jobs.createdAt),
-            with: { printer: { columns: { name: true } } },
-          },
-        },
+        with: ADMIN_ORDER_RELATIONS,
       }),
       this.db.select({ total: count() }).from(order).where(where),
     ]);
@@ -1032,24 +1035,7 @@ export class OrdersService {
               orderStatus === 'OrderDelivered'
                 ? ADMIN_BOARD_DONE_COLUMN_LIMIT
                 : ADMIN_BOARD_COLUMN_LIMIT,
-            with: {
-              invoices: {
-                with: {
-                  printJobs: {
-                    where: (jobs, { inArray }) =>
-                      inArray(jobs.status, [...IN_FLIGHT_PRINT_JOB_STATUSES]),
-                    orderBy: (jobs, { desc }) => desc(jobs.createdAt),
-                    limit: 1,
-                  },
-                },
-              },
-              items: true,
-              orderTicketJobs: {
-                where: (jobs, { ne }) => ne(jobs.status, 'cancelled'),
-                orderBy: (jobs, { asc }) => asc(jobs.createdAt),
-                with: { printer: { columns: { name: true } } },
-              },
-            },
+            with: ADMIN_ORDER_RELATIONS,
           })
         ).map(toAdminOrderWithInvoice),
       })),
@@ -1093,24 +1079,7 @@ export class OrdersService {
         asc(order.id),
       ],
       limit: ADMIN_BOARD_COLUMN_LIMIT,
-      with: {
-        invoices: {
-          with: {
-            printJobs: {
-              where: (jobs, { inArray }) =>
-                inArray(jobs.status, [...IN_FLIGHT_PRINT_JOB_STATUSES]),
-              orderBy: (jobs, { desc }) => desc(jobs.createdAt),
-              limit: 1,
-            },
-          },
-        },
-        items: true,
-        orderTicketJobs: {
-          where: (jobs, { ne }) => ne(jobs.status, 'cancelled'),
-          orderBy: (jobs, { asc }) => asc(jobs.createdAt),
-          with: { printer: { columns: { name: true } } },
-        },
-      },
+      with: ADMIN_ORDER_RELATIONS,
     });
 
     const refundedQuantities = refundedQuantitiesOf(
