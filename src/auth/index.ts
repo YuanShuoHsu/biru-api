@@ -377,6 +377,14 @@ export const createAuth = (
     hooks: createAuthHooks(authI18n.localizeError),
     plugins: [
       adminPlugin(),
+      twoFactor({
+        issuer: 'Biru Coffee',
+        otpOptions: {
+          sendOTP: async ({ user, otp }, ctx) => {
+            await mailsService.sendTwoFactorOtp({ user, otp }, ctx?.request);
+          },
+        },
+      }),
       multiSession(),
       organization({
         ac,
@@ -609,14 +617,6 @@ export const createAuth = (
         teams: {
           enabled: true,
           allowRemovingAllTeams: true,
-        },
-      }),
-      twoFactor({
-        issuer: 'Biru Coffee',
-        otpOptions: {
-          sendOTP: async ({ user, otp }, ctx) => {
-            await mailsService.sendTwoFactorOtp({ user, otp }, ctx?.request);
-          },
         },
       }),
       exportUserData(),

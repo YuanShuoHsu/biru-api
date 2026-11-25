@@ -395,8 +395,10 @@ constructor(@Inject(DRIZZLE) private db: DrizzleDB) {}
 
 ### Roles & Auth
 
-The `better-auth` instance is configured in `src/auth/index.ts` (admin, organization, and
-multiSession plugins, plus the project's own `exportUserData` and `authI18n.plugin`) and mounted at `/api/auth/*`.
+The `better-auth` instance is configured in `src/auth/index.ts` (admin, twoFactor, multiSession and organization
+plugins, plus the project's own `exportUserData` and `authI18n.plugin`) and mounted at `/api/auth/*`.
+`twoFactor` stays before `multiSession`: after hooks run in plugin order, so a sign-in held for 2FA clears its new
+session before `multiSession` sees it; the other way round, `multiSession` deletes the browser's existing session of that user.
 There are **two separate authorization layers** — don't confuse them:
 
 **1. Platform admin** — `user.role` (plain `text` column on `user`, set to `'user'` on signup).
@@ -522,7 +524,8 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   set, so sessions store no IP, and a `customRules` catch-all drops every limit except the stricter built-in ones
   (sign-in, sign-up, password and verification mails) and plugin rules whose `max` is below the default 100, such as
   the member data export's 3 / 60s (`src/auth/export-user-data.ts`), which then share one bucket per path
-  platform-wide — set `CLIENT_IP_HEADER` to give them per-client buckets.
+  platform-wide — set `CLIENT_IP_HEADER` to give them per-client buckets. `/two-factor/send-otp` has its own 3 / 60s
+  `customRules` entry, kept before the catch-all: better-auth applies the first key that matches the path.
 - Also applied: `helmet`, `cookieParser`, CORS restricted to
   `NEXT_URL` + `NEXT_ADMIN_URL` with credentials
 - The order and waitlist QR sessions and the shared-cart participant cookie go through `setSiteCookie` / `clearSiteCookie`

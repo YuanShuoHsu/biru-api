@@ -174,6 +174,48 @@ describe('two-factor plugin', () => {
       );
     });
 
+    it('同一瀏覽器再用密碼登入、停在兩步驟驗證時，不換掉已登入的 session', async () => {
+      const signIn = await request('/sign-in/email', {
+        email: 'bo@example.com',
+        password: PASSWORD,
+      });
+      const challenge = cookieOf(signIn);
+      sendTwoFactorOtp.mockClear();
+      await request('/two-factor/send-otp', {}, challenge);
+      const [[{ otp }]] = sendTwoFactorOtp.mock.calls as [[{ otp: string }]];
+      const verified = await request(
+        '/two-factor/verify-otp',
+        { code: otp },
+        challenge,
+      );
+      expect(verified.status).toBe(200);
+      const { token } = (await verified.json()) as { token: string };
+      const signedIn = verified.headers
+        .getSetCookie()
+        .map((value) => value.split(';')[0])
+        .filter((value) => !value.endsWith('='))
+        .join('; ');
+      expect(signedIn).toContain('_multi-');
+
+      const again = await request(
+        '/sign-in/email',
+        { email: 'bo@example.com', password: PASSWORD },
+        signedIn,
+      );
+
+      expect(await again.json()).toMatchObject({ twoFactorRedirect: true });
+      expect(
+        again.headers
+          .getSetCookie()
+          .filter((value) => value.includes('_multi-')),
+      ).toEqual([]);
+      const { rows } = await client.query(
+        `select 1 from session where token = $1`,
+        [token],
+      );
+      expect(rows).toHaveLength(1);
+    });
+
     it('每 60 秒最多寄 3 次，第 4 次起回 429', async () => {
       vi.useFakeTimers({ toFake: ['Date'] });
       try {
