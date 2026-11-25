@@ -82,6 +82,12 @@ describe('OperatingCostsService', () => {
       service.findAll('biru', { quickFilterValue: '調漲' }),
     ).resolves.toEqual({ data: [raised], total: 1 });
     await expect(
+      service.findAll('biru', { quickFilterValue: '2026/01' }),
+    ).resolves.toEqual({ data: [rent, power], total: 2 });
+    await expect(
+      service.findAll('biru', { quickFilterValue: '8000' }),
+    ).resolves.toEqual({ data: [power], total: 1 });
+    await expect(
       service.findAll('biru', {
         filterField: 'effectiveFrom',
         filterOperator: 'is',

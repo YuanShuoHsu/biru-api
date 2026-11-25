@@ -8,6 +8,7 @@ import {
   desc,
   eq,
   ilike,
+  sql,
   type Column,
   type SQL,
 } from 'drizzle-orm';
@@ -125,6 +126,14 @@ export class OperatingCostsService {
         quickFilterValue,
         textConditions: (value) => [
           ilike(operatingCost.effectiveFrom, `%${escapeLike(value)}%`),
+          ilike(
+            sql`replace(${operatingCost.effectiveFrom}, '-', '/')`,
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            sql`${operatingCost.monthlyAmount}::text`,
+            `%${escapeLike(value)}%`,
+          ),
           ilike(operatingCost.note, `%${escapeLike(value)}%`),
           ilike(
             localTimeText(operatingCost.createdAt),
