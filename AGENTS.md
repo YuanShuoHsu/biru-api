@@ -97,7 +97,7 @@ routes live under `users/me/...` (orders, coupons, points).
 
 Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 
-- `users.ts` — `user`, `session`, `account`, `verification` (managed by better-auth)
+- `users.ts` — `user`, `session`, `account`, `verification`, `twoFactor` (managed by better-auth)
 - `organizations.ts` — `organization`, `organizationSlugHistory`, `organizationQrSecret`, `organizationOperatingType`, `organizationSpecialHours`, `team`, `teamMember`, `member`, `invitation`
   — data about a store that must not be public goes in its own table keyed by `organization_id`, never on `organization`: the
   anonymous store list and lookup (`GET /api/organizations`, `/api/organizations/:slug`) return the whole row.

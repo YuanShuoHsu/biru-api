@@ -6,6 +6,7 @@
 // https://better-auth.com/docs/concepts/oauth
 // https://better-auth.com/docs/plugins/admin
 // https://better-auth.com/docs/plugins/organization
+// https://better-auth.com/docs/plugins/2fa
 
 import { Logger } from '@nestjs/common';
 
@@ -17,6 +18,7 @@ import {
   admin as adminPlugin,
   multiSession,
   organization,
+  twoFactor,
 } from 'better-auth/plugins';
 import { asc, eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
@@ -609,6 +611,14 @@ export const createAuth = (
           allowRemovingAllTeams: true,
         },
       }),
+      twoFactor({
+        issuer: 'Biru Coffee',
+        otpOptions: {
+          sendOTP: async ({ user, otp }, ctx) => {
+            await mailsService.sendTwoFactorOtp({ user, otp }, ctx?.request);
+          },
+        },
+      }),
       exportUserData(),
       authI18n.plugin,
     ],
@@ -617,6 +627,7 @@ export const createAuth = (
       window: AUTH_RATE_LIMIT.window,
       max: AUTH_RATE_LIMIT.max,
       customRules: {
+        '/two-factor/send-otp': { window: 60, max: 3 },
         '/**': (_request, rule) =>
           rateLimitEnabled() || rule.max < AUTH_RATE_LIMIT.max ? rule : false,
       },
