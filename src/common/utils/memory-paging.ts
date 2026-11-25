@@ -1,3 +1,4 @@
+import type { SortDirection } from '../constants/pagination.js';
 import { platformDateString } from '../constants/timezone.js';
 import { PaginationQueryDto } from '../dto/pagination-query.dto.js';
 import { isCalendarDate, parseQuickFilterEnums } from './data-grid-filters.js';
@@ -144,15 +145,23 @@ const memoryEnumMatch = (
 };
 
 const compareValues = (first: unknown, second: unknown): number => {
-  if (first == null && second == null) return 0;
-  if (first == null) return -1;
-  if (second == null) return 1;
   if (typeof first === 'number' && typeof second === 'number')
     return first - second;
   if (first instanceof Date && second instanceof Date)
     return first.getTime() - second.getTime();
 
   return scalarText(first).localeCompare(scalarText(second));
+};
+
+const compareSortValues = (
+  first: unknown,
+  second: unknown,
+  direction: SortDirection,
+): number => {
+  if (first == null || second == null)
+    return Number(first == null) - Number(second == null);
+
+  return (direction === 'desc' ? -1 : 1) * compareValues(first, second);
 };
 
 export const pageInMemory = <
@@ -217,8 +226,7 @@ export const pageInMemory = <
   const sorted = [...filtered].sort(
     (first, second) =>
       (sortBy
-        ? (sortDirection === 'desc' ? -1 : 1) *
-          compareValues(first[sortBy], second[sortBy])
+        ? compareSortValues(first[sortBy], second[sortBy], sortDirection)
         : 0) ||
       defaultSort(first, second) ||
       first.id.localeCompare(second.id),

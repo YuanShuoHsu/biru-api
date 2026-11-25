@@ -4,7 +4,6 @@ import {
   and,
   asc,
   count,
-  desc,
   eq,
   getTableColumns,
   gt,
@@ -28,6 +27,7 @@ import {
   escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import { orderByDirection } from '../common/utils/data-grid-sort.js';
 import { pageInMemory } from '../common/utils/memory-paging.js';
 import {
   STATUTORY_LEAVE_KINDS,
@@ -240,7 +240,6 @@ export class AttendanceLeavesService {
         ],
       }),
     );
-    const sort = sortDirection === 'asc' ? asc : desc;
     const [rows, [{ total }]] = await Promise.all([
       this.db
         .select({
@@ -272,7 +271,11 @@ export class AttendanceLeavesService {
         )
         .where(where)
         .orderBy(
-          sort(sortBy ? fieldMap[sortBy] : attendanceLeaveCase.createdAt),
+          orderByDirection(
+            sortBy ? fieldMap[sortBy] : attendanceLeaveCase.createdAt,
+            sortDirection,
+            sortBy === 'reference' ? 'last' : undefined,
+          ),
           asc(attendanceLeaveCase.id),
         )
         .limit(limit)
@@ -754,15 +757,17 @@ export class AttendanceLeavesService {
         ],
       }),
     );
-    const sort = sortDirection === 'desc' ? desc : asc;
     const [data, [{ total }]] = await Promise.all([
       this.db
         .select()
         .from(attendanceLeaveType)
         .where(where)
         .orderBy(
-          sort(sortBy ? sortFieldMap[sortBy] : statutoryLeaveKindOrderSql),
-          sort(attendanceLeaveType.createdAt),
+          orderByDirection(
+            sortBy ? sortFieldMap[sortBy] : statutoryLeaveKindOrderSql,
+            sortDirection,
+          ),
+          orderByDirection(attendanceLeaveType.createdAt, sortDirection),
           asc(attendanceLeaveType.id),
         )
         .limit(limit)

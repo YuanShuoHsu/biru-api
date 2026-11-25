@@ -5,7 +5,6 @@ import {
   and,
   asc,
   count,
-  desc,
   eq,
   ilike,
   isNotNull,
@@ -28,6 +27,10 @@ import {
   escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import {
+  type NullsAs,
+  orderByDirection,
+} from '../common/utils/data-grid-sort.js';
 import { toLanguage } from '../common/utils/language.js';
 import { localizedTextSql } from '../common/utils/localized-text.js';
 import { getOrganizationCurrency } from '../common/utils/organizations.js';
@@ -70,6 +73,16 @@ import {
   unitPriceOf,
   unitPriceSql,
 } from './pricing.js';
+
+const INGREDIENT_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  brand: 'last',
+  supplierName: 'last',
+  note: 'last',
+  lowStockThreshold: 'last',
+  price: 'last',
+  eligibleQuantity: 'last',
+  unitPrice: 'last',
+};
 
 const PURCHASING_FIELDS = [
   'price',
@@ -146,10 +159,13 @@ export class IngredientsService {
       ingredient.name,
       toLanguage(I18nContext.current()?.lang),
     );
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
       ? [
-          dir(sortBy === 'name' ? localizedName : fieldMap[sortBy]),
+          orderByDirection(
+            sortBy === 'name' ? localizedName : fieldMap[sortBy],
+            sortDirection,
+            INGREDIENT_SORT_NULLS[sortBy],
+          ),
           asc(ingredient.id),
         ]
       : [asc(ingredient.sortOrder), asc(localizedName), asc(ingredient.id)];

@@ -22,6 +22,7 @@ export type AuditSubTable =
   | 'operatingType'
   | 'orderItem'
   | 'orderQrSecret'
+  | 'organizationWifi'
   | 'printer'
   | 'recipeIngredient'
   | 'refund'

@@ -6,7 +6,6 @@ import {
   and,
   asc,
   count,
-  desc,
   eq,
   getTableColumns,
   ilike,
@@ -15,7 +14,7 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
+import { alias, type PgSelect } from 'drizzle-orm/pg-core';
 import { v4 as uuidv4 } from 'uuid';
 import { I18nContext } from 'nestjs-i18n';
 
@@ -77,6 +76,10 @@ import {
   escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import {
+  type NullsAs,
+  orderByDirection,
+} from '../common/utils/data-grid-sort.js';
 import { reorderSortOrders } from '../common/utils/sort-order.js';
 
 import {
@@ -156,6 +159,23 @@ const assertPromoDateRange = (
   const { validFrom, validThrough } = priceSpecification ?? {};
   if (validFrom && validThrough && validFrom > validThrough)
     throw badRequestError('promoDateRangeInvalid');
+};
+
+const MENU_ITEM_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  description: 'last',
+  recipe: 'last',
+  price: 'last',
+  availability: 'last',
+  deliveryLeadTimeMinutes: 'last',
+  priceSpecification: 'last',
+  inventoryLevel: 'last',
+  priceSpecificationValidFrom: 'last',
+  priceSpecificationValidThrough: 'last',
+};
+
+const MODIFIER_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  priceAdjustment: 'last',
+  availability: 'last',
 };
 
 const ADD_ON_TARGET_UNIQUE_INDEXES = [
@@ -433,16 +453,17 @@ export class MenusService {
       description: menuSection.description,
     };
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] = sortBy
       ? [
-          dir(
+          orderByDirection(
             localizedFields[sortBy]
               ? localizedTextSql(
                   localizedFields[sortBy],
                   toLanguage(I18nContext.current()?.lang),
                 )
               : menuSection[sortBy],
+            sortDirection,
+            sortBy === 'description' ? 'last' : undefined,
           ),
           asc(menuSection.id),
         ]
@@ -762,9 +783,15 @@ export class MenusService {
           ? localizedTextSql(localizedFields[sortBy], lang)
           : sortBy && itemFieldMap[sortBy];
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] = sortColumn
-      ? [dir(sortColumn), asc(menuItem.id)]
+      ? [
+          orderByDirection(
+            sortColumn,
+            sortDirection,
+            MENU_ITEM_SORT_NULLS[sortBy ?? ''],
+          ),
+          asc(menuItem.id),
+        ]
       : [asc(menuItem.sortOrder), asc(menuItem.id)];
 
     const where = and(
@@ -1233,8 +1260,35 @@ export class MenusService {
     const addOnMenuItem = alias(menuItem, 'add_on_menu_item');
     const addOnMenuSection = alias(menuSection, 'add_on_menu_section');
     const addOnMenuItemSection = alias(menuSection, 'add_on_menu_item_section');
+    const nameColumns = {
+      addOnMenuItemName: addOnMenuItem.name,
+      addOnMenuSectionName: addOnMenuSection.name,
+      addOnMenuItemSectionId: addOnMenuItemSection.id,
+      addOnMenuItemSectionName: addOnMenuItemSection.name,
+    };
+    // https://orm.drizzle.team/docs/dynamic-query-building
+    const joinNames = <T extends PgSelect>(query: T) =>
+      query
+        .leftJoin(
+          addOnMenuItem,
+          eq(menuItemAddOn.addOnMenuItemId, addOnMenuItem.id),
+        )
+        .leftJoin(
+          addOnMenuSection,
+          eq(menuItemAddOn.addOnMenuSectionId, addOnMenuSection.id),
+        )
+        .leftJoin(
+          addOnMenuItemSection,
+          eq(addOnMenuItem.menuSectionId, addOnMenuItemSection.id),
+        );
 
-    return { addOnMenuItem, addOnMenuSection, addOnMenuItemSection };
+    return {
+      addOnMenuItem,
+      addOnMenuSection,
+      addOnMenuItemSection,
+      nameColumns,
+      joinNames,
+    };
   }
 
   private async findMenuItemAddOnById(id: string): Promise<
@@ -1245,30 +1299,16 @@ export class MenusService {
       addOnMenuItemSectionName: LocalizedText | null;
     }
   > {
-    const { addOnMenuItem, addOnMenuSection, addOnMenuItemSection } =
-      this.menuItemAddOnWithNames();
-    const [row] = await this.db
-      .select({
-        ...getTableColumns(menuItemAddOn),
-        addOnMenuItemName: addOnMenuItem.name,
-        addOnMenuSectionName: addOnMenuSection.name,
-        addOnMenuItemSectionId: addOnMenuItemSection.id,
-        addOnMenuItemSectionName: addOnMenuItemSection.name,
-      })
-      .from(menuItemAddOn)
-      .leftJoin(
-        addOnMenuItem,
-        eq(menuItemAddOn.addOnMenuItemId, addOnMenuItem.id),
-      )
-      .leftJoin(
-        addOnMenuSection,
-        eq(menuItemAddOn.addOnMenuSectionId, addOnMenuSection.id),
-      )
-      .leftJoin(
-        addOnMenuItemSection,
-        eq(addOnMenuItem.menuSectionId, addOnMenuItemSection.id),
-      )
-      .where(eq(menuItemAddOn.id, id));
+    const { nameColumns, joinNames } = this.menuItemAddOnWithNames();
+    const [row] = await joinNames(
+      this.db
+        .select({
+          ...getTableColumns(menuItemAddOn),
+          ...nameColumns,
+        })
+        .from(menuItemAddOn)
+        .$dynamic(),
+    ).where(eq(menuItemAddOn.id, id));
 
     return row;
   }
@@ -1363,8 +1403,13 @@ export class MenusService {
     })[];
     total: number;
   }> {
-    const { addOnMenuItem, addOnMenuSection, addOnMenuItemSection } =
-      this.menuItemAddOnWithNames();
+    const {
+      addOnMenuItem,
+      addOnMenuSection,
+      addOnMenuItemSection,
+      nameColumns,
+      joinNames,
+    } = this.menuItemAddOnWithNames();
 
     const {
       limit = 10,
@@ -1405,20 +1450,24 @@ export class MenusService {
             )
           : undefined;
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] =
       sortBy && localizedFields[sortBy]
         ? [
-            dir(
+            orderByDirection(
               localizedTextSql(
                 localizedFields[sortBy],
                 toLanguage(I18nContext.current()?.lang),
               ),
+              sortDirection,
+              'last',
             ),
             asc(menuItemAddOn.id),
           ]
         : sortBy && addOnFieldMap[sortBy]
-          ? [dir(addOnFieldMap[sortBy]), asc(menuItemAddOn.id)]
+          ? [
+              orderByDirection(addOnFieldMap[sortBy], sortDirection),
+              asc(menuItemAddOn.id),
+            ]
           : [asc(menuItemAddOn.sortOrder), asc(menuItemAddOn.id)];
 
     const where = and(
@@ -1446,47 +1495,22 @@ export class MenusService {
     );
 
     const [data, [{ total }]] = await Promise.all([
-      this.db
-        .select({
-          ...getTableColumns(menuItemAddOn),
-          addOnMenuItemName: addOnMenuItem.name,
-          addOnMenuSectionName: addOnMenuSection.name,
-          addOnMenuItemSectionId: addOnMenuItemSection.id,
-          addOnMenuItemSectionName: addOnMenuItemSection.name,
-        })
-        .from(menuItemAddOn)
-        .leftJoin(
-          addOnMenuItem,
-          eq(menuItemAddOn.addOnMenuItemId, addOnMenuItem.id),
-        )
-        .leftJoin(
-          addOnMenuSection,
-          eq(menuItemAddOn.addOnMenuSectionId, addOnMenuSection.id),
-        )
-        .leftJoin(
-          addOnMenuItemSection,
-          eq(addOnMenuItem.menuSectionId, addOnMenuItemSection.id),
-        )
+      joinNames(
+        this.db
+          .select({
+            ...getTableColumns(menuItemAddOn),
+            ...nameColumns,
+          })
+          .from(menuItemAddOn)
+          .$dynamic(),
+      )
         .where(where)
         .orderBy(...orderBy)
         .limit(limit)
         .offset(offset),
-      this.db
-        .select({ total: count() })
-        .from(menuItemAddOn)
-        .leftJoin(
-          addOnMenuItem,
-          eq(menuItemAddOn.addOnMenuItemId, addOnMenuItem.id),
-        )
-        .leftJoin(
-          addOnMenuSection,
-          eq(menuItemAddOn.addOnMenuSectionId, addOnMenuSection.id),
-        )
-        .leftJoin(
-          addOnMenuItemSection,
-          eq(addOnMenuItem.menuSectionId, addOnMenuItemSection.id),
-        )
-        .where(where),
+      joinNames(
+        this.db.select({ total: count() }).from(menuItemAddOn).$dynamic(),
+      ).where(where),
     ]);
 
     return { data, total };
@@ -1655,20 +1679,27 @@ export class MenusService {
             )
           : undefined;
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] =
       sortBy === 'displayName'
         ? [
-            dir(
+            orderByDirection(
               localizedTextSql(
                 modifierGroup.displayName,
                 toLanguage(I18nContext.current()?.lang),
               ),
+              sortDirection,
             ),
             asc(columns.id),
           ]
         : sortBy && fieldMap[sortBy]
-          ? [dir(fieldMap[sortBy]), asc(columns.id)]
+          ? [
+              orderByDirection(
+                fieldMap[sortBy],
+                sortDirection,
+                sortBy === 'maxSelectionCount' ? 'highest' : undefined,
+              ),
+              asc(columns.id),
+            ]
           : [asc(columns.sortOrder), asc(columns.id)];
 
     const where = and(
@@ -1872,20 +1903,27 @@ export class MenusService {
             )
           : undefined;
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] =
       sortBy === 'displayName'
         ? [
-            dir(
+            orderByDirection(
               localizedTextSql(
                 modifier.displayName,
                 toLanguage(I18nContext.current()?.lang),
               ),
+              sortDirection,
             ),
             asc(modifier.id),
           ]
         : sortBy && fieldMap[sortBy]
-          ? [dir(fieldMap[sortBy]), asc(modifier.id)]
+          ? [
+              orderByDirection(
+                fieldMap[sortBy],
+                sortDirection,
+                MODIFIER_SORT_NULLS[sortBy],
+              ),
+              asc(modifier.id),
+            ]
           : [asc(modifier.sortOrder), asc(modifier.id)];
 
     const where = and(

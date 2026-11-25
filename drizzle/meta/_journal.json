@@ -2087,6 +2087,13 @@
       "when": 1795507032323,
       "tag": "0297_drop_waitlist_paused",
       "breakpoints": true
+    },
+    {
+      "idx": 298,
+      "version": "7",
+      "when": 1795561113329,
+      "tag": "0298_organization_wifi",
+      "breakpoints": true
     }
   ]
 }

@@ -6,7 +6,6 @@ import {
   and,
   asc,
   count,
-  desc,
   eq,
   gt,
   ilike,
@@ -41,6 +40,10 @@ import {
   escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import {
+  type NullsAs,
+  orderByDirection,
+} from '../common/utils/data-grid-sort.js';
 import { reorderSortOrders } from '../common/utils/sort-order.js';
 
 import {
@@ -66,6 +69,12 @@ const assertSchedule = (
 ): void => {
   if (startsAt && endsAt && startsAt >= endsAt)
     throw badRequestError('scheduleInvalid');
+};
+
+const BANNER_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  alt: 'last',
+  startsAt: 'last',
+  endsAt: 'last',
 };
 
 @Injectable()
@@ -114,16 +123,17 @@ export class BannersService {
       updatedAt: banner.updatedAt,
     };
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
       ? [
-          dir(
+          orderByDirection(
             sortBy === 'alt'
               ? localizedTextSql(
                   banner.alt,
                   toLanguage(I18nContext.current()?.lang),
                 )
               : bannerFieldMap[sortBy],
+            sortDirection,
+            BANNER_SORT_NULLS[sortBy],
           ),
           asc(banner.createdAt),
           asc(banner.id),

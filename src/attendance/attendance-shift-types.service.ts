@@ -4,7 +4,6 @@ import {
   and,
   asc,
   count,
-  desc,
   eq,
   ilike,
   ne,
@@ -19,6 +18,7 @@ import {
   buildQuickFilterCondition,
   escapeLike,
 } from '../common/utils/data-grid-filters.js';
+import { orderByDirection } from '../common/utils/data-grid-sort.js';
 import { attendanceShiftType } from '../db/schema/attendance.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
@@ -92,7 +92,6 @@ export class AttendanceShiftTypesService {
         ],
       }),
     );
-    const sort = sortDirection === 'desc' ? desc : asc;
     const [data, [{ total }]] = await Promise.all([
       this.db
         .select({
@@ -105,7 +104,7 @@ export class AttendanceShiftTypesService {
         .from(attendanceShiftType)
         .where(where)
         .orderBy(
-          sort(fieldMap[sortBy ?? 'startTime']),
+          orderByDirection(fieldMap[sortBy ?? 'startTime'], sortDirection),
           asc(attendanceShiftType.id),
         )
         .limit(limit)

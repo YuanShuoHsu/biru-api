@@ -18,6 +18,10 @@ import {
   escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import {
+  type NullsAs,
+  orderByDirection,
+} from '../common/utils/data-grid-sort.js';
 import { isForeignKeyViolation } from '../common/utils/pg-errors.js';
 import {
   cashDevice,
@@ -85,6 +89,12 @@ const toEventResponse = (row: CashDeviceEvent): CashDeviceEventResponseDto => ({
       : toAmount(Number(row.depositedAmount) - Number(row.reportedAmount)),
 });
 
+const CASH_DEVICE_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  vendor: 'last',
+  model: 'last',
+  lastSeenAt: 'last',
+};
+
 @Injectable()
 export class CashDevicesService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
@@ -115,9 +125,15 @@ export class CashDevicesService {
       updatedAt: cashDevice.updatedAt,
     };
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
-      ? [dir(fieldMap[sortBy]), asc(cashDevice.id)]
+      ? [
+          orderByDirection(
+            fieldMap[sortBy],
+            sortDirection,
+            CASH_DEVICE_SORT_NULLS[sortBy],
+          ),
+          asc(cashDevice.id),
+        ]
       : [asc(cashDevice.name), asc(cashDevice.id)];
 
     const where = and(

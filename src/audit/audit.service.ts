@@ -20,6 +20,10 @@ import {
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import {
+  type NullsAs,
+  orderByDirection,
+} from '../common/utils/data-grid-sort.js';
+import {
   auditResourceEnum,
   type AuditChangeLabels,
 } from '../db/schema/audit.js';
@@ -52,6 +56,11 @@ type AuditLogRow = Omit<AuditLogResponseDto, 'createdAt' | 'changes'> & {
 };
 
 const entry = (column: string) => sql.raw(`entry.${column}`);
+
+const AUDIT_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  actorName: 'last',
+  actorEmail: 'last',
+};
 
 const isAuditResource = (
   resource: string,
@@ -192,14 +201,13 @@ export class AuditService {
       }),
     );
 
-    const direction = sql.raw(sortDirection === 'desc' ? 'DESC' : 'ASC');
     const newestFirst = sql`${fieldMap.createdAt} DESC, ${entry('source')}, ${entry('id')}`;
     const sortMap: Record<string, SQL> = {
       ...fieldMap,
       organizationId: sql`(SELECT o.name FROM organization o WHERE o.id = ${entry('"organizationId"')})`,
     };
     const orderBy = sortBy
-      ? sql`${sortMap[sortBy]} ${direction}, ${newestFirst}`
+      ? sql`${orderByDirection(sortMap[sortBy], sortDirection, AUDIT_SORT_NULLS[sortBy])}, ${newestFirst}`
       : newestFirst;
 
     const filtered = sql`FROM (${this.entries(scope, resource)}) entry ${where ? sql`WHERE ${where}` : sql``}`;

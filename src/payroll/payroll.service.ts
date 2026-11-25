@@ -102,6 +102,7 @@ import {
   buildQuickFilterCondition,
   escapeLike,
 } from '../common/utils/data-grid-filters.js';
+import { orderByDirection } from '../common/utils/data-grid-sort.js';
 import {
   attendanceEmployee,
   attendanceEvent,
@@ -580,7 +581,6 @@ export class PayrollService {
         ],
       }),
     );
-    const sort = sortDirection === 'asc' ? asc : desc;
     const [rows, [{ total }]] = await Promise.all([
       this.db
         .select({ statement: payrollStatement, employeeEmail: user.email })
@@ -593,7 +593,7 @@ export class PayrollService {
         .where(where)
         .orderBy(
           ...(sortBy
-            ? [sort(fieldMap[sortBy])]
+            ? [orderByDirection(fieldMap[sortBy], sortDirection)]
             : [desc(payrollStatement.month)]),
           asc(payrollStatement.id),
         )

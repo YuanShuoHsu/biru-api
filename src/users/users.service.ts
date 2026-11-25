@@ -27,6 +27,10 @@ import {
   localTimeText,
   NO_VALUE_OPERATORS,
 } from '../common/utils/data-grid-filters.js';
+import {
+  type NullsAs,
+  orderByDirection,
+} from '../common/utils/data-grid-sort.js';
 import { getDeletableUserIds } from '../auth/deletion-guards.js';
 import type { StatsBucketQueryDto } from '../common/dto/stats-bucket-query.dto.js';
 import {
@@ -207,6 +211,11 @@ const buildColumnFilterCondition = (
   }
 };
 
+const USER_SESSION_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  userAgent: 'last',
+  ipAddress: 'last',
+};
+
 @Injectable()
 export class UsersService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
@@ -262,8 +271,11 @@ export class UsersService {
     );
 
     const sortColumn = sortBy === 'banned' ? isBannedNow() : user[sortBy];
-    const orderBy =
-      sortDirection === 'asc' ? asc(sortColumn) : desc(sortColumn);
+    const orderBy = orderByDirection(
+      sortColumn,
+      sortDirection,
+      sortBy === 'role' ? 'last' : undefined,
+    );
 
     const [data, [{ total }]] = await Promise.all([
       this.db
@@ -367,8 +379,6 @@ export class UsersService {
       }),
     );
 
-    const dir = sortDirection === 'asc' ? asc : desc;
-
     const [data, [{ total }]] = await Promise.all([
       this.db
         .select({
@@ -380,7 +390,14 @@ export class UsersService {
         })
         .from(session)
         .where(where)
-        .orderBy(dir(fieldMap[sortBy]), desc(session.id))
+        .orderBy(
+          orderByDirection(
+            fieldMap[sortBy],
+            sortDirection,
+            USER_SESSION_SORT_NULLS[sortBy],
+          ),
+          desc(session.id),
+        )
         .limit(limit)
         .offset(offset),
       this.db.select({ total: count() }).from(session).where(where),

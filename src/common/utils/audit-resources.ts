@@ -48,6 +48,7 @@ import {
   organizationOperatingType,
   organizationQrSecret,
   organizationSpecialHours,
+  organizationWifi,
   team,
 } from '../../db/schema/organizations.js';
 import { pointSetting, pointTransaction } from '../../db/schema/points.js';
@@ -117,6 +118,7 @@ export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
   operatingType: organizationOperatingType,
   orderItem,
   orderQrSecret: organizationQrSecret,
+  organizationWifi,
   printer,
   recipeIngredient,
   refund,
@@ -128,6 +130,7 @@ export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
 export const AUDIT_KEY_COLUMNS: Partial<Record<AuditLabelScope, string>> = {
   operatingType: 'organizationId',
   orderQrSecret: 'organizationId',
+  organizationWifi: 'organizationId',
   storeLayout: 'organizationId',
   waitlistSetting: 'organizationId',
 };

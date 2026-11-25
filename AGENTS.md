@@ -299,14 +299,14 @@ check whether the row is published: the URL is only handed out by endpoints that
 Next's image optimizer fetches the source without the viewer's cookies. The version is not an access check: anyone
 who once had a URL keeps seeing the row's current image until the row or its image is deleted.
 
-`pnpm tsx scripts/migrate-images-to-storage.ts` counts the data URLs left in these tables; `--apply` moves them to storage. Every environment shares the database, so set `NEXT_PUBLIC_IMAGE_HOST` on every frontend deployment first, or next/image refuses the moved URLs.
+`pnpm tsx scripts/migrate-images-to-storage.ts` counts the data URLs left in these tables, `user.image` and `organization.logo` (those two only when the hooks below would accept them); `--apply` moves them to storage. Every environment shares the database, so set `NEXT_PUBLIC_IMAGE_HOST` on every frontend deployment first, or next/image refuses the moved URLs.
 
 Member avatar (`user.image`) and store logo (`organization.logo`) data URLs are uploaded the same way, by the
 better-auth hooks in `src/auth/index.ts`, keyed `user/` and `organization/`. The hooks accept only an empty string, any
 https URL in its canonical form (`URL.href`), such as Google's avatar, or a data URL matching `IMAGE_DATA_URL_PATTERN`
 (`src/common/constants/image.ts`), and nothing longer than `IMAGE_DATA_URL_MAX_LENGTH`; any other string is rejected
 with `INVALID_IMAGE`.
-They are not `IMAGE_KINDS`, so `/api/images/:kind` does not serve them and the migration script does not move them.
+They are not `IMAGE_KINDS`, so `/api/images/:kind` does not serve them and the orphan sweep never lists their prefixes.
 
 Nothing deletes a stored object on replace or delete; `POST /api/images/orphans/sweep` (platform admin, dry-run unless
 `apply: true`) removes objects under each kind's prefix that are over 7 days old and not referenced. References are the
@@ -395,8 +395,8 @@ constructor(@Inject(DRIZZLE) private db: DrizzleDB) {}
 ### Roles & Auth
 
 The `better-auth` instance is configured in `src/auth/index.ts` (admin, organization, and
-multiSession plugins) and mounted at `/api/auth/*`. There are **two separate authorization
-layers** — don't confuse them:
+multiSession plugins, plus the project's own `exportUserData` and `authI18n.plugin`) and mounted at `/api/auth/*`.
+There are **two separate authorization layers** — don't confuse them:
 
 **1. Platform admin** — `user.role` (plain `text` column on `user`, set to `'user'` on signup).
 Guarded by `AdminGuard` (`src/common/guards/admin.guard.ts`), which only passes for
@@ -519,8 +519,9 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   removes any `x-biru-client-ip` the caller sent and, once `rateLimitEnabled()`, sets it to that IP;
   `advanced.ipAddress.ipAddressHeaders` reads only that header. While `rateLimitEnabled()` is false the header is never
   set, so sessions store no IP, and a `customRules` catch-all drops every limit except the stricter built-in ones
-  (sign-in, sign-up, password and verification mails), which then share one bucket per path platform-wide — set
-  `CLIENT_IP_HEADER` to give them per-client buckets.
+  (sign-in, sign-up, password and verification mails) and plugin rules whose `max` is below the default 100, such as
+  the member data export's 3 / 60s (`src/auth/export-user-data.ts`), which then share one bucket per path
+  platform-wide — set `CLIENT_IP_HEADER` to give them per-client buckets.
 - Also applied: `helmet`, `cookieParser`, CORS restricted to
   `NEXT_URL` + `NEXT_ADMIN_URL` with credentials
 - The order and waitlist QR sessions and the shared-cart participant cookie go through `setSiteCookie` / `clearSiteCookie`

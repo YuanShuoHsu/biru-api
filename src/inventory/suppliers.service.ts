@@ -4,7 +4,6 @@ import {
   and,
   asc,
   count,
-  desc,
   eq,
   ilike,
   inArray,
@@ -24,6 +23,10 @@ import {
   escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import {
+  type NullsAs,
+  orderByDirection,
+} from '../common/utils/data-grid-sort.js';
 import { toLanguage } from '../common/utils/language.js';
 import { localizedTextSql } from '../common/utils/localized-text.js';
 import { ingredient, supplier } from '../db/schema/inventory.js';
@@ -45,6 +48,12 @@ import {
 import { badRequestError, notFoundError } from './inventory-errors.js';
 
 type Tx = Pick<DrizzleDB, 'update'>;
+
+const SUPPLIER_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  telephone: 'last',
+  url: 'last',
+  note: 'last',
+};
 
 @Injectable()
 export class SuppliersService {
@@ -75,9 +84,15 @@ export class SuppliersService {
       updatedAt: supplier.updatedAt,
     };
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
-      ? [dir(fieldMap[sortBy]), asc(supplier.id)]
+      ? [
+          orderByDirection(
+            fieldMap[sortBy],
+            sortDirection,
+            SUPPLIER_SORT_NULLS[sortBy],
+          ),
+          asc(supplier.id),
+        ]
       : [asc(supplier.name), asc(supplier.id)];
 
     const where = and(

@@ -312,20 +312,20 @@ describe('MenusService localized text filters and sorting', () => {
       ]);
     });
 
-    it('依食譜名稱排序時取目前語系的名稱，沒有食譜的品項在降冪時排最前', async () => {
+    it('依食譜名稱排序時取目前語系的名稱，沒有食譜的品項不論升降冪都排最後', async () => {
       expect(await itemIds({ sortBy: 'recipe', sortDirection: 'asc' })).toEqual(
         ['latte', 'americano', 'mocha'],
       );
       expect(
         await itemIds({ sortBy: 'recipe', sortDirection: 'desc' }),
-      ).toEqual(['mocha', 'americano', 'latte']);
+      ).toEqual(['americano', 'latte', 'mocha']);
       inEnglish();
       expect(await itemIds({ sortBy: 'recipe', sortDirection: 'asc' })).toEqual(
         ['americano', 'latte', 'mocha'],
       );
       expect(
         await itemIds({ sortBy: 'recipe', sortDirection: 'desc' }),
-      ).toEqual(['mocha', 'latte', 'americano']);
+      ).toEqual(['latte', 'americano', 'mocha']);
     });
 
     it('排序值相同時，依 id 排出固定順序，分頁不重複也不漏', async () => {
@@ -369,6 +369,25 @@ describe('MenusService localized text filters and sorting', () => {
       query: Parameters<MenusService['menuItemAddOns']>[1],
     ) =>
       (await service.menuItemAddOns('latte', query)).data.map(({ id }) => id);
+
+    it('列表帶出加購品項與分類名稱，總數套用同樣的篩選', async () => {
+      const { data, total } = await service.menuItemAddOns('latte', {
+        quickFilterValue: '美式',
+      });
+
+      expect(total).toBe(1);
+      expect(data).toEqual([
+        expect.objectContaining({
+          id: 'with-americano',
+          addOnMenuItemName: expect.objectContaining({ 'zh-TW': '美式' }),
+          addOnMenuSectionName: null,
+          addOnMenuItemSectionId: 'drinks',
+          addOnMenuItemSectionName: expect.objectContaining({
+            'zh-TW': '飲品',
+          }),
+        }),
+      ]);
+    });
 
     it.each(['zh', 'TW', '"'])(
       '快速搜尋 %s 不會因為語系鍵或 JSON 符號命中',

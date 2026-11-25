@@ -5,7 +5,6 @@ import {
   and,
   asc,
   count,
-  desc,
   eq,
   ilike,
   inArray,
@@ -23,6 +22,7 @@ import {
   escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import { orderByDirection } from '../common/utils/data-grid-sort.js';
 import {
   attendanceEmployee,
   attendanceLeaveCase,
@@ -146,7 +146,6 @@ export class AttendanceParentalService {
         ],
       }),
     );
-    const sort = sortDirection === 'desc' ? desc : asc;
     const [rows, [{ total }]] = await Promise.all([
       this.db
         .select({
@@ -165,7 +164,10 @@ export class AttendanceParentalService {
         .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .where(where)
         .orderBy(
-          sort(sortBy ? fieldMap[sortBy] : attendanceParentalChild.createdAt),
+          orderByDirection(
+            sortBy ? fieldMap[sortBy] : attendanceParentalChild.createdAt,
+            sortDirection,
+          ),
           asc(attendanceParentalChild.id),
         )
         .limit(limit)
@@ -524,7 +526,6 @@ export class AttendanceParentalService {
         ],
       }),
     );
-    const sort = sortDirection === 'asc' ? asc : desc;
     const [rows, [{ total }]] = await Promise.all([
       this.db
         .select({
@@ -540,7 +541,11 @@ export class AttendanceParentalService {
         .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .where(where)
         .orderBy(
-          sort(sortBy ? fieldMap[sortBy] : attendanceParentalReturn.createdAt),
+          orderByDirection(
+            sortBy ? fieldMap[sortBy] : attendanceParentalReturn.createdAt,
+            sortDirection,
+            sortBy === 'reviewReason' ? 'last' : undefined,
+          ),
           asc(attendanceParentalReturn.id),
         )
         .limit(limit)

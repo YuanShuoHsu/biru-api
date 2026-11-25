@@ -164,3 +164,124 @@ describe('CouponsService 券列表的 grantable', () => {
       ).rejects.toMatchObject({ response: { code: 'memberNotFound' } });
   });
 });
+
+describe('CouponsService 空值排序', () => {
+  let client: PGlite;
+  let service: CouponsService;
+
+  beforeAll(async () => {
+    client = createPGlite();
+    const db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    service = new CouponsService(
+      db as unknown as DrizzleDB,
+      {} as OrderPricingService,
+    );
+
+    await client.query(
+      `insert into "user" (id, name, email, first_name) values ('member', 'member', 'member@example.com', 'member')`,
+    );
+    await db.insert(coupon).values(
+      [
+        { id: 'free', perUserLimit: null, pointsCost: null, validFrom: null },
+        {
+          id: 'cheap',
+          perUserLimit: 1,
+          pointsCost: 10,
+          validFrom: new Date('2026-10-01T00:00:00Z'),
+        },
+        {
+          id: 'dear',
+          perUserLimit: 5,
+          pointsCost: 90,
+          validFrom: new Date('2026-11-01T00:00:00Z'),
+        },
+      ].map(({ id, perUserLimit, pointsCost, validFrom }) => ({
+        code: `CODE-${id}`,
+        discountType: 'fixed' as const,
+        discountValue: '50',
+        id,
+        perUserLimit,
+        pointsCost,
+        validFrom,
+      })),
+    );
+    await db.insert(userCoupon).values(
+      [
+        { id: 'unused', usedAt: null },
+        { id: 'early', usedAt: new Date('2026-11-01T00:00:00Z') },
+        { id: 'late', usedAt: new Date('2026-11-02T00:00:00Z') },
+      ].map(({ id, usedAt }) => ({
+        couponId: 'free',
+        id,
+        source: 'spend' as const,
+        usedAt,
+        userId: 'member',
+      })),
+    );
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  it.each([
+    ['asc', ['cheap', 'dear', 'free']],
+    ['desc', ['dear', 'cheap', 'free']],
+  ] as const)(
+    '券列表依點數排序時沒設點數的排最後（%s）',
+    async (sortDirection, ids) => {
+      const { data } = await service.findAll({
+        sortBy: 'pointsCost',
+        sortDirection,
+      });
+
+      expect(data.map(({ id }) => id)).toEqual(ids);
+    },
+  );
+
+  it.each([
+    ['asc', ['cheap', 'dear', 'free']],
+    ['desc', ['free', 'dear', 'cheap']],
+  ] as const)(
+    '券列表依每人限領排序時不限次數視為最大（%s）',
+    async (sortDirection, ids) => {
+      const { data } = await service.findAll({
+        sortBy: 'perUserLimit',
+        sortDirection,
+      });
+
+      expect(data.map(({ id }) => id)).toEqual(ids);
+    },
+  );
+
+  it.each([
+    ['asc', ['free', 'cheap', 'dear']],
+    ['desc', ['dear', 'cheap', 'free']],
+  ] as const)(
+    '券列表依生效時間排序時沒有起始時間視為最早（%s）',
+    async (sortDirection, ids) => {
+      const { data } = await service.findAll({
+        sortBy: 'validFrom',
+        sortDirection,
+      });
+
+      expect(data.map(({ id }) => id)).toEqual(ids);
+    },
+  );
+
+  it.each([
+    ['asc', ['early', 'late', 'unused']],
+    ['desc', ['late', 'early', 'unused']],
+  ] as const)(
+    '領取名單依使用時間排序時未使用的排最後（%s）',
+    async (sortDirection, ids) => {
+      const { data } = await service.findRecipients('free', {
+        sortBy: 'usedAt',
+        sortDirection,
+      });
+
+      expect(data.map(({ id }) => id)).toEqual(ids);
+    },
+  );
+});

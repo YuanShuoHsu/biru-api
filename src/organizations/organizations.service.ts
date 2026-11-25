@@ -20,6 +20,7 @@ import {
   OrganizationOperatingType,
   organizationOperatingType,
   organizationSlugHistory,
+  organizationWifi,
 } from '../db/schema/organizations.js';
 import { order } from '../db/schema/orders.js';
 import { user } from '../db/schema/users.js';
@@ -53,6 +54,10 @@ import {
 import { isProblemAwaitingRecheck } from '../orders/problem-recheck.js';
 
 import type { OperatingTypeResponseDto } from './dto/operating-type.dto.js';
+import type {
+  OrganizationWifiResponseDto,
+  UpdateOrganizationWifiDto,
+} from './dto/organization-wifi.dto.js';
 import type {
   OrganizationMemberResponseDto,
   OrganizationTeamMemberResponseDto,
@@ -384,6 +389,36 @@ export class OrganizationsService {
       });
 
     return { operatingType };
+  }
+
+  async wifi(organizationSlug: string): Promise<OrganizationWifiResponseDto> {
+    const org = await this.organizationBySlug(organizationSlug);
+    if (!org) throw organizationNotFoundError();
+
+    const found = await this.db.query.organizationWifi.findFirst({
+      where: eq(organizationWifi.organizationId, org.id),
+      columns: { ssid: true, password: true },
+    });
+
+    return found ?? { ssid: '', password: '' };
+  }
+
+  async setWifi(
+    organizationSlug: string,
+    { ssid, password }: UpdateOrganizationWifiDto,
+  ): Promise<OrganizationWifiResponseDto> {
+    const org = await this.organizationBySlug(organizationSlug);
+    if (!org) throw organizationNotFoundError();
+
+    await this.db
+      .insert(organizationWifi)
+      .values({ organizationId: org.id, ssid, password })
+      .onConflictDoUpdate({
+        target: organizationWifi.organizationId,
+        set: { ssid, password },
+      });
+
+    return { ssid, password };
   }
 
   async myOrganizations(userId: string): Promise<MyOrganizationListItemDto[]> {

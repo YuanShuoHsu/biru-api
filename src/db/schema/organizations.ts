@@ -122,6 +122,16 @@ export const organizationOperatingType = pgTable(
   },
 );
 
+// 不放進 organization：那張表整列會被公開查詢回傳
+export const organizationWifi = pgTable('organization_wifi', {
+  organizationId: text('organization_id')
+    .primaryKey()
+    .references(() => organization.id, { onDelete: 'cascade' }),
+  ssid: text('ssid').notNull(),
+  password: text('password').notNull(),
+  ...timestamps,
+});
+
 // 同一門市的區間不可重疊：EXCLUDE 約束手寫在 migration，drizzle schema 表達不出來
 export const organizationSpecialHours = pgTable(
   'organization_special_hours',
