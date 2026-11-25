@@ -2,6 +2,10 @@ import { ConfigService } from '@nestjs/config';
 
 import { and, eq, sql } from 'drizzle-orm';
 
+import {
+  IMAGE_DATA_URL_MAX_LENGTH,
+  IMAGE_DATA_URL_PATTERN,
+} from '../src/common/constants/image.js';
 import { db } from '../src/db/index.js';
 import { organization, user } from '../src/db/schema/index.js';
 import { ImageStorageService } from '../src/images/image-storage.service.js';
@@ -9,6 +13,10 @@ import { IMAGE_TABLES } from '../src/images/images.service.js';
 import { parseImageDataUrl, type ImageKind } from '../src/images/image-url.js';
 
 const apply = process.argv.includes('--apply');
+
+const isAccountImage = (image: string) =>
+  image.length <= IMAGE_DATA_URL_MAX_LENGTH &&
+  IMAGE_DATA_URL_PATTERN.test(image);
 
 const imageSources = [
   ...(
@@ -33,6 +41,7 @@ const imageSources = [
     table: user,
     id: user.id,
     image: user.image,
+    accepts: isAccountImage,
     replace: (id: string, from: string, image: string) =>
       db
         .update(user)
@@ -45,6 +54,7 @@ const imageSources = [
     table: organization,
     id: organization.id,
     image: organization.logo,
+    accepts: isAccountImage,
     replace: (id: string, from: string, logo: string) =>
       db
         .update(organization)
@@ -57,7 +67,9 @@ const imageSources = [
 async function main() {
   const imageStorage = new ImageStorageService(new ConfigService());
 
-  for (const { kind, table, id: idColumn, image, replace } of imageSources) {
+  for (const source of imageSources) {
+    const { kind, table, id: idColumn, image, replace } = source;
+    const accepts = 'accepts' in source ? source.accepts : undefined;
     const isDataUrl = sql`starts_with(${image}, 'data:')`;
     const rows = await db
       .select({
@@ -68,10 +80,11 @@ async function main() {
       .where(isDataUrl);
     const bytes = rows.reduce((sum, row) => sum + row.bytes, 0);
     console.log(`${kind}: ${rows.length} data URL images, ${bytes} bytes`);
-    if (!apply) continue;
+    if (!apply && !accepts) continue;
 
     let moved = 0;
     let skipped = 0;
+    let rejected = 0;
     for (const { id } of rows) {
       const [row] = await db
         .select({ image })
@@ -81,6 +94,11 @@ async function main() {
         skipped++;
         continue;
       }
+      if (accepts && !accepts(row.image)) {
+        rejected++;
+        continue;
+      }
+      if (!apply) continue;
 
       const stored = await imageStorage.store(kind, row.image);
       if (!stored.startsWith('https://')) {
@@ -92,7 +110,16 @@ async function main() {
       if (updated.length > 0) moved++;
       else skipped++;
     }
-    console.log(`${kind}: moved ${moved}, skipped ${skipped}`);
+    const rejectedNote = accepts
+      ? `${rejected} not a png, jpeg or webp data URL of at most ${IMAGE_DATA_URL_MAX_LENGTH} characters, left in place`
+      : '';
+    if (!apply) console.log(`${kind}: ${rejectedNote}`);
+    else
+      console.log(
+        [`${kind}: moved ${moved}`, `skipped ${skipped}`, rejectedNote]
+          .filter(Boolean)
+          .join(', '),
+      );
   }
 
   console.log(apply ? 'Done.' : 'Dry run; pass --apply to move them.');

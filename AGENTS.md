@@ -299,7 +299,7 @@ check whether the row is published: the URL is only handed out by endpoints that
 Next's image optimizer fetches the source without the viewer's cookies. The version is not an access check: anyone
 who once had a URL keeps seeing the row's current image until the row or its image is deleted.
 
-`pnpm tsx scripts/migrate-images-to-storage.ts` counts the data URLs left in these tables, `user.image` and `organization.logo`; `--apply` moves them to storage. Every environment shares the database, so set `NEXT_PUBLIC_IMAGE_HOST` on every frontend deployment first, or next/image refuses the moved URLs.
+`pnpm tsx scripts/migrate-images-to-storage.ts` counts the data URLs left in these tables, `user.image` and `organization.logo` (those two only when the hooks below would accept them); `--apply` moves them to storage. Every environment shares the database, so set `NEXT_PUBLIC_IMAGE_HOST` on every frontend deployment first, or next/image refuses the moved URLs.
 
 Member avatar (`user.image`) and store logo (`organization.logo`) data URLs are uploaded the same way, by the
 better-auth hooks in `src/auth/index.ts`, keyed `user/` and `organization/`. The hooks accept only an empty string, any
