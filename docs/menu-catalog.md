@@ -275,10 +275,10 @@ PR 9 刪掉 `menu_section`、`menu_item`、`modifier` 的 `image` 後，這三�
 
 | 參數                                | 變更                                                                                                                                                 | PR  |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
-| `catalogSectionId`                  | 新增：回傳 `catalog_section.owner_organization_id`                                                                                                   |     | 4   |
-| `catalogItemId`                     | 新增：回傳 `catalog_item.owner_organization_id`                                                                                                      |     | 4   |
-| `catalogModifierGroupId`            | 新增：回傳 `catalog_modifier_group.owner_organization_id`                                                                                            |     | 4   |
-| `catalogModifierId`                 | 新增：沿 `catalog_modifier_group` 取 `owner_organization_id`                                                                                         |     | 4   |
+| `catalogSectionId`                  | 新增：回傳 `catalog_section.owner_organization_id`                                                                                                   | 4   |
+| `catalogItemId`                     | 新增：回傳 `catalog_item.owner_organization_id`                                                                                                      | 4   |
+| `catalogModifierGroupId`            | 新增：回傳 `catalog_modifier_group.owner_organization_id`                                                                                            | 4   |
+| `catalogModifierId`                 | 新增：沿 `catalog_modifier_group` 取 `owner_organization_id`                                                                                         | 4   |
 | `modifierId`                        | 改用 `modifier.menu_id → menu.organization_id`（現在沿 `modifier_group.menu`，`roles.guard.ts:241-254`；PR 5c 起的新覆寫列沒有 `modifier_group_id`） | 5b  |
 | `offerId`                           | 只保留 `offer.menu_item → menu` 一條路徑（`roles.guard.ts:178-205` 另外兩條經過 `menu_section_id`）                                                  | 9   |
 | `groupId`                           | 對應端點在 PR 9 移除後一併刪掉（`roles.guard.ts:231-239`）                                                                                           | 9   |
