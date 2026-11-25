@@ -82,6 +82,7 @@ export interface OrderItemModifierSnapshot {
   modifierId: string;
   modifierName: string;
   priceAdjustment: string | null;
+  customerProvidedCup?: boolean;
 }
 
 export interface OrderItemAddOnSnapshot {
@@ -202,6 +203,7 @@ export const orderItem = pgTable(
     participantAvatar: text('participant_avatar').$type<SharedCartAvatar>(),
     participantNickname: text('participant_nickname'),
     preparedAt: timestamp('prepared_at'),
+    cupReceivedAt: timestamp('cup_received_at'),
     ...timestamps,
   },
   (table) => [index('orderItem_orderId_idx').on(table.orderId)],

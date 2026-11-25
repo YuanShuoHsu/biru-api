@@ -39,6 +39,8 @@ const createService = (
   menuSections: { id: string; parentSectionId: string | null }[] = [],
   priceSpecification: PriceSpecification | null = null,
   itemModifierGroups: object[] = [],
+  modifiers: object[] = [],
+  menuItemAddOns: object[] = [],
 ) => {
   const db = {
     query: {
@@ -50,11 +52,11 @@ const createService = (
         }),
       },
       menuItem: { findMany: vi.fn().mockResolvedValue(menuItems) },
-      menuItemAddOn: { findMany: vi.fn().mockResolvedValue([]) },
+      menuItemAddOn: { findMany: vi.fn().mockResolvedValue(menuItemAddOns) },
       menuItemModifierGroup: {
         findMany: vi.fn().mockResolvedValue(itemModifierGroups),
       },
-      modifier: { findMany: vi.fn().mockResolvedValue([]) },
+      modifier: { findMany: vi.fn().mockResolvedValue(modifiers) },
       offer: {
         findMany: vi.fn().mockResolvedValue(
           menuItems.map(({ id }: { id?: string }) => ({
@@ -325,6 +327,197 @@ describe('OrderPricingService.resolveOrderItems', () => {
           validFrom,
         }),
       ).toBe('100.00');
+    });
+  });
+
+  describe('自備環保杯每杯少 5 元，最低 0 元', () => {
+    const cupGroupOf = (menuItemId: string, maxSelectionCount = 1) => ({
+      menuItemId,
+      modifierGroup: {
+        id: 'sealing',
+        maxSelectionCount,
+        minSelectionCount: 0,
+        modifiers: [],
+      },
+    });
+    const modifierOf = (
+      id: string,
+      customerProvidedCup: boolean | null,
+      priceAdjustment: string | null = null,
+    ) => ({
+      availability: 'InStock',
+      availableModes: ['counter'],
+      catalogModifier:
+        customerProvidedCup === null ? null : { customerProvidedCup },
+      displayName: { 'zh-TW': id },
+      id,
+      modifierGroup: { displayName: { 'zh-TW': '封口方式' }, menuId: MENU_ID },
+      modifierGroupId: 'sealing',
+      priceAdjustment,
+    });
+    const ownCup = modifierOf('own-cup', true);
+
+    const resolve = async (
+      cartItem: CreateOrderItemDto,
+      {
+        menuItems = [latte],
+        modifiers = [ownCup],
+        groups = [cupGroupOf(latte.id)],
+        addOnLinks = [] as object[],
+        price,
+      }: {
+        menuItems?: object[];
+        modifiers?: object[];
+        groups?: object[];
+        addOnLinks?: object[];
+        price?: string;
+      } = {},
+    ) => {
+      const service = createService(
+        menuItems,
+        [],
+        price ? { price } : null,
+        groups,
+        modifiers,
+        addOnLinks,
+      );
+      const [item] = await service.resolveOrderItems(
+        'org',
+        [cartItem],
+        'counter',
+      );
+      return item;
+    };
+
+    it('選了自備杯，快照標記自備杯並記下折價，單價少 5 元', async () => {
+      const item = await resolve(
+        cartItemOf({ modifiers: { sealing: ['own-cup'] } }),
+      );
+
+      expect(item.modifiers).toEqual([
+        expect.objectContaining({
+          customerProvidedCup: true,
+          modifierId: 'own-cup',
+          priceAdjustment: '-5.00',
+        }),
+      ]);
+      expect(item.unitPrice).toBe('95.00');
+    });
+
+    it('選項沒有接上品牌目錄時不折', async () => {
+      const item = await resolve(
+        cartItemOf({ modifiers: { sealing: ['own-cup'] } }),
+        { modifiers: [{ ...ownCup, catalogModifier: null }] },
+      );
+
+      expect(item.modifiers[0]).not.toHaveProperty('customerProvidedCup');
+      expect(item.modifiers[0].priceAdjustment).toBeNull();
+      expect(item.unitPrice).toBe('100.00');
+    });
+
+    it('一般選項不折', async () => {
+      const item = await resolve(
+        cartItemOf({ modifiers: { sealing: ['lid'] } }),
+        { modifiers: [modifierOf('lid', false, '0.00')] },
+      );
+
+      expect(item.unitPrice).toBe('100.00');
+    });
+
+    it('售價不到 5 元的飲品折到 0 元為止，快照記下實際折掉的金額', async () => {
+      const item = await resolve(
+        cartItemOf({ modifiers: { sealing: ['own-cup'] } }),
+        { price: '3.00' },
+      );
+
+      expect(item.modifiers[0].priceAdjustment).toBe('-3.00');
+      expect(item.unitPrice).toBe('0.00');
+    });
+
+    it('帶小數的售價折到 0 元時，單價不會變成 -0.00', async () => {
+      const item = await resolve(
+        cartItemOf({ modifiers: { sealing: ['own-cup', 'own-cup-2'] } }),
+        {
+          groups: [cupGroupOf(latte.id, 2)],
+          modifiers: [ownCup, modifierOf('own-cup-2', true, '2.09')],
+          price: '0.01',
+        },
+      );
+
+      expect(item.unitPrice).toBe('0.00');
+    });
+
+    it('同一杯選了多個自備杯選項只折一次', async () => {
+      const item = await resolve(
+        cartItemOf({ modifiers: { sealing: ['own-cup', 'own-cup-2'] } }),
+        {
+          groups: [cupGroupOf(latte.id, 2)],
+          modifiers: [ownCup, modifierOf('own-cup-2', true, '1.00')],
+        },
+      );
+
+      expect(item.modifiers.map((m) => m.priceAdjustment)).toEqual([
+        '-5.00',
+        '1.00',
+      ]);
+      expect(item.unitPrice).toBe('96.00');
+    });
+
+    it('加購的飲品各自折，且只折到該杯 0 元為止，不影響主品項', async () => {
+      const item = await resolve(
+        cartItemOf({
+          addOns: [
+            { menuItemId: cookie.id, modifiers: { sealing: ['own-cup'] } },
+          ],
+          modifiers: { sealing: ['own-cup'] },
+        }),
+        {
+          addOnLinks: [
+            {
+              addOnMenuItemId: cookie.id,
+              addOnMenuSectionId: null,
+              menuItemId: latte.id,
+            },
+          ],
+          groups: [cupGroupOf(latte.id), cupGroupOf(cookie.id)],
+          menuItems: [latte, cookie],
+          price: '4.00',
+        },
+      );
+
+      expect(item.addOns[0].modifiers[0]).toMatchObject({
+        customerProvidedCup: true,
+        priceAdjustment: '-4.00',
+      });
+      expect(item.modifiers[0].priceAdjustment).toBe('-4.00');
+      expect(item.unitPrice).toBe('0.00');
+    });
+
+    it('主品項有加價選項時，加購杯的折扣不會吃到主品項', async () => {
+      const item = await resolve(
+        cartItemOf({
+          addOns: [
+            { menuItemId: cookie.id, modifiers: { sealing: ['own-cup'] } },
+          ],
+          modifiers: { sealing: ['oat'] },
+        }),
+        {
+          addOnLinks: [
+            {
+              addOnMenuItemId: cookie.id,
+              addOnMenuSectionId: null,
+              menuItemId: latte.id,
+            },
+          ],
+          groups: [cupGroupOf(latte.id), cupGroupOf(cookie.id)],
+          menuItems: [latte, cookie],
+          modifiers: [ownCup, modifierOf('oat', false, '10.00')],
+          price: '2.00',
+        },
+      );
+
+      expect(item.addOns[0].modifiers[0].priceAdjustment).toBe('-2.00');
+      expect(item.unitPrice).toBe('12.00');
     });
   });
 });
