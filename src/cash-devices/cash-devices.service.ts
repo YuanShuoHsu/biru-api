@@ -284,6 +284,9 @@ export class CashDevicesService {
       note,
     }: CreateCashDeviceCollectionDto,
   ): Promise<CashDeviceEventResponseDto> {
+    if (!reportedAmount && !depositedAmount)
+      throw badRequestError('cashDeviceCollectionEmpty');
+
     return this.record(organizationId, deviceId, userId, {
       type: 'collection',
       idempotencyKey,

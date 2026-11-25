@@ -191,6 +191,7 @@ export type I18nTranslations = {
             "scheduleInvalid": string;
         };
         "cashDevices": {
+            "cashDeviceCollectionEmpty": string;
             "cashDeviceInactive": string;
             "cashDeviceInUse": string;
             "cashDeviceNotFound": string;

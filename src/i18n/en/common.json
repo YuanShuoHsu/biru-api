@@ -134,6 +134,7 @@
     "scheduleInvalid": "The start time must be earlier than the end time"
   },
   "cashDevices": {
+    "cashDeviceCollectionEmpty": "Enter the reported or deposited amount of the collection; they can't both be 0",
     "cashDeviceInactive": "This cash device is inactive. Set it to active before recording a refill or collection",
     "cashDeviceInUse": "This cash device has recorded transactions, so it can't be deleted. Set it to inactive instead",
     "cashDeviceNotFound": "The cash device wasn't found. It may have been deleted",
