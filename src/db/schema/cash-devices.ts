@@ -83,6 +83,10 @@ export const cashDeviceEvent = pgTable(
       table.deviceId,
       table.idempotencyKey,
     ),
+    index('cashDeviceEvent_deviceId_occurredAt_idx').on(
+      table.deviceId,
+      table.occurredAt,
+    ),
     index('cashDeviceEvent_organizationId_occurredAt_idx').on(
       table.organizationId,
       table.occurredAt,
