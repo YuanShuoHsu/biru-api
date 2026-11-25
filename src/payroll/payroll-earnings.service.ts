@@ -4,7 +4,6 @@ import {
   and,
   asc,
   count,
-  desc,
   eq,
   ilike,
   inArray,
@@ -33,6 +32,7 @@ import {
   buildQuickFilterCondition,
   escapeLike,
 } from '../common/utils/data-grid-filters.js';
+import { orderByDirection } from '../common/utils/data-grid-sort.js';
 import { payrollEarning, payrollEarningType } from '../db/schema/payroll.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
@@ -94,7 +94,6 @@ export class PayrollEarningsService {
         ],
       }),
     );
-    const sort = sortDirection === 'desc' ? desc : asc;
     const [data, [{ total }]] = await Promise.all([
       this.db
         .select({
@@ -106,7 +105,10 @@ export class PayrollEarningsService {
         })
         .from(payrollEarningType)
         .where(where)
-        .orderBy(sort(fieldMap[sortBy ?? 'name']), asc(payrollEarningType.id))
+        .orderBy(
+          orderByDirection(fieldMap[sortBy ?? 'name'], sortDirection),
+          asc(payrollEarningType.id),
+        )
         .limit(limit)
         .offset(offset),
       this.db.select({ total: count() }).from(payrollEarningType).where(where),

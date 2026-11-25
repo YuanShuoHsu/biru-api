@@ -4,7 +4,6 @@ import {
   and,
   asc,
   count,
-  desc,
   eq,
   getTableColumns,
   gt,
@@ -34,6 +33,10 @@ import {
   escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import {
+  type NullsAs,
+  orderByDirection,
+} from '../common/utils/data-grid-sort.js';
 import {
   ATTENDANCE_LEGAL_STATUSES,
   attendanceEmployee,
@@ -112,6 +115,15 @@ import {
   workPermitOrderSql,
   workPermitStatusSql,
 } from './work-permit-status.js';
+
+const EMPLOYEE_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  jobTitle: 'last',
+  hiredAt: 'last',
+  terminatedAt: 'last',
+  employmentType: 'last',
+  legalStatus: 'last',
+  workPermitStatus: 'last',
+};
 
 // 這兩個欄位對使用者是日期，存成非午夜的時刻會讓同一天的班次前後段套到不同工時
 const platformDayStart = (value: string) =>
@@ -263,14 +275,22 @@ export class AttendanceEmployeesService {
         ],
       }),
     );
-    const sort = sortDirection === 'desc' ? desc : asc;
     const sortColumn =
       sortBy === 'status'
         ? employeeStatusOrderSql
         : sortBy === 'workPermitStatus'
           ? workPermitOrderSql
           : (fieldMap[sortBy ?? ''] ?? user.name);
-    return { limit, offset, where, order: sort(sortColumn) };
+    return {
+      limit,
+      offset,
+      where,
+      order: orderByDirection(
+        sortColumn,
+        sortDirection,
+        EMPLOYEE_SORT_NULLS[sortBy ?? ''],
+      ),
+    };
   }
 
   async employees(

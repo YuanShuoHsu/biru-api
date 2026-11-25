@@ -33,6 +33,10 @@ import {
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import {
+  type NullsAs,
+  orderByDirection,
+} from '../common/utils/data-grid-sort.js';
+import {
   attendanceEmployee,
   attendanceEvent,
   attendanceLeaveBalance,
@@ -142,6 +146,12 @@ import {
 import { workPermitStatusSql } from './work-permit-status.js';
 
 const CALENDAR_LEAVE_LIMIT = 500;
+
+const REQUEST_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  leaveTypeName: 'last',
+  leaveTypeStatutoryKind: 'last',
+  reviewReason: 'last',
+};
 
 type AttendanceRequestRow = typeof attendanceRequest.$inferSelect;
 
@@ -339,7 +349,6 @@ export class AttendanceRequestsService {
         ],
       }),
     );
-    const sort = sortDirection === 'asc' ? asc : desc;
     const [data, [{ total }]] = await Promise.all([
       this.db
         .select({
@@ -370,7 +379,11 @@ export class AttendanceRequestsService {
         )
         .where(where)
         .orderBy(
-          sort(sortBy ? fieldMap[sortBy] : attendanceRequest.createdAt),
+          orderByDirection(
+            sortBy ? fieldMap[sortBy] : attendanceRequest.createdAt,
+            sortDirection,
+            REQUEST_SORT_NULLS[sortBy ?? ''],
+          ),
           asc(attendanceRequest.id),
         )
         .limit(limit)

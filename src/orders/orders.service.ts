@@ -73,6 +73,10 @@ import {
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import {
+  type NullsAs,
+  orderByDirection,
+} from '../common/utils/data-grid-sort.js';
+import {
   IN_FLIGHT_PRINT_JOB_STATUSES,
   toActiveInvoice,
   toInvoiceBuyer,
@@ -345,6 +349,17 @@ const refundedQuantitiesOf = (
 
 const PUBLIC_BOARD_LEAD_MS = 60 * 60 * 1000;
 const ADMIN_BOARD_LEAD_MS = 24 * 60 * 60 * 1000;
+
+const ORDER_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  confirmationNumber: 'last',
+  customerTelephone: 'last',
+  customerEmail: 'last',
+  paymentDate: 'last',
+  pickupTime: 'last',
+  tableNumber: 'last',
+  invoiceType: 'last',
+  invoiceStatus: 'last',
+};
 
 const PERSONAL_DATA_ERASE_BATCH_SIZE = 1000;
 
@@ -796,16 +811,28 @@ export class OrdersService {
       invoiceStatus: sql`(select i.status::text from ${invoice} i where i.order_id = ${order.id} and i.status <> 'voided')`,
     };
 
-    const dir = sortDirection === 'desc' ? desc : asc;
+    const orderSortMap: Record<string, Column | SQL> = {
+      ...orderFieldMap,
+      customerTelephone: sql`NULLIF(${orderFieldMap.customerTelephone}, '')`,
+      customerEmail: sql`NULLIF(${orderFieldMap.customerEmail}, '')`,
+    };
+
     const orderBy: SQL[] =
       sortBy === 'orderNumber'
         ? [
-            dir(sql`length(${order.orderNumber})`),
-            dir(order.orderNumber),
+            orderByDirection(sql`length(${order.orderNumber})`, sortDirection),
+            orderByDirection(order.orderNumber, sortDirection),
             desc(order.createdAt),
           ]
         : sortBy
-          ? [dir(orderFieldMap[sortBy]), desc(order.createdAt)]
+          ? [
+              orderByDirection(
+                orderSortMap[sortBy],
+                sortDirection,
+                ORDER_SORT_NULLS[sortBy],
+              ),
+              desc(order.createdAt),
+            ]
           : [desc(order.createdAt)];
 
     const where = and(

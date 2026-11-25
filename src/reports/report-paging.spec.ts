@@ -19,8 +19,8 @@ describe('pageReportRows', () => {
     expect(page({})).toEqual({ rows, total: 3 });
   });
 
-  it('數字字串依數值排序，null 排在最前', () => {
-    expect(page({ sortBy: 'cents' }).rows).toEqual([rows[1], rows[0], rows[2]]);
+  it('數字字串依數值排序，null 排在最後', () => {
+    expect(page({ sortBy: 'cents' }).rows).toEqual([rows[0], rows[2], rows[1]]);
   });
 
   it('total 為篩選後、分頁前的列數', () => {

@@ -27,6 +27,10 @@ import {
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import {
+  type NullsAs,
+  orderByDirection,
+} from '../common/utils/data-grid-sort.js';
+import {
   attendanceEmployee,
   attendanceEvent,
   attendanceHolidaySubstitute,
@@ -168,6 +172,12 @@ const clockOutAt = sql<Date | null>`CASE
 
 const CALENDAR_SHIFT_LIMIT = 500;
 const CALENDAR_MAX_DAYS = 62;
+
+const SHIFT_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  teamName: 'last',
+  clockInAt: 'last',
+  clockOutAt: 'last',
+};
 
 const shiftMonth = (time: SQL | typeof attendanceShift.startsAt) =>
   sql`to_char((${time}) AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM')`;
@@ -323,7 +333,6 @@ export class AttendanceShiftsService {
         ],
       }),
     );
-    const sort = sortDirection === 'asc' ? asc : desc;
     const [rows, [{ total }]] = await Promise.all([
       this.db
         .select({
@@ -343,7 +352,11 @@ export class AttendanceShiftsService {
         .leftJoin(team, eq(team.id, attendanceShift.teamId))
         .where(where)
         .orderBy(
-          sort(sortBy ? fieldMap[sortBy] : attendanceShift.startsAt),
+          orderByDirection(
+            sortBy ? fieldMap[sortBy] : attendanceShift.startsAt,
+            sortDirection,
+            SHIFT_SORT_NULLS[sortBy ?? ''],
+          ),
           asc(attendanceShift.id),
         )
         .limit(limit)

@@ -5,7 +5,6 @@ import {
   and,
   asc,
   count,
-  desc,
   eq,
   exists,
   ilike,
@@ -29,6 +28,10 @@ import {
   escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import {
+  type NullsAs,
+  orderByDirection,
+} from '../common/utils/data-grid-sort.js';
 import { toLanguage } from '../common/utils/language.js';
 import { localizedTextSql } from '../common/utils/localized-text.js';
 import {
@@ -111,6 +114,11 @@ const rethrowBindingConflict = (error: unknown): never => {
   throw error;
 };
 
+const RECIPE_INGREDIENT_SORT_NULLS: Partial<Record<string, NullsAs>> = {
+  unitPrice: 'last',
+  cost: 'last',
+};
+
 @Injectable()
 export class RecipesService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
@@ -143,10 +151,12 @@ export class RecipesService {
       recipe.name,
       toLanguage(I18nContext.current()?.lang),
     );
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
       ? [
-          dir(sortBy === 'name' ? localizedName : fieldMap[sortBy]),
+          orderByDirection(
+            sortBy === 'name' ? localizedName : fieldMap[sortBy],
+            sortDirection,
+          ),
           asc(recipe.id),
         ]
       : [asc(localizedName), asc(recipe.id)];
@@ -420,16 +430,17 @@ export class RecipesService {
       cost: sql`(${recipeIngredient.requiredQuantity} * ${unitPriceSql})`,
     };
 
-    const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
       ? [
-          dir(
+          orderByDirection(
             sortBy === 'ingredientName'
               ? localizedTextSql(
                   ingredient.name,
                   toLanguage(I18nContext.current()?.lang),
                 )
               : fieldMap[sortBy],
+            sortDirection,
+            RECIPE_INGREDIENT_SORT_NULLS[sortBy],
           ),
           asc(recipeIngredient.id),
         ]
