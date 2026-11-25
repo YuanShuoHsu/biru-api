@@ -24,6 +24,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { authDb, runInAuthSavepoint } from './auth-transaction.js';
 import { assertOrganizationDeletable } from './deletion-guards.js';
 import { cancelExpiredInvitations } from './expired-invitations.js';
+import { exportUserData } from './export-user-data.js';
 import { authHookState, createAuthHooks } from './hooks.js';
 import type { createAuthI18n } from './i18n.js';
 import { assertKeepsOwner } from './owner-guards.js';
@@ -608,6 +609,7 @@ export const createAuth = (
           allowRemovingAllTeams: true,
         },
       }),
+      exportUserData(),
       authI18n.plugin,
     ],
     rateLimit: {

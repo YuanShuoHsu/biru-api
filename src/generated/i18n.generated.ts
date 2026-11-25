@@ -12,6 +12,7 @@ export type I18nTranslations = {
         "EMAIL_VERIFICATION_REQUIRED_BEFORE_ACCEPTING_OR_REJECTING_INVITATION": string;
         "FAILED_TO_UNLINK_LAST_ACCOUNT": string;
         "FIRST_NAME_REQUIRED": string;
+        "IMPERSONATED_SESSION_CANNOT_EXPORT_USER_DATA": string;
         "INVALID_DINE_IN_TABLE_COUNT": string;
         "INVALID_EMAIL_OR_PASSWORD": string;
         "INVALID_IMAGE": string;
@@ -31,6 +32,7 @@ export type I18nTranslations = {
         "PASSWORD_TOO_LONG": string;
         "PHONE_NUMBER_ALREADY_EXISTS": string;
         "PLATFORM_ADMIN_MEMBER_PROTECTED": string;
+        "SESSION_EXPIRED": string;
         "TEAM_NOT_FOUND": string;
         "TOKEN_EXPIRED": string;
         "UNAUTHORIZED": string;
