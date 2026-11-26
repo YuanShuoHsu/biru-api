@@ -1106,7 +1106,10 @@ export class OrderTicketService implements PrintJobSource {
         ...(item.addOns ?? []).map((addOn) =>
           [`+ ${addOn.menuItemName}`, ...this.describeItem(addOn)].join(' / '),
         ),
-      ].filter(Boolean),
+        item.participantNickname
+          ? this.t('participant', { nickname: item.participantNickname })
+          : null,
+      ].filter((detail): detail is string => !!detail),
       name: item.menuItemName,
       quantity,
     };

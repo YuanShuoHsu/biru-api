@@ -33,7 +33,10 @@ describe('OrderTicketService 出單機（PGlite）', () => {
     service = new OrderTicketService(
       db as unknown as DrizzleDB,
       new EventEmitter2(),
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
+      {
+        t: (key: string, options?: { args?: Record<string, string> }) =>
+          options?.args ? `${key} ${Object.values(options.args).join()}` : key,
+      } as unknown as I18nService<I18nTranslations>,
       new PrintersService(
         db as unknown as DrizzleDB,
         {
@@ -160,6 +163,31 @@ describe('OrderTicketService 出單機（PGlite）', () => {
         response: { code: 'printerNotFound' },
         status: 404,
       });
+  });
+
+  it('共享點餐的品項在工作單印出點餐人暱稱', async () => {
+    const bar = await service.createPrinter('biru', '吧台');
+    await client.query(
+      `insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal, order_status)
+       values ('o1', '{"name":"王小明"}', 'counter', '1', 'Cash', $1, 200, 'OrderProcessing')`,
+      [ORG],
+    );
+    await client.query(
+      `insert into order_item (id, order_id, menu_item_id, menu_item_name, unit_price, order_quantity, participant_nickname)
+       values ('shared', 'o1', 'm1', '{}', 100, 1, '小熊'), ('plain', 'o1', 'm1', '{}', 100, 1, null)`,
+    );
+    await db.transaction((tx) =>
+      service.enqueueOrder(tx as unknown as DrizzleDB, 'o1', ORG),
+    );
+
+    const printer = await db.query.printer.findFirst({
+      where: eq(printerTable.id, bar.id),
+    });
+    const [entry] = await service.poll(printer!);
+
+    expect(
+      entry.receipt.match(/common\.orderTickets\.participant 小熊/g),
+    ).toHaveLength(1);
   });
 
   describe('自備環保杯的品項收杯後才出單', () => {

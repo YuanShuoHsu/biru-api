@@ -313,6 +313,7 @@
     "notReprintable": "제조 중이거나 픽업 가능한 주문만 주문서를 재출력할 수 있습니다",
     "orderedAt": "주문 {time}",
     "otherPrinters": "다른 스테이션: {printers}",
+    "participant": "주문자: {nickname}",
     "pickupTime": "픽업 {time}",
     "printJobResolved": "이 주문서는 이미 확인되었습니다. 새로고침 후 다시 시도해 주세요",
     "printerBusy": "삭제하는 동안 이 프린터로 새 주문서가 전송되었습니다. 다시 시도해 주세요",

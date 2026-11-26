@@ -313,6 +313,7 @@
     "notReprintable": "只有制作中或可取餐的订单可以重印工作单",
     "orderedAt": "下单 {time}",
     "otherPrinters": "另有：{printers}",
+    "participant": "点餐人：{nickname}",
     "pickupTime": "取餐 {time}",
     "printJobResolved": "这张工作单已确认过，请刷新后再试",
     "printerBusy": "移除时有新的工作单正送往这台打印机，请再试一次",

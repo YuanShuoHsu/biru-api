@@ -313,6 +313,7 @@
     "notReprintable": "伝票を再印刷できるのは調理中または受取可能な注文のみです",
     "orderedAt": "注文 {time}",
     "otherPrinters": "他の担当：{printers}",
+    "participant": "注文者：{nickname}",
     "pickupTime": "受取 {time}",
     "printJobResolved": "この伝票は確認済みです。再読み込みしてからもう一度お試しください",
     "printerBusy": "削除中にこのプリンターへ新しい伝票が送られました。もう一度お試しください",
