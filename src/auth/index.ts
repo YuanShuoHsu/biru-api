@@ -60,6 +60,7 @@ import type { MailsService } from '../mails/mails.service.js';
 
 const logger = new Logger('OrganizationAudit');
 const signupCouponLogger = new Logger('SignupCoupons');
+const userAuditLogger = new Logger('UserAudit');
 
 const updatedUserId = (context: GenericEndpointContext | null) =>
   context?.path === '/admin/update-user'
@@ -288,7 +289,7 @@ export const createAuth = (
                 }),
               );
             } catch (error) {
-              logger.error('Failed to snapshot audit target', error);
+              userAuditLogger.error('Failed to snapshot audit target', error);
             }
           },
         },
@@ -343,7 +344,7 @@ export const createAuth = (
                 }),
               );
             } catch (error) {
-              logger.error('Failed to write audit log', error);
+              userAuditLogger.error('Failed to write audit log', error);
             }
           },
           before: async (input, context) => {
