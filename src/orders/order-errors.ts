@@ -10,6 +10,7 @@ import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 export const orderErrorCodes = [
   'cashUnavailableForMode',
+  'cupAlreadyReceived',
   'idempotencyConflict',
   'inStoreQrCodeRequired',
   'invalidTable',
@@ -23,6 +24,7 @@ export const orderErrorCodes = [
   'modifierUnavailable',
   'modifierUnavailableForMode',
   'notAwaitingPayment',
+  'notOwnCupItem',
   'onlinePaymentNotRequired',
   'orderItemNotFound',
   'orderItemRefunded',

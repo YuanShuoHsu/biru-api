@@ -409,6 +409,7 @@ export type I18nTranslations = {
         };
         "orders": {
             "cashUnavailableForMode": string;
+            "cupAlreadyReceived": string;
             "idempotencyConflict": string;
             "inStoreQrCodeRequired": string;
             "invalidTable": string;
@@ -422,6 +423,7 @@ export type I18nTranslations = {
             "modifierUnavailable": string;
             "modifierUnavailableForMode": string;
             "notAwaitingPayment": string;
+            "notOwnCupItem": string;
             "onlinePaymentNotRequired": string;
             "orderItemNotFound": string;
             "orderItemRefunded": string;

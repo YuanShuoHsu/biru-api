@@ -339,6 +339,7 @@
   },
   "orders": {
     "cashUnavailableForMode": "此点餐方式无法使用现金付款",
+    "cupAlreadyReceived": "这杯已经收过杯了",
     "idempotencyConflict": "订单内容已变更，请重新提交。",
     "inStoreQrCodeRequired": "请扫描店内的二维码点餐",
     "invalidTable": "桌号二维码无效，请重新扫描桌上的二维码",
@@ -352,6 +353,7 @@
     "modifierUnavailable": "「{name}」目前无法供应",
     "modifierUnavailableForMode": "「{name}」不适用此点餐方式",
     "notAwaitingPayment": "此订单已超过付款期限或状态已变更，无法付款",
+    "notOwnCupItem": "这个品项不是自备杯",
     "onlinePaymentNotRequired": "这笔订单不需要在线付款",
     "orderItemNotFound": "这笔订单里找不到这个品项",
     "orderItemRefunded": "这个品项已全数退款",

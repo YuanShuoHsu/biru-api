@@ -339,6 +339,7 @@
   },
   "orders": {
     "cashUnavailableForMode": "この注文方法では現金でお支払いいただけません",
+    "cupAlreadyReceived": "この商品のカップはすでに受け取り済みです",
     "idempotencyConflict": "注文内容が変更されました。もう一度送信してください。",
     "inStoreQrCodeRequired": "店内の QR コードを読み取ってご注文ください",
     "invalidTable": "テーブルの QR コードが無効です。テーブルの QR コードを読み取り直してください",
@@ -352,6 +353,7 @@
     "modifierUnavailable": "「{name}」は現在ご提供できません",
     "modifierUnavailableForMode": "「{name}」はこの注文方法ではご利用いただけません",
     "notAwaitingPayment": "支払期限を過ぎたか、状態が変更されたため、この注文はお支払いできません",
+    "notOwnCupItem": "この商品はマイカップの注文ではありません",
     "onlinePaymentNotRequired": "この注文はオンライン決済の必要がありません",
     "orderItemNotFound": "この注文にその品目が見つかりません",
     "orderItemRefunded": "この品目は全数返金済みです",

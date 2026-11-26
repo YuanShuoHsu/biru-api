@@ -37,6 +37,10 @@ class OrderItemModifierSnapshotDto {
   @ApiProperty() modifierId: string;
   @ApiProperty() modifierName: string;
   @ApiPropertyOptional() priceAdjustment?: string | null;
+  @ApiPropertyOptional({
+    description: '客人自備杯；收杯前這杯不排工作單',
+  })
+  customerProvidedCup?: boolean;
 }
 
 class OrderItemAddOnSnapshotDto {
@@ -97,6 +101,10 @@ export class OrderItemResponseDto {
     description: '廚房標記這個品項做好的時間；未完成為 null',
   })
   preparedAt?: Date | null;
+  @ApiPropertyOptional({
+    description: '店員收到這杯自備杯的時間；未收或不是自備杯為 null',
+  })
+  cupReceivedAt?: Date | null;
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
 }
