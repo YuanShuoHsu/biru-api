@@ -22,6 +22,7 @@ describe('平台管理員不能改自己的平台角色', () => {
   let cookie = '';
   let annId: string;
   let boId: string;
+  let cyId: string;
 
   const request = (path: string, body: unknown) =>
     runWithAuthHookState(() =>
@@ -40,6 +41,22 @@ describe('平台管理員不能改自己的平台角色', () => {
         ),
       ),
     );
+
+  const lastNameOf = async (id: string) =>
+    (
+      await client.query<{ last_name: string | null }>(
+        `select last_name from "user" where id = $1`,
+        [id],
+      )
+    ).rows[0].last_name;
+
+  const platformAdminMemberships = async (userId: string) =>
+    (
+      await client.query<{ id: string }>(
+        `select id from member where user_id = $1 and joined_as_platform_admin`,
+        [userId],
+      )
+    ).rows.map(({ id }) => id);
 
   const roleOf = async (id: string) =>
     (
@@ -75,6 +92,7 @@ describe('平台管理員不能改自己的平台角色', () => {
     for (const [email, name] of [
       ['ann@example.com', 'Ann'],
       ['bo@example.com', 'Bo'],
+      ['cy@example.com', 'Cy'],
     ])
       expect(
         (
@@ -87,13 +105,23 @@ describe('平台管理員不能改自己的平台角色', () => {
         ).status,
       ).toBe(200);
     await client.query(
-      `update "user" set email_verified = true, role = 'admin' where email = 'ann@example.com'`,
+      `update "user" set email_verified = true, role = 'admin' where email in ('ann@example.com', 'cy@example.com')`,
     );
     const { rows } = await client.query<{ id: string; email: string }>(
       `select id, email from "user"`,
     );
     annId = rows.find((row) => row.email === 'ann@example.com')!.id;
     boId = rows.find((row) => row.email === 'bo@example.com')!.id;
+    cyId = rows.find((row) => row.email === 'cy@example.com')!.id;
+    await client.query(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address)
+       values ('biru', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
+    );
+    await client.query(
+      `insert into member (id, organization_id, user_id, role, joined_as_platform_admin, created_at)
+       values ('m-ann', 'biru', $1, 'owner', true, now()), ('m-cy', 'biru', $2, 'owner', true, now())`,
+      [annId, cyId],
+    );
 
     const signIn = await request('/sign-in/email', {
       email: 'ann@example.com',
@@ -121,6 +149,42 @@ describe('平台管理員不能改自己的平台角色', () => {
       message: '您無法變更自己的角色',
     });
     expect(await roleOf(annId)).toBe('admin');
+    expect(await platformAdminMemberships(annId)).toEqual(['m-ann']);
+  });
+
+  it.each([
+    ['/admin/set-role', (id: string) => ({ userId: [id], role: 'user' })],
+    [
+      '/admin/update-user',
+      (id: string) => ({ userId: [id], data: { role: 'user' } }),
+    ],
+  ])('%s 的 userId 傳成陣列也擋下', async (path, body) => {
+    const response = await request(path, body(annId));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: 'YOU_CANNOT_CHANGE_YOUR_OWN_ROLE',
+    });
+    expect(await roleOf(annId)).toBe('admin');
+  });
+
+  it('角色含多個值的平台管理員也不能改自己', async () => {
+    await client.query(`update "user" set role = 'admin,user' where id = $1`, [
+      annId,
+    ]);
+    try {
+      const response = await request('/admin/set-role', {
+        userId: annId,
+        role: 'user',
+      });
+
+      expect(response.status).toBe(400);
+      expect(await roleOf(annId)).toBe('admin,user');
+    } finally {
+      await client.query(`update "user" set role = 'admin' where id = $1`, [
+        annId,
+      ]);
+    }
   });
 
   it('用 update-user 帶 role 改自己時擋下，其他欄位也不會寫入', async () => {
@@ -134,6 +198,7 @@ describe('平台管理員不能改自己的平台角色', () => {
       code: 'YOU_CANNOT_CHANGE_YOUR_OWN_ROLE',
     });
     expect(await roleOf(annId)).toBe('admin');
+    expect(await lastNameOf(annId)).toBeNull();
   });
 
   it('用 update-user 改自己但沒帶 role 時照常更新', async () => {
@@ -143,14 +208,7 @@ describe('平台管理員不能改自己的平台角色', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(
-      (
-        await client.query<{ last_name: string }>(
-          `select last_name from "user" where id = $1`,
-          [annId],
-        )
-      ).rows[0].last_name,
-    ).toBe('Lee');
+    expect(await lastNameOf(annId)).toBe('Lee');
   });
 
   it('改別人的角色照常', async () => {
@@ -167,5 +225,17 @@ describe('平台管理員不能改自己的平台角色', () => {
     });
     expect(updateUser.status).toBe(200);
     expect(await roleOf(boId)).toBe('user');
+  });
+
+  it('userId 傳成陣列降級另一位平台管理員時，清掉他以平台管理員身分加入的成員資格', async () => {
+    const response = await request('/admin/set-role', {
+      userId: [cyId],
+      role: 'user',
+    });
+
+    expect(response.status).toBe(200);
+    expect(await roleOf(cyId)).toBe('user');
+    expect(await platformAdminMemberships(cyId)).toEqual([]);
+    expect(await platformAdminMemberships(annId)).toEqual(['m-ann']);
   });
 });

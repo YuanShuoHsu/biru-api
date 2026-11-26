@@ -81,6 +81,17 @@ type Body = Record<string, unknown>;
 const asString = (value: unknown) =>
   typeof value === 'string' ? value : undefined;
 
+const asCoercedId = (value: unknown): string | undefined =>
+  typeof value === 'string'
+    ? value
+    : typeof value === 'number' ||
+        typeof value === 'boolean' ||
+        typeof value === 'bigint'
+      ? String(value)
+      : Array.isArray(value)
+        ? value.map(asCoercedId).join(',')
+        : undefined;
+
 const asRow = (value: unknown): AuditRow | undefined =>
   typeof value === 'object' && value !== null ? (value as AuditRow) : undefined;
 
@@ -98,9 +109,9 @@ const invitationTarget = toTarget('invitation');
 const BEFORE_TARGETS: Record<string, (body: Body) => Target | undefined> = {
   '/admin/ban-user': ({ userId }) => userTarget(userId),
   '/admin/remove-user': ({ userId }) => userTarget(userId),
-  '/admin/set-role': ({ userId }) => userTarget(userId),
+  '/admin/set-role': ({ userId }) => userTarget(asCoercedId(userId)),
   '/admin/unban-user': ({ userId }) => userTarget(userId),
-  '/admin/update-user': ({ userId }) => userTarget(userId),
+  '/admin/update-user': ({ userId }) => userTarget(asCoercedId(userId)),
   '/organization/accept-invitation': ({ invitationId }) =>
     invitationTarget(invitationId),
   '/organization/cancel-invitation': ({ invitationId }) =>
@@ -453,8 +464,8 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
         ) {
           const session = await getSessionFromCtx(ctx);
           if (
-            session?.user.role === 'admin' &&
-            session.user.id === asString(body.userId)
+            session?.user.role?.split(',').includes('admin') &&
+            session.user.id === asCoercedId(body.userId)
           )
             throw new APIError('BAD_REQUEST', {
               message: 'You cannot change your own role',
@@ -593,7 +604,7 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
         logger.error('Failed to erase deleted account copies', error);
       }
 
-    const roleTargetId = asString(asRow(ctx.body)?.userId);
+    const roleTargetId = asCoercedId(asRow(ctx.body)?.userId);
     const removedMembers =
       PLATFORM_ROLE_PATHS.has(ctx.path) &&
       roleTargetId &&
