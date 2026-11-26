@@ -3,6 +3,7 @@
 import { Logger } from '@nestjs/common';
 
 import {
+  APIError,
   createAuthMiddleware,
   getSessionFromCtx,
   isAPIError,
@@ -441,6 +442,24 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
             parent: { table: 'user', id: userId },
             sinceId: await latestDeletedRecordId(),
           };
+        }
+      }
+
+      if (PLATFORM_ROLE_PATHS.has(ctx.path)) {
+        const body = asRow(ctx.body) ?? {};
+        if (
+          ctx.path === '/admin/set-role' ||
+          'role' in (asRow(body.data) ?? {})
+        ) {
+          const session = await getSessionFromCtx(ctx);
+          if (
+            session?.user.role === 'admin' &&
+            session.user.id === asString(body.userId)
+          )
+            throw new APIError('FORBIDDEN', {
+              message: 'You cannot change your own role',
+              code: 'YOU_CANNOT_CHANGE_YOUR_OWN_ROLE',
+            });
         }
       }
 
