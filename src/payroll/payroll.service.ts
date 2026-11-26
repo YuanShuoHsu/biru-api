@@ -679,6 +679,10 @@ export class PayrollService {
     return this.db.transaction(
       async (tx) => {
         const settings = await this.payrollSettings(tx, organizationId, month);
+        const shared = {
+          leaveTypes: await this.leaveTypesOf(tx, organizationId),
+          ruleSet: await this.ruleSets.resolve(tx, month),
+        };
         const estimates: {
           employeeId: string;
           snapshot: PayrollSnapshot | null;
@@ -695,6 +699,7 @@ export class PayrollService {
                 month,
                 undefined,
                 settings,
+                shared,
               ),
             });
           } catch (error) {
@@ -706,6 +711,14 @@ export class PayrollService {
       },
       { accessMode: 'read only' },
     );
+  }
+
+  private leaveTypesOf(tx: Transaction, organizationId: string) {
+    return tx
+      .select()
+      .from(attendanceLeaveType)
+      .where(eq(attendanceLeaveType.organizationId, organizationId))
+      .orderBy(asc(attendanceLeaveType.id));
   }
 
   private async snapshot(
@@ -722,6 +735,10 @@ export class PayrollService {
       overtimeExtensionPeriods,
       ...payday
     } = NO_PAYROLL_SETTINGS,
+    shared?: {
+      leaveTypes: (typeof attendanceLeaveType.$inferSelect)[];
+      ruleSet: Awaited<ReturnType<PayrollRulesService['resolve']>>;
+    },
   ): Promise<PayrollSnapshot> {
     const employee =
       knownEmployee ?? (await this.payrollEmployee(tx, actor, employeeId));
@@ -795,11 +812,8 @@ export class PayrollService {
         ),
       )
       .orderBy(desc(attendanceRequest.reviewedAt), asc(attendanceRequest.id));
-    const leaveTypes = await tx
-      .select()
-      .from(attendanceLeaveType)
-      .where(eq(attendanceLeaveType.organizationId, actor.organizationId))
-      .orderBy(asc(attendanceLeaveType.id));
+    const leaveTypes =
+      shared?.leaveTypes ?? (await this.leaveTypesOf(tx, actor.organizationId));
     const medical = leaveTypes.some((policy) =>
       isMedicalLeave(policy.statutoryKind),
     )
@@ -807,7 +821,9 @@ export class PayrollService {
       : null;
     const blockers: PayrollBlocker[] = [];
     const violations: PayrollViolation[] = [];
-    const ruleSet = await this.ruleSets.resolve(tx, month);
+    const ruleSet = shared
+      ? shared.ruleSet
+      : await this.ruleSets.resolve(tx, month);
     if (!ruleSet) throw badRequestError('payrollRuleSetMissing');
     const occupationalAccidentRateMicros =
       occupationalExperienceRateMicros ??
