@@ -538,7 +538,7 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   calls it directly (#209). Stage (`stage.birucoffee.com`, `stage-admin.birucoffee.com`) shares that domain with
   production, so these cookies, like the session cookie, are sent to both. Outside production they are host-only, which
   works locally because cookies ignore the port ([RFC 6265 §8.5](https://www.rfc-editor.org/rfc/rfc6265#section-8.5)).
-  A new cookie the frontends must see goes through the same helpers, and a cookie whose domain changes also gets a new
+  A new cookie the frontends must see goes through the same helpers, named with `siteCookieName`, and a cookie whose domain changes also gets a new
   name (hence the `_v2` names): browsers keep the old copy and send it first, and `cookie-parser` keeps only the first
   value of a name, so the old copy would shadow the new one. The Socket.io handshake only carries them where they are
   domain-scoped, so when a socket needs what such a cookie proves, still return a signed token in the HTTP response and
@@ -567,7 +567,7 @@ value). A new variable must be added to that schema with the rule the code actua
 - `CRON_ENABLED` — `true` / `false`; overrides the `ECPAY_OPERATION_MODE` rule above. Leave it unset while environments
   share one database, or the crons run twice on it (#573)
 - `COOKIE_PREFIX` — Letters, digits, `-` or `_`; better-auth's `advanced.cookiePrefix` (unset keeps `better-auth`) and,
-  as `<prefix>.<name>`, every `setSiteCookie` name (`siteCookieName`), so an environment on another database doesn't
+  as `<prefix>.<name>`, every site cookie name, which callers wrap in `siteCookieName` before setting or reading it, so an environment on another database doesn't
   overwrite the other's cookies on `.birucoffee.com`. Changing it signs everyone out of that environment
 - `NEXT_URL` — Frontend origin (CORS + ECPay redirect allowlist)
 - `NEXT_ADMIN_URL` — Admin frontend origin (same two uses)
