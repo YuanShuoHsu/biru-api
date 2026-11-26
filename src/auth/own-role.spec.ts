@@ -115,7 +115,7 @@ describe('平台管理員不能改自己的平台角色', () => {
       role: 'user',
     });
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({
       code: 'YOU_CANNOT_CHANGE_YOUR_OWN_ROLE',
       message: '您無法變更自己的角色',
@@ -129,7 +129,7 @@ describe('平台管理員不能改自己的平台角色', () => {
       data: { role: 'user', lastName: 'Lee' },
     });
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({
       code: 'YOU_CANNOT_CHANGE_YOUR_OWN_ROLE',
     });

@@ -456,7 +456,7 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
             session?.user.role === 'admin' &&
             session.user.id === asString(body.userId)
           )
-            throw new APIError('FORBIDDEN', {
+            throw new APIError('BAD_REQUEST', {
               message: 'You cannot change your own role',
               code: 'YOU_CANNOT_CHANGE_YOUR_OWN_ROLE',
             });
