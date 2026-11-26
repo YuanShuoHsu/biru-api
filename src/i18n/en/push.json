@@ -1,0 +1,6 @@
+{
+  "waitlist_called": {
+    "title": "{organizationName}: it's your turn",
+    "body": "Now calling {ticketNumber}. Please check in at the counter."
+  }
+}

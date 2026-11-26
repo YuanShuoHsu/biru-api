@@ -14,6 +14,7 @@ import {
   type WaitlistUpdatedEvent,
 } from '../events/waitlist-updated.event.js';
 import { MailsService } from '../mails/mails.service.js';
+import { NotificationsService } from '../push/notifications.service.js';
 
 import {
   DEFAULT_HOLD_MINUTES,
@@ -28,6 +29,7 @@ export class WaitlistNotificationsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly mails: MailsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   @OnEvent(WAITLIST_UPDATED_EVENT, { async: true })
@@ -75,43 +77,79 @@ export class WaitlistNotificationsService {
           ),
         )
         .where(eq(waitlistTicket.id, ticket.id));
-      if (!found?.email) return;
+      if (!found) return;
 
       const storeClosed = ticket.status === 'cancelled';
       if (storeClosed && found.cancelReason !== 'storeClosed') return;
 
-      await this.mails.sendWaitlistNotification({
-        email: found.email,
-        holdUntil: getHoldUntil(
-          found,
-          found.holdMinutes || DEFAULT_HOLD_MINUTES,
-        ),
-        kind: storeClosed
-          ? 'cancelled'
-          : ticket.status === 'waiting'
-            ? 'joined'
-            : 'called',
-        lang: found.userLang ?? found.locale,
-        note: storeClosed
-          ? (
-              await this.db.query.organizationSpecialHours.findFirst({
-                where: and(
-                  eq(
-                    organizationSpecialHours.organizationId,
-                    found.organizationId,
-                  ),
-                  lte(organizationSpecialHours.validFrom, found.serviceDate),
-                  gte(organizationSpecialHours.validThrough, found.serviceDate),
-                ),
-                columns: { note: true },
-              })
-            )?.note
-          : null,
-        organizationName: found.organizationName,
-        partySize: found.partySize,
-        path: `/waitlist/${found.organizationSlug}/${found.id}`,
-        ticketNumber: formatTicketNumber(found.prefix, found.number),
-      });
+      const { email } = found;
+      const holdMinutes = found.holdMinutes || DEFAULT_HOLD_MINUTES;
+      const kind = storeClosed
+        ? 'cancelled'
+        : ticket.status === 'waiting'
+          ? 'joined'
+          : 'called';
+      const path = `/waitlist/${found.organizationSlug}/${found.id}`;
+      const ticketNumber = formatTicketNumber(found.prefix, found.number);
+      const sendMail = email
+        ? async () =>
+            this.mails.sendWaitlistNotification({
+              email,
+              holdUntil: getHoldUntil(found, holdMinutes),
+              kind,
+              lang: found.userLang ?? found.locale,
+              note: storeClosed
+                ? (
+                    await this.db.query.organizationSpecialHours.findFirst({
+                      where: and(
+                        eq(
+                          organizationSpecialHours.organizationId,
+                          found.organizationId,
+                        ),
+                        lte(
+                          organizationSpecialHours.validFrom,
+                          found.serviceDate,
+                        ),
+                        gte(
+                          organizationSpecialHours.validThrough,
+                          found.serviceDate,
+                        ),
+                      ),
+                      columns: { note: true },
+                    })
+                  )?.note
+                : null,
+              organizationName: found.organizationName,
+              partySize: found.partySize,
+              path,
+              ticketNumber,
+            })
+        : null;
+
+      if (kind === 'cancelled') {
+        await sendMail?.();
+        return;
+      }
+
+      await this.notifications.notify(
+        { waitlistTicketId: found.id },
+        {
+          push:
+            kind === 'called'
+              ? {
+                  title: 'push.waitlist_called.title',
+                  body: 'push.waitlist_called.body',
+                  args: {
+                    organizationName: found.organizationName,
+                    ticketNumber,
+                  },
+                  path,
+                  ttlSeconds: holdMinutes * 60,
+                }
+              : null,
+          email: sendMail,
+        },
+      );
     } catch (error) {
       this.logger.error(error);
     }

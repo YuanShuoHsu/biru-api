@@ -931,6 +931,12 @@ export type I18nTranslations = {
             "text": string;
         };
     };
+    "push": {
+        "waitlist_called": {
+            "title": string;
+            "body": string;
+        };
+    };
     "validation": {
         "businessNumber": string;
         "invoiceCertificate": string;

@@ -34,9 +34,16 @@ const S3 = {
   S3_PUBLIC_URL: 'https://ref.supabase.co/storage/v1/object/public/images',
 };
 
+const VAPID = {
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY: Buffer.alloc(65, 4).toString('base64url'),
+  VAPID_PRIVATE_KEY: Buffer.alloc(32, 7).toString('base64url'),
+  VAPID_SUBJECT: 'mailto:push@example.com',
+};
+
 const FULL = {
   ...REQUIRED,
   ...S3,
+  ...VAPID,
   ECPAY_CREDIT_CHECK_CODE: '59997889',
   TRUSTED_PROXIES: '10.0.0.0/8',
   CLIENT_IP_HEADER: 'CF-Connecting-IP',
@@ -105,7 +112,29 @@ describe('envSchema', () => {
     expect(failing({ ...REQUIRED, ...empty })).toEqual([]);
   });
 
+  it('fails each missing VAPID variable when only some are set, and treats empty ones as unset', () => {
+    expect(
+      failing({ ...REQUIRED, ...VAPID, VAPID_PRIVATE_KEY: undefined }),
+    ).toEqual(['VAPID_PRIVATE_KEY']);
+    expect(
+      failing({
+        ...REQUIRED,
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: '',
+        VAPID_PRIVATE_KEY: '',
+        VAPID_SUBJECT: '',
+      }),
+    ).toEqual([]);
+    expect(
+      failing({ ...FULL, VAPID_SUBJECT: 'https://biru.example.com/contact' }),
+    ).toEqual([]);
+  });
+
   it.each([
+    ['NEXT_PUBLIC_VAPID_PUBLIC_KEY', Buffer.alloc(64).toString('base64url')],
+    ['NEXT_PUBLIC_VAPID_PUBLIC_KEY', `${VAPID.NEXT_PUBLIC_VAPID_PUBLIC_KEY}=`],
+    ['VAPID_PRIVATE_KEY', Buffer.alloc(32).toString('base64')],
+    ['VAPID_SUBJECT', 'push@example.com'],
+    ['VAPID_SUBJECT', 'http://biru.example.com'],
     ['BETTER_AUTH_URL', 'localhost:3001'],
     ['NEXT_URL', 'not a url'],
     ['NEXT_ADMIN_URL', 'ftp://admin.example.com'],
