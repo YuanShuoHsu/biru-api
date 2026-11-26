@@ -84,7 +84,7 @@ Every PR against `develop` or `master`, and every push to `develop`, runs `lint`
 | DeletedRecordsModule | `src/deleted-records/` | `deleted_record` capture, listing, and restore                                                         |
 | QuantModule          | `src/quant/`           | Pionex trading bots, market data, and AI decisions                                                     |
 | ReportsModule        | `src/reports/`         | Sales, inventory, personnel cost and break-even reports, and their CSV exports                         |
-| PushModule           | `src/push/`            | Web Push subscriptions (storage only; sending comes later)                                             |
+| PushModule           | `src/push/`            | Web Push subscriptions; `NotificationsService` (`NotificationsModule`, imported by WaitlistModule)     |
 | HealthModule         | `src/health/`          | `GET /api/health` (Terminus): checks the database with `select 1`                                      |
 | ChecklistsModule     | `src/checklists/`      | 例行檢查表: per-store checklist templates and their runs                                               |
 | CashDevicesModule    | `src/cash-devices/`    | 現金自助繳費機台: per-store cash devices and their event ledger                                        |
@@ -594,6 +594,12 @@ value). A new variable must be added to that schema with the rule the code actua
   Only 5xx and non-`HttpException` errors are sent (from `AllExceptionsFilter` / `AllWsExceptionsFilter`), never 4xx,
   with no cookies, bodies, IPs, URL query strings or SQL params, and only the user id
 - `SENTRY_ENVIRONMENT` — Sentry `environment` of the events (e.g. `production`, `stage`)
+- `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` — Web Push VAPID keys
+  (`npx web-push generate-vapid-keys`; the public key is the frontends' variable of the same name) and the `mailto:` or
+  `https:` contact sent to push services; set all three or none. None turns push off, so `NotificationsService` (`src/push/`) sends every
+  notification by email. With them set it pushes to the recipient's subscriptions and mails only when there is none or
+  every push failed, deleting a subscription the push service answers 404 / 410 for. It connects only to a push host whose
+  every DNS address is public, pinned to those addresses, with no redirects and a 10-second socket timeout
 - `PORT` — HTTP port (default 3001)
 
 `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN`,

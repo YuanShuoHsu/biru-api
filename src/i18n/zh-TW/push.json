@@ -1,0 +1,6 @@
+{
+  "waitlist_called": {
+    "title": "{organizationName}：輪到您了",
+    "body": "現在叫號 {ticketNumber}，請至櫃檯報到。"
+  }
+}

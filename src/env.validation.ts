@@ -14,6 +14,12 @@ const S3_VARIABLES = [
 
 const MAIL_VARIABLES = ['MAIL_HOST', 'MAIL_USER', 'MAIL_PASS'] as const;
 
+const VAPID_VARIABLES = [
+  'NEXT_PUBLIC_VAPID_PUBLIC_KEY',
+  'VAPID_PRIVATE_KEY',
+  'VAPID_SUBJECT',
+] as const;
+
 const isHttpUrl = (value: string) =>
   z.url({ protocol: /^https?$/ }).safeParse(value).success;
 
@@ -27,6 +33,18 @@ const required = z
   .min(1, { error: 'is required', abort: true });
 
 const requiredUrl = required.refine(isHttpUrl, 'must be an http(s) URL');
+
+const optionalVapidKey = (bytes: number) =>
+  z
+    .string()
+    .refine(
+      (value) =>
+        !value ||
+        (/^[A-Za-z0-9_-]+$/.test(value) &&
+          Buffer.from(value, 'base64url').length === bytes),
+      `must be a ${bytes}-byte URL-safe base64 key`,
+    )
+    .optional();
 
 const optionalUrl = z
   .string()
@@ -68,6 +86,19 @@ export const envSchema = z
     S3_SECRET_ACCESS_KEY: z.string().optional(),
     S3_BUCKET: z.string().optional(),
     S3_PUBLIC_URL: optionalUrl,
+    NEXT_PUBLIC_VAPID_PUBLIC_KEY: optionalVapidKey(65),
+    VAPID_PRIVATE_KEY: optionalVapidKey(32),
+    // https://www.rfc-editor.org/rfc/rfc8292#section-2.1
+    VAPID_SUBJECT: z
+      .string()
+      .refine(
+        (value) =>
+          !value ||
+          /^mailto:[^\s@]+@[^\s@]+$/.test(value) ||
+          z.url({ protocol: /^https$/ }).safeParse(value).success,
+        'must be a mailto: or https: URL',
+      )
+      .optional(),
     TRUSTED_PROXIES: z.string().optional(),
     CLIENT_IP_HEADER: z.string().optional(),
     CLIENT_IP_FORWARD_SECRET: z
@@ -105,6 +136,14 @@ export const envSchema = z
             code: 'custom',
             path: [name],
             message: 'is required when any S3 variable is set',
+          });
+      const unsetVapid = VAPID_VARIABLES.filter((name) => !env[name]);
+      if (unsetVapid.length && unsetVapid.length < VAPID_VARIABLES.length)
+        for (const name of unsetVapid)
+          ctx.addIssue({
+            code: 'custom',
+            path: [name],
+            message: 'is required when any VAPID variable is set',
           });
     },
     { when: () => true },

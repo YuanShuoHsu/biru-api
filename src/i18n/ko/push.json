@@ -1,0 +1,6 @@
+{
+  "waitlist_called": {
+    "title": "{organizationName}: 고객님 차례입니다",
+    "body": "{ticketNumber}번을 호출하고 있습니다. 카운터로 와 주세요."
+  }
+}
