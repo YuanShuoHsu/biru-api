@@ -1,5 +1,5 @@
 {
-  "id": "48aedfbb-b4a8-415a-8076-093fababce6f",
+  "id": "ce4c05e3-0a06-4c03-884a-6a82799ebb0b",
   "prevId": "13b2501d-07fa-44db-a3c3-8ab0725e4f69",
   "version": "7",
   "dialect": "postgresql",
@@ -8757,6 +8757,13 @@
         "sweetness_level": {
           "name": "sweetness_level",
           "type": "sweetness_level",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cup_seal": {
+          "name": "cup_seal",
+          "type": "cup_seal",
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": false

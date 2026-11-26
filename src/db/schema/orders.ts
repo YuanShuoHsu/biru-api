@@ -13,6 +13,7 @@ import {
 
 import { timestamps } from './columns.helpers.js';
 import {
+  cupSealEnum,
   servingTemperatureLevelEnum,
   sweetnessLevelEnum,
   type CupSeal,
@@ -97,6 +98,7 @@ export interface OrderItemAddOnSnapshot {
   // 舊快照沒有此欄
   servingTemperatureLevel?: ServingTemperatureLevel | null;
   sweetnessLevel?: SweetnessLevel | null;
+  cupSeal?: CupSeal;
 }
 
 // https://schema.org/Order
@@ -201,6 +203,7 @@ export const orderItem = pgTable(
     ),
     // 可調時為客人所選、固定時為品項設定的等級；不適用為 null
     sweetnessLevel: sweetnessLevelEnum('sweetness_level'),
+    cupSeal: cupSealEnum('cup_seal'),
     // https://schema.org/priceCurrency
     priceCurrency: text('price_currency').default('TWD'),
     unitPrice: numeric('unit_price', { precision: 10, scale: 2 }).notNull(),

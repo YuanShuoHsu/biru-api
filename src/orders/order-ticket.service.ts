@@ -193,7 +193,8 @@ export class OrderTicketService implements PrintJobSource {
   }
 
   private label<
-    G extends 'modes' | 'servingTemperatureLevels' | 'sweetnessLevels',
+    G extends
+      'cupSeals' | 'modes' | 'servingTemperatureLevels' | 'sweetnessLevels',
   >(
     group: G,
     key: keyof I18nTranslations['common']['orderTickets'][G] & string,
@@ -1085,7 +1086,7 @@ export class OrderTicketService implements PrintJobSource {
   private describeItem(
     item: Pick<
       OrderItem | OrderItemAddOnSnapshot,
-      'modifiers' | 'servingTemperatureLevel' | 'sweetnessLevel'
+      'cupSeal' | 'modifiers' | 'servingTemperatureLevel' | 'sweetnessLevel'
     >,
   ): string[] {
     return [
@@ -1096,6 +1097,9 @@ export class OrderTicketService implements PrintJobSource {
         ? this.label('sweetnessLevels', item.sweetnessLevel)
         : null,
       ...(item.modifiers ?? []).map(({ modifierName }) => modifierName),
+      item.cupSeal && !item.modifiers?.some((mod) => mod.cupSeal)
+        ? this.label('cupSeals', item.cupSeal)
+        : null,
     ].filter((detail): detail is string => !!detail);
   }
 

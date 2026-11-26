@@ -338,12 +338,16 @@ stock non-negative: placing an order uses `enforceStock`, and counts and opening
 the DTOs. A negative level means the books are wrong and staff must recount; don't turn it into a reason to reject paid
 orders, and don't accept negative counts.
 
-Order consumption also deducts takeaway packaging: for each item and add-on of an order whose `mode` is not `dineIn`, the
-`takeaway_packaging` row matching its serving temperature (`SERVING_TEMPERATURE_OF_LEVEL`), the `cupSize` (default `12oz`)
-and `cupSeal` its modifiers' snapshot carries (copied from `catalog_modifier` when the order is placed) gives a recipe consumed
-once per serving, like any other recipe (`enforceStock` included). Without a `cupSeal` modifier the brand-wide default applies
-(`DEFAULT_CUP_SEAL`: hot drinks a lid, iced drinks a film), so customers choose a seal only as an exception. No serving
-temperature, a `customerProvidedCup` modifier or no matching row means nothing is deducted and nothing is checked.
+Order consumption also deducts takeaway packaging: for each item and add-on with a stored seal, the `takeaway_packaging`
+row matching its serving temperature (`SERVING_TEMPERATURE_OF_LEVEL`), the `cupSize` its modifiers' snapshot carries
+(copied from `catalog_modifier` when the order is placed; default `12oz`) and that seal gives a recipe consumed once per
+serving, like any other recipe (`enforceStock` included). The seal is decided once, when the order is placed
+(`OrderPricingService`), and stored in `order_item.cup_seal` and the add-on snapshot's `cupSeal`: a `cupSeal` modifier, or
+else the brand-wide default (`DEFAULT_CUP_SEAL`: hot drinks a lid, iced drinks a film), so customers choose a seal only as
+an exception. Dine-in orders, items without a serving temperature and `customerProvidedCup` items get no seal. Consumption
+and the order ticket (which prints a default seal so staff can see it) both read the stored seal, never recompute it, so
+an item without one, including every order placed before it was stored, deducts nothing and checks nothing; no matching
+row does the same.
 
 An ingredient with `unlimitedStock` is never deducted: order consumption, batch materials and low-stock checks skip it, and
 recording waste on it is rejected with `unlimitedStockWaste` in the service, not only hidden in the admin UI.

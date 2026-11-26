@@ -13,8 +13,12 @@ import {
   type PaymentStatus,
 } from '../../db/schema/invoices.js';
 import {
+  cupSealEnum,
+  cupSizeEnum,
   servingTemperatureLevelEnum,
   sweetnessLevelEnum,
+  type CupSeal,
+  type CupSize,
   type ServingTemperatureLevel,
   type SweetnessLevel,
 } from '../../db/schema/enums.js';
@@ -41,6 +45,18 @@ class OrderItemModifierSnapshotDto {
     description: '客人自備杯；收杯前這杯不排工作單',
   })
   customerProvidedCup?: boolean;
+  @ApiPropertyOptional({
+    description: '這個選項指定的杯型',
+    enum: cupSizeEnum.enumValues,
+    enumName: 'CupSize',
+  })
+  cupSize?: CupSize;
+  @ApiPropertyOptional({
+    description: '這個選項指定的封口',
+    enum: cupSealEnum.enumValues,
+    enumName: 'CupSeal',
+  })
+  cupSeal?: CupSeal;
 }
 
 class OrderItemAddOnSnapshotDto {
@@ -61,6 +77,12 @@ class OrderItemAddOnSnapshotDto {
     enumName: 'SweetnessLevel',
   })
   sweetnessLevel?: SweetnessLevel | null;
+  @ApiPropertyOptional({
+    description: '下單時決定的封口；內用、自備杯或不分冷熱時不帶',
+    enum: cupSealEnum.enumValues,
+    enumName: 'CupSeal',
+  })
+  cupSeal?: CupSeal;
 }
 
 export class OrderItemResponseDto {
@@ -83,6 +105,12 @@ export class OrderItemResponseDto {
     enumName: 'SweetnessLevel',
   })
   sweetnessLevel?: SweetnessLevel | null;
+  @ApiPropertyOptional({
+    description: '下單時決定的封口；內用、自備杯或不分冷熱時為 null',
+    enum: cupSealEnum.enumValues,
+    enumName: 'CupSeal',
+  })
+  cupSeal?: CupSeal | null;
   @ApiPropertyOptional({ type: [OrderItemModifierSnapshotDto] })
   modifiers?: OrderItemModifierSnapshotDto[] | null;
   @ApiPropertyOptional({ type: [OrderItemAddOnSnapshotDto] })

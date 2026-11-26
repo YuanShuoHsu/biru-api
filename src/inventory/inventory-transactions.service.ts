@@ -14,10 +14,7 @@ import {
   type SQL,
 } from 'drizzle-orm';
 
-import {
-  DEFAULT_CUP_SEAL,
-  SERVING_TEMPERATURE_OF_LEVEL,
-} from '../common/constants/serving-temperature.js';
+import { SERVING_TEMPERATURE_OF_LEVEL } from '../common/constants/serving-temperature.js';
 import { UNIT_FACTORS } from '../common/constants/units.js';
 import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
 import {
@@ -122,21 +119,15 @@ const packagingKey = (
 const takeawayPackagingKey = (
   servingTemperatureLevel: ServingTemperatureLevel | null | undefined,
   modifiers: OrderItemModifierSnapshot[] | null | undefined,
-): string | null => {
-  if (
-    !servingTemperatureLevel ||
-    modifiers?.some((mod) => mod.customerProvidedCup)
-  )
-    return null;
-  const servingTemperature =
-    SERVING_TEMPERATURE_OF_LEVEL[servingTemperatureLevel];
-  return packagingKey(
-    servingTemperature,
-    modifiers?.find((mod) => mod.cupSize)?.cupSize ?? '12oz',
-    modifiers?.find((mod) => mod.cupSeal)?.cupSeal ??
-      DEFAULT_CUP_SEAL[servingTemperature],
-  );
-};
+  cupSeal: CupSeal | null | undefined,
+): string | null =>
+  servingTemperatureLevel && cupSeal
+    ? packagingKey(
+        SERVING_TEMPERATURE_OF_LEVEL[servingTemperatureLevel],
+        modifiers?.find((mod) => mod.cupSize)?.cupSize ?? '12oz',
+        cupSeal,
+      )
+    : null;
 
 const INVENTORY_TRANSACTION_SORT_NULLS: Partial<Record<string, NullsAs>> = {
   unitCost: 'last',
@@ -962,7 +953,7 @@ export class InventoryTransactionsService {
     offerStockChanged: boolean;
   }> {
     const [placed] = await tx
-      .select({ mode: order.mode, sellerId: order.sellerId })
+      .select({ sellerId: order.sellerId })
       .from(order)
       .where(eq(order.id, orderId));
     if (!placed?.sellerId) return { lowStock: [], offerStockChanged: false };
@@ -970,6 +961,7 @@ export class InventoryTransactionsService {
     const items = await tx
       .select({
         addOns: orderItem.addOns,
+        cupSeal: orderItem.cupSeal,
         menuItemId: orderItem.menuItemId,
         modifiers: orderItem.modifiers,
         orderQuantity: orderItem.orderQuantity,
@@ -983,6 +975,7 @@ export class InventoryTransactionsService {
     const packagingByKey = new Map<string, PackagingServings>();
     for (const {
       addOns,
+      cupSeal,
       menuItemId,
       modifiers,
       orderQuantity,
@@ -1004,14 +997,14 @@ export class InventoryTransactionsService {
           modifierId,
           (servingsByModifierId.get(modifierId) ?? 0) + orderQuantity,
         );
-      if (placed.mode === 'dineIn') continue;
       for (const cup of [
-        { menuItemId, modifiers, servingTemperatureLevel },
+        { cupSeal, menuItemId, modifiers, servingTemperatureLevel },
         ...(addOns ?? []),
       ]) {
         const key = takeawayPackagingKey(
           cup.servingTemperatureLevel,
           cup.modifiers,
+          cup.cupSeal,
         );
         if (!key) continue;
         const packaging = packagingByKey.get(key);

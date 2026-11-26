@@ -303,6 +303,10 @@
     "personnelInputTax": "Personnel costs have no tax invoice, so their input tax can't be deductible."
   },
   "orderTickets": {
+    "cupSeals": {
+      "film": "Film seal",
+      "lid": "Lid"
+    },
     "modes": {
       "counter": "In-store takeout",
       "dineIn": "Dine-in",

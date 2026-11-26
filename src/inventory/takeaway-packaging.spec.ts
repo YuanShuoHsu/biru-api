@@ -24,7 +24,7 @@ import {
 
 const ORG = 'org';
 
-describe('外帶杯材依冷熱、容量與封口扣庫存', () => {
+describe('外帶杯材依冷熱、容量與下單時存下的封口扣庫存', () => {
   let client: PGlite;
   let db: DrizzleDB;
   let service: InventoryTransactionsService;
@@ -113,6 +113,7 @@ describe('外帶杯材依冷熱、容量與封口扣庫存', () => {
       menuItemId?: string;
       quantity: number;
       servingTemperatureLevel: ServingTemperatureLevel | null;
+      cupSeal: CupSeal | null;
       modifiers: OrderItemModifierSnapshot[];
       addOns?: object[];
     }[],
@@ -124,8 +125,8 @@ describe('外帶杯材依冷熱、容量與封口扣庫存', () => {
     );
     for (const [index, item] of items.entries())
       await client.query(
-        `insert into order_item (id, order_id, menu_item_id, menu_item_name, order_quantity, unit_price, add_ons, modifiers, serving_temperature_level)
-         values ($1, $2, $3, $3, $4, 100, $5, $6, $7)`,
+        `insert into order_item (id, order_id, menu_item_id, menu_item_name, order_quantity, unit_price, add_ons, modifiers, serving_temperature_level, cup_seal)
+         values ($1, $2, $3, $3, $4, 100, $5, $6, $7, $8)`,
         [
           `${id}-${index}`,
           id,
@@ -134,6 +135,7 @@ describe('外帶杯材依冷熱、容量與封口扣庫存', () => {
           JSON.stringify(item.addOns ?? []),
           JSON.stringify(item.modifiers),
           item.servingTemperatureLevel,
+          item.cupSeal,
         ],
       );
   };
@@ -156,7 +158,12 @@ describe('外帶杯材依冷熱、容量與封口扣庫存', () => {
 
   it('外帶熱飲選杯蓋扣熱飲杯與杯蓋，份數為品項數量', async () => {
     await addOrder('o1', 'counter', [
-      { quantity: 2, servingTemperatureLevel: 'Warm', modifiers: [lid] },
+      {
+        quantity: 2,
+        servingTemperatureLevel: 'Warm',
+        cupSeal: 'lid',
+        modifiers: [lid],
+      },
     ]);
 
     await consume('o1');
@@ -176,14 +183,25 @@ describe('外帶杯材依冷熱、容量與封口扣庫存', () => {
       [ORG],
     );
     await addOrder('o1', 'counter', [
-      { quantity: 2, servingTemperatureLevel: 'Hot', modifiers: [lid] },
+      {
+        quantity: 2,
+        servingTemperatureLevel: 'Hot',
+        cupSeal: 'lid',
+        modifiers: [lid],
+      },
       {
         menuItemId: 'tea',
         quantity: 1,
         servingTemperatureLevel: 'Warm',
+        cupSeal: 'lid',
         modifiers: [lid],
       },
-      { quantity: 3, servingTemperatureLevel: 'NoIce', modifiers: [lid] },
+      {
+        quantity: 3,
+        servingTemperatureLevel: 'NoIce',
+        cupSeal: 'lid',
+        modifiers: [lid],
+      },
     ]);
 
     await consume('o1');
@@ -196,6 +214,7 @@ describe('外帶杯材依冷熱、容量與封口扣庫存', () => {
       {
         quantity: 3,
         servingTemperatureLevel: 'LessIce',
+        cupSeal: 'film',
         modifiers: [large, film],
       },
     ]);
@@ -215,13 +234,22 @@ describe('外帶杯材依冷熱、容量與封口扣庫存', () => {
     });
   });
 
-  it('加購的飲品依自己的冷熱與選項另扣一份杯材', async () => {
+  it('加購的飲品依自己的冷熱與存下的封口另扣一份杯材，沒存封口的不扣', async () => {
     await addOrder('o1', 'counter', [
       {
         quantity: 1,
         servingTemperatureLevel: 'Hot',
+        cupSeal: 'lid',
         modifiers: [lid],
         addOns: [
+          {
+            menuItemId: 'tea',
+            menuItemName: '紅茶',
+            modifiers: [large],
+            servingTemperatureLevel: 'RegularIce',
+            cupSeal: 'film',
+            unitPrice: '10',
+          },
           {
             menuItemId: 'tea',
             menuItemName: '紅茶',
@@ -249,13 +277,25 @@ describe('外帶杯材依冷熱、容量與封口扣庫存', () => {
     });
   });
 
-  it('沒有選封口時熱飲用杯蓋、冷飲用封膜', async () => {
+  it('依存下的封口扣，不看選項，也不再補預設', async () => {
     await addOrder('o1', 'counter', [
-      { quantity: 1, servingTemperatureLevel: 'Hot', modifiers: [] },
+      {
+        quantity: 1,
+        servingTemperatureLevel: 'Hot',
+        cupSeal: 'lid',
+        modifiers: [film],
+      },
       {
         quantity: 2,
         servingTemperatureLevel: 'RegularIce',
+        cupSeal: 'film',
         modifiers: [large],
+      },
+      {
+        quantity: 1,
+        servingTemperatureLevel: 'Hot',
+        cupSeal: null,
+        modifiers: [],
       },
     ]);
 
@@ -269,18 +309,34 @@ describe('外帶杯材依冷熱、容量與封口扣庫存', () => {
     });
   });
 
-  it('自備環保杯、內用、沒有冷熱的品項不扣', async () => {
+  it('沒有存封口（舊訂單、內用、自備杯）或沒有冷熱的品項不扣', async () => {
     await addOrder('o1', 'counter', [
       {
         quantity: 1,
         servingTemperatureLevel: 'Hot',
+        cupSeal: null,
         modifiers: [lid, ownCup],
       },
-      { quantity: 1, servingTemperatureLevel: 'Hot', modifiers: [ownCup] },
-      { quantity: 1, servingTemperatureLevel: null, modifiers: [lid] },
+      {
+        quantity: 1,
+        servingTemperatureLevel: 'Hot',
+        cupSeal: null,
+        modifiers: [lid],
+      },
+      {
+        quantity: 1,
+        servingTemperatureLevel: null,
+        cupSeal: 'lid',
+        modifiers: [lid],
+      },
     ]);
     await addOrder('o2', 'dineIn', [
-      { quantity: 1, servingTemperatureLevel: 'Hot', modifiers: [lid] },
+      {
+        quantity: 1,
+        servingTemperatureLevel: 'Hot',
+        cupSeal: null,
+        modifiers: [lid],
+      },
     ]);
 
     await consume('o1');
@@ -291,8 +347,18 @@ describe('外帶杯材依冷熱、容量與封口扣庫存', () => {
 
   it('沒有對應的包材設定時不扣也不擋單', async () => {
     await addOrder('o1', 'counter', [
-      { quantity: 1, servingTemperatureLevel: 'Hot', modifiers: [film] },
-      { quantity: 1, servingTemperatureLevel: 'NoIce', modifiers: [lid] },
+      {
+        quantity: 1,
+        servingTemperatureLevel: 'Hot',
+        cupSeal: 'film',
+        modifiers: [film],
+      },
+      {
+        quantity: 1,
+        servingTemperatureLevel: 'NoIce',
+        cupSeal: 'lid',
+        modifiers: [lid],
+      },
     ]);
 
     await expect(consume('o1')).resolves.toBeDefined();
@@ -308,6 +374,7 @@ describe('外帶杯材依冷熱、容量與封口扣庫存', () => {
         menuItemId: 'tea',
         quantity: 2,
         servingTemperatureLevel: 'Hot',
+        cupSeal: 'lid',
         modifiers: [lid],
       },
     ]);
@@ -328,7 +395,12 @@ describe('外帶杯材依冷熱、容量與封口扣庫存', () => {
       `update ingredient set unlimited_stock = true where id = 'hot-lid'`,
     );
     await addOrder('o1', 'counter', [
-      { quantity: 1, servingTemperatureLevel: 'Hot', modifiers: [lid] },
+      {
+        quantity: 1,
+        servingTemperatureLevel: 'Hot',
+        cupSeal: 'lid',
+        modifiers: [lid],
+      },
     ]);
 
     await consume('o1');

@@ -734,6 +734,7 @@ export class OrdersService {
             orderItemsData.map((i, index) => ({
               id: i.id,
               addOns: i.addOns,
+              cupSeal: i.cupSeal,
               discount: (applied?.itemDiscounts[index] ?? 0).toFixed(2),
               menuItemId: i.menuItemId,
               menuItemName: i.menuItemName,

@@ -13,6 +13,7 @@ CREATE TABLE "takeaway_packaging" (
 --> statement-breakpoint
 ALTER TABLE "catalog_modifier" ADD COLUMN "cup_size" "cup_size";--> statement-breakpoint
 ALTER TABLE "catalog_modifier" ADD COLUMN "cup_seal" "cup_seal";--> statement-breakpoint
+ALTER TABLE "order_item" ADD COLUMN "cup_seal" "cup_seal";--> statement-breakpoint
 ALTER TABLE "takeaway_packaging" ADD CONSTRAINT "takeaway_packaging_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "takeaway_packaging" ADD CONSTRAINT "takeaway_packaging_recipe_id_recipe_id_fk" FOREIGN KEY ("recipe_id") REFERENCES "public"."recipe"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "takeawayPackaging_organizationId_temperature_size_seal_uidx" ON "takeaway_packaging" USING btree ("organization_id","serving_temperature","cup_size","cup_seal");--> statement-breakpoint

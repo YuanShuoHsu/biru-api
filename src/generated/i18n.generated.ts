@@ -373,6 +373,10 @@ export type I18nTranslations = {
             "personnelInputTax": string;
         };
         "orderTickets": {
+            "cupSeals": {
+                "film": string;
+                "lid": string;
+            };
             "modes": {
                 "counter": string;
                 "dineIn": string;

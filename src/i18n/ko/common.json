@@ -303,6 +303,10 @@
     "personnelInputTax": "인건비에는 통일 영수증이 없어 매입세액 공제 대상으로 설정할 수 없습니다"
   },
   "orderTickets": {
+    "cupSeals": {
+      "film": "필름",
+      "lid": "뚜껑"
+    },
     "modes": {
       "counter": "매장 포장",
       "dineIn": "매장 식사",

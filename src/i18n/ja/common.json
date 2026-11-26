@@ -303,6 +303,10 @@
     "personnelInputTax": "人件費には統一発票がないため、仕入税額控除の対象にできません"
   },
   "orderTickets": {
+    "cupSeals": {
+      "film": "フィルム",
+      "lid": "フタ"
+    },
     "modes": {
       "counter": "店頭お持ち帰り",
       "dineIn": "店内",

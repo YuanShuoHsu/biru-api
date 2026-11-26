@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { I18nContext } from 'nestjs-i18n';
 
 import type { PriceSpecification } from '../db/schema/menus.js';
+import type { OrderMode } from '../db/schema/orders.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import type { CreateOrderItemDto } from './dto/create-order.dto.js';
@@ -556,6 +557,157 @@ describe('OrderPricingService.resolveOrderItems', () => {
 
       expect(item.addOns[0].modifiers[0].priceAdjustment).toBe('-2.00');
       expect(item.unitPrice).toBe('12.00');
+    });
+  });
+
+  describe('外帶飲品下單時決定封口，選了封口照選項，沒選時熱飲杯蓋、冰飲封膜', () => {
+    const drinkOf = (id: string, name: string) => ({
+      ...menuItemOf(id, name),
+      availableModes: ['counter', 'dineIn'],
+      servingTemperatures: ['Hot', 'Iced'],
+    });
+    const drink = drinkOf('latte', '拿鐵');
+    const tea = drinkOf('tea', '紅茶');
+    const sealingOf = (id: string, catalogModifier: object) => ({
+      availability: 'InStock',
+      availableModes: ['counter', 'dineIn'],
+      catalogModifier,
+      displayName: { 'zh-TW': id },
+      id,
+      modifierGroup: { displayName: { 'zh-TW': '封口方式' }, menuId: MENU_ID },
+      modifierGroupId: 'sealing',
+      priceAdjustment: null,
+    });
+    const lid = sealingOf('lid', {
+      cupSeal: 'lid',
+      cupSize: null,
+      customerProvidedCup: false,
+    });
+    const ownCup = sealingOf('own-cup', {
+      cupSeal: null,
+      cupSize: null,
+      customerProvidedCup: true,
+    });
+
+    const resolve = async (
+      cartItem: CreateOrderItemDto,
+      mode: OrderMode = 'counter',
+      menuItems: object[] = [drink, tea],
+    ) => {
+      const service = createService(
+        menuItems,
+        [],
+        null,
+        [drink.id, tea.id].map((menuItemId) => ({
+          menuItemId,
+          modifierGroup: {
+            id: 'sealing',
+            maxSelectionCount: 1,
+            minSelectionCount: 0,
+            modifiers: [],
+          },
+        })),
+        [lid, ownCup],
+        [
+          {
+            addOnMenuItemId: tea.id,
+            addOnMenuSectionId: null,
+            menuItemId: drink.id,
+          },
+        ],
+      );
+      const [item] = await service.resolveOrderItems('org', [cartItem], mode);
+      return item;
+    };
+
+    it('外帶熱飲沒選封口用杯蓋', async () => {
+      const item = await resolve(
+        cartItemOf({ servingTemperatureLevel: 'Hot' }),
+      );
+
+      expect(item.cupSeal).toBe('lid');
+    });
+
+    it('外帶冰飲沒選封口用封膜', async () => {
+      const item = await resolve(
+        cartItemOf({ servingTemperatureLevel: 'RegularIce' }),
+      );
+
+      expect(item.cupSeal).toBe('film');
+    });
+
+    it('冰飲選了杯蓋就用杯蓋', async () => {
+      const item = await resolve(
+        cartItemOf({
+          modifiers: { sealing: ['lid'] },
+          servingTemperatureLevel: 'LessIce',
+        }),
+      );
+
+      expect(item.cupSeal).toBe('lid');
+    });
+
+    it('自備杯、內用、不分冷熱的品項沒有封口', async () => {
+      const ownCupItem = await resolve(
+        cartItemOf({
+          modifiers: { sealing: ['own-cup'] },
+          servingTemperatureLevel: 'Hot',
+        }),
+      );
+      const dineInItem = await resolve(
+        cartItemOf({ servingTemperatureLevel: 'Hot' }),
+        'dineIn',
+      );
+      const noTemperatureItem = await resolve(cartItemOf(), 'counter', [
+        { ...drink, servingTemperatures: [] },
+        tea,
+      ]);
+
+      expect(ownCupItem.cupSeal).toBeNull();
+      expect(dineInItem.cupSeal).toBeNull();
+      expect(noTemperatureItem.cupSeal).toBeNull();
+    });
+
+    it('加購的飲品各自決定封口，自備杯不帶', async () => {
+      const item = await resolve(
+        cartItemOf({
+          addOns: [
+            {
+              menuItemId: tea.id,
+              modifiers: {},
+              servingTemperatureLevel: 'NoIce',
+            },
+            {
+              menuItemId: tea.id,
+              modifiers: { sealing: ['own-cup'] },
+              servingTemperatureLevel: 'Hot',
+            },
+          ],
+          servingTemperatureLevel: 'Hot',
+        }),
+      );
+
+      expect(item.cupSeal).toBe('lid');
+      expect(item.addOns[0].cupSeal).toBe('film');
+      expect(item.addOns[1]).not.toHaveProperty('cupSeal');
+    });
+
+    it('內用的加購飲品不帶封口', async () => {
+      const item = await resolve(
+        cartItemOf({
+          addOns: [
+            {
+              menuItemId: tea.id,
+              modifiers: {},
+              servingTemperatureLevel: 'NoIce',
+            },
+          ],
+          servingTemperatureLevel: 'Hot',
+        }),
+        'dineIn',
+      );
+
+      expect(item.addOns[0]).not.toHaveProperty('cupSeal');
     });
   });
 });
