@@ -169,6 +169,28 @@ describe('外帶杯材依冷熱、容量與封口扣庫存', () => {
     });
   });
 
+  it('同一張單用到同一份包材食譜的份數會加總', async () => {
+    await client.query(
+      `insert into takeaway_packaging (id, organization_id, serving_temperature, cup_size, cup_seal, recipe_id)
+       values ('iced-lid', $1, 'Iced', '12oz', 'lid', 'Hot-12oz-lid')`,
+      [ORG],
+    );
+    await addOrder('o1', 'counter', [
+      { quantity: 2, servingTemperatureLevel: 'Hot', modifiers: [lid] },
+      {
+        menuItemId: 'tea',
+        quantity: 1,
+        servingTemperatureLevel: 'Warm',
+        modifiers: [lid],
+      },
+      { quantity: 3, servingTemperatureLevel: 'NoIce', modifiers: [lid] },
+    ]);
+
+    await consume('o1');
+
+    expect(await levels()).toMatchObject({ 'hot-cup': 94, 'hot-lid': 94 });
+  });
+
   it('外帶冷飲選大杯與封膜扣 16oz 冷飲杯與膠膜，取消後還回去', async () => {
     await addOrder('o1', 'pickup', [
       {
