@@ -212,14 +212,19 @@ export type I18nTranslations = {
             "idempotencyConflict": string;
         };
         "catalog": {
+            "catalogItemListed": string;
+            "catalogItemNotFound": string;
+            "catalogItemSectionOwnerMismatch": string;
             "catalogSectionHasItems": string;
             "catalogSectionHasSubsections": string;
             "catalogSectionInUse": string;
             "catalogSectionNotFound": string;
+            "fixedSweetnessLevelRequired": string;
             "parentCatalogSectionDescendant": string;
             "parentCatalogSectionNotFound": string;
             "parentCatalogSectionOwnerMismatch": string;
             "parentCatalogSectionSelf": string;
+            "promoDateRangeInvalid": string;
         };
         "checklists": {
             "checklistActionNoteRequired": string;

@@ -142,14 +142,19 @@
     "idempotencyConflict": "재시도 내용이 변경되었습니다. 양식을 다시 여세요."
   },
   "catalog": {
+    "catalogItemListed": "다음 매장에 아직 이 상품의 등록 데이터가 있습니다: {names}. 지금은 삭제할 수 없습니다",
+    "catalogItemNotFound": "상품을 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "catalogItemSectionOwnerMismatch": "브랜드 상품은 브랜드 카테고리에만 둘 수 있습니다",
     "catalogSectionHasItems": "이 카테고리에 아직 상품이 있습니다. 먼저 옮기거나 삭제해 주세요",
     "catalogSectionHasSubsections": "이 카테고리에 아직 하위 카테고리가 있습니다. 먼저 옮기거나 삭제해 주세요",
     "catalogSectionInUse": "매장에 이 카테고리 설정이 남아 있어 아직 삭제할 수 없습니다",
     "catalogSectionNotFound": "카테고리를 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "fixedSweetnessLevelRequired": "당도를 고정으로 설정한 경우 고정 당도를 선택해 주세요",
     "parentCatalogSectionDescendant": "카테고리를 자신의 하위 카테고리 아래로 옮길 수 없습니다",
     "parentCatalogSectionNotFound": "상위 카테고리를 찾을 수 없습니다. 삭제되었을 수 있습니다",
     "parentCatalogSectionOwnerMismatch": "상위 카테고리는 브랜드 카테고리이거나 같은 매장의 전용 카테고리여야 합니다",
-    "parentCatalogSectionSelf": "카테고리를 자신의 상위 카테고리로 설정할 수 없습니다"
+    "parentCatalogSectionSelf": "카테고리를 자신의 상위 카테고리로 설정할 수 없습니다",
+    "promoDateRangeInvalid": "프로모션 종료일은 시작일보다 앞설 수 없습니다"
   },
   "checklists": {
     "checklistActionNoteRequired": "범위를 벗어난 수치는 조치 내용을 입력해야 저장할 수 있습니다.",

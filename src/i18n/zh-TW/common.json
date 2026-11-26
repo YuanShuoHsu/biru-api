@@ -142,14 +142,19 @@
     "idempotencyConflict": "重試內容已變更，請關閉表單重新操作。"
   },
   "catalog": {
+    "catalogItemListed": "以下門市仍有此商品的上架資料：{names}，暫時無法刪除",
+    "catalogItemNotFound": "找不到商品，可能已被刪除",
+    "catalogItemSectionOwnerMismatch": "品牌商品只能放在品牌分類",
     "catalogSectionHasItems": "此分類底下還有商品，請先移動或刪除",
     "catalogSectionHasSubsections": "此分類底下還有子分類，請先移動或刪除",
     "catalogSectionInUse": "仍有門市設定了此分類，暫時無法刪除",
     "catalogSectionNotFound": "找不到分類，可能已被刪除",
+    "fixedSweetnessLevelRequired": "甜度設為固定時，請選擇固定甜度",
     "parentCatalogSectionDescendant": "分類不能移到自己的子分類底下",
     "parentCatalogSectionNotFound": "找不到上層分類，可能已被刪除",
     "parentCatalogSectionOwnerMismatch": "上層分類必須是品牌分類，或同一門市的獨家分類",
-    "parentCatalogSectionSelf": "分類不能設為自己的上層分類"
+    "parentCatalogSectionSelf": "分類不能設為自己的上層分類",
+    "promoDateRangeInvalid": "促銷結束日不能早於開始日"
   },
   "checklists": {
     "checklistActionNoteRequired": "數值超出範圍時，請填寫處置說明後再儲存。",
