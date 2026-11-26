@@ -227,17 +227,17 @@ describe.each([
     const before = await userImage('ann@example.com');
     const existing = (await userAudits()).length;
 
+    const after = s3 ? storedUrl('user', OTHER_IMAGE, 'webp') : OTHER_IMAGE;
+
     await request('/update-user', { image: OTHER_IMAGE, bio: 'changed' });
     await request('/update-user', { bio: 'changed again' });
+    await request('/update-user', { image: OTHER_IMAGE });
+    await request('/update-user', { image: null });
 
     const added = (await userAudits()).slice(existing);
     expect(added).toEqual([
-      {
-        image: {
-          before,
-          after: s3 ? storedUrl('user', OTHER_IMAGE, 'webp') : OTHER_IMAGE,
-        },
-      },
+      { image: { before, after } },
+      { image: { before: after, after: null } },
     ]);
   });
 
