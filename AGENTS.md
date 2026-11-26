@@ -316,9 +316,9 @@ tables, and its `before` in `audit_log` rows for these resources from the last 7
 days after the swap. A new path that writes `image` must carry `@Audit` (and `image` must stay out of
 `AUDIT_IGNORED_COLUMNS`), and one that writes `user.image` or `organization.logo` must write its `audit_log` as
 `/update-user` (only the `image` change) and `afterUpdateOrganization` do, or the old image can be swept as soon as it
-is replaced. The one exception is linking Google (`updateUserInfoOnLink`, from `/link-social` or a Google sign-in to an
-account with the same email): better-auth writes the Google picture in the OAuth callback, where no hook knows the old
-avatar, so an uploaded avatar replaced that way has no 7-day grace.
+is replaced. Linking Google (`updateUserInfoOnLink`) replaces the avatar inside the OAuth callback, where no after hook
+runs, so `databaseHooks.account.create.before` keeps the user row and `user.update.after` audits the `image` change;
+re-linking an already linked Google account (`updateAccount`) does not, so the avatar it replaces has no 7-day grace.
 
 ### Points Expiry
 

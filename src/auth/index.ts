@@ -25,7 +25,7 @@ import { authDb, runInAuthSavepoint } from './auth-transaction.js';
 import { assertOrganizationDeletable } from './deletion-guards.js';
 import { cancelExpiredInvitations } from './expired-invitations.js';
 import { exportUserData } from './export-user-data.js';
-import { authHookState, createAuthHooks } from './hooks.js';
+import { authHookState, createAuthHooks, writeAuditEvent } from './hooks.js';
 import type { createAuthI18n } from './i18n.js';
 import { assertKeepsOwner } from './owner-guards.js';
 import { ac, admin, member, owner } from './permissions.js';
@@ -65,6 +65,12 @@ const updatedUserId = (context: GenericEndpointContext | null) =>
   context?.path === '/admin/update-user'
     ? (context.body as { userId?: string } | undefined)?.userId
     : context?.context.session?.user.id;
+
+const isAccountLinkPath = (context: GenericEndpointContext | null) =>
+  !!context &&
+  (context.path.startsWith('/callback/') ||
+    context.path === '/link-social' ||
+    context.path === '/sign-in/social');
 
 const getInitialOrganization = async (userId: string) => {
   const membership = await authDb().query.member.findFirst({
@@ -269,6 +275,18 @@ export const createAuth = (
     },
     appName: 'biru-api',
     databaseHooks: {
+      account: {
+        create: {
+          // updateUserInfoOnLink 會在建立帳號後換掉頭像，換下的頭像要有異動紀錄，孤兒圖片清理才會保留 7 天
+          before: async (account, context) => {
+            if (!isAccountLinkPath(context)) return;
+
+            authHookState().linkedUser = await authDb().query.user.findFirst({
+              where: eq(schema.user.id, account.userId),
+            });
+          },
+        },
+      },
       session: {
         create: {
           before: async (session) => {
@@ -302,6 +320,24 @@ export const createAuth = (
           },
         },
         update: {
+          after: async (user, context) => {
+            if (!isAccountLinkPath(context)) return;
+
+            const before = authHookState().linkedUser;
+            if (before?.id !== user.id) return;
+
+            try {
+              await runInAuthSavepoint(() =>
+                writeAuditEvent(context?.context.session?.user ?? user, {
+                  target: { resource: 'user', id: user.id },
+                  before,
+                  fields: ['image'],
+                }),
+              );
+            } catch (error) {
+              logger.error('Failed to write audit log', error);
+            }
+          },
           before: async (input, context) => {
             const user = normalizeUserFields(input, 'update');
             if (user.phoneNumber === undefined)

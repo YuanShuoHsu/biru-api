@@ -296,7 +296,7 @@ const getLabel = async (resource: AuditedResource, row: AuditRow) => {
   }
 };
 
-const writeEvent = async (
+export const writeAuditEvent = async (
   actor: { id: string; name: string; email: string },
   { target, before, changes: explicitChanges, fields }: Event,
 ) => {
@@ -397,6 +397,7 @@ const countRevokedSessions = async (
 
 type AuthHookState = {
   snapshot?: AuditRow;
+  linkedUser?: AuditRow;
   selfDeletedUserId?: string;
   deletion?: { parent: DeletionParent; sinceId: string };
 };
@@ -599,7 +600,7 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
       if (!actor) return;
 
       await runInAuthSavepoint(async () => {
-        for (const event of events) await writeEvent(actor, event);
+        for (const event of events) await writeAuditEvent(actor, event);
       });
     } catch (error) {
       logger.error('Failed to write audit log', error);
