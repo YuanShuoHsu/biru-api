@@ -127,7 +127,8 @@ export class NotificationsService {
       if (statusCode === 404 || statusCode === 410)
         await this.db
           .delete(pushSubscription)
-          .where(eq(pushSubscription.id, id));
+          .where(eq(pushSubscription.id, id))
+          .catch((deleteError: unknown) => this.logger.error(deleteError));
       else
         this.logger.warn(
           `Push to ${hostname} failed: ${statusCode ?? (error as Error).message}`,

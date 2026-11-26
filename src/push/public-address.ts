@@ -54,7 +54,7 @@ export const isPublicAddress = (address: string): boolean => {
 export const resolvePublicAddresses = async (
   hostname: string,
 ): Promise<LookupAddress[] | null> => {
-  const addresses = await lookup(hostname, { all: true, verbatim: true });
+  const addresses = await lookup(hostname, { all: true, order: 'verbatim' });
   return addresses.length &&
     addresses.every(({ address }) => isPublicAddress(address))
     ? addresses

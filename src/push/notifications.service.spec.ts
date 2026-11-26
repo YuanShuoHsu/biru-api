@@ -190,6 +190,25 @@ describe('NotificationsService.notify', () => {
     },
   );
 
+  it('still emails when deleting a gone subscription fails', async () => {
+    await subscribe('gone');
+    sendNotification.mockRejectedValue(webPushError(410));
+    const deleteSpy = vi.spyOn(db, 'delete').mockImplementationOnce(
+      () =>
+        ({
+          where: () => Promise.reject(new Error('connection lost')),
+        }) as never,
+    );
+
+    await serviceWith(VAPID).notify(
+      { waitlistTicketId: 't1' },
+      { push: CALLED, email },
+    );
+
+    expect(email).toHaveBeenCalledOnce();
+    deleteSpy.mockRestore();
+  });
+
   it('keeps a subscription that failed for another reason and emails when every push failed', async () => {
     await subscribe('a');
     await subscribe('b');
