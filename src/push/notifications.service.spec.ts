@@ -162,6 +162,31 @@ describe('NotificationsService.notify', () => {
     expect(email).toHaveBeenCalledOnce();
   });
 
+  it('pushes an order only to the subscriptions bound to that order', async () => {
+    await client.exec(
+      `insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal) values ('o1', '{"name":"王小明"}', 'pickup', '1', 'Cash', 'org', 100);`,
+    );
+    await subscribe('ticket', 'ko');
+    await db.insert(pushSubscription).values({
+      id: 'order',
+      endpoint: 'https://push.example.com/order',
+      p256dh: 'order-p256dh',
+      auth: 'order-auth',
+      lang: 'en',
+      app: 'storefront',
+      orderId: 'o1',
+    });
+
+    await serviceWith(VAPID).notify({ orderId: 'o1' }, { push: CALLED, email });
+
+    expect(email).not.toHaveBeenCalled();
+    expect(sendNotification).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ endpoint: 'https://push.example.com/order' }),
+      expect.any(String),
+      expect.any(Object),
+    );
+  });
+
   it('emails and never pushes while the VAPID keys are not set', async () => {
     await subscribe('a');
 
@@ -298,6 +323,22 @@ describe('push translations', () => {
         '{organizationName}',
       ]);
       expect(placeholders(waitlist_called.body)).toEqual(['{ticketNumber}']);
+    },
+  );
+
+  it.each(languagesEnum.enumValues)(
+    '%s has the order pickup with only the order number and store name',
+    (language) => {
+      const { order_pickup_available } = JSON.parse(
+        readFileSync(`src/i18n/${language}/push.json`, 'utf8'),
+      ) as { order_pickup_available: { title: string; body: string } };
+
+      expect(placeholders(order_pickup_available.title)).toEqual([
+        '{organizationName}',
+      ]);
+      expect(placeholders(order_pickup_available.body)).toEqual([
+        '{orderNumber}',
+      ]);
     },
   );
 });

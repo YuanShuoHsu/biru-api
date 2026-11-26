@@ -932,6 +932,10 @@ export type I18nTranslations = {
         };
     };
     "push": {
+        "order_pickup_available": {
+            "title": string;
+            "body": string;
+        };
         "waitlist_called": {
             "title": string;
             "body": string;

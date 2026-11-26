@@ -1,4 +1,8 @@
 {
+  "order_pickup_available": {
+    "title": "{organizationName}: 주문이 준비되었습니다",
+    "body": "{orderNumber}번 주문이 준비되었습니다. 픽업 장소에서 받아 가세요."
+  },
   "waitlist_called": {
     "title": "{organizationName}: 고객님 차례입니다",
     "body": "{ticketNumber}번을 호출하고 있습니다. 카운터로 와 주세요."

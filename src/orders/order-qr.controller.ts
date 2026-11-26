@@ -23,10 +23,10 @@ import {
   OrderQrSecretResponseDto,
   OrderQrSessionResponseDto,
 } from './dto/order-qr.dto.js';
+import { ORDER_PAGE_MODES } from './order-page-modes.js';
 import {
   ORDER_QR_SESSION_COOKIE,
   setOrderQrSessionCookie,
-  type QrOrderMode,
 } from './order-qr-token.js';
 import { OrderQrService } from './order-qr.service.js';
 
@@ -34,13 +34,6 @@ const ORDER_QR_SECRET_AUDIT: AuditTarget = {
   resource: 'organization',
   idSource: { column: 'organizationId', organization: true },
   via: { table: 'orderQrSecret', ownerColumn: 'organizationId' },
-};
-
-// 前台點餐頁 order/[mode] 的路徑段，前台改路由要一起改
-const ORDER_PAGE_MODES: Record<QrOrderMode, string> = {
-  counter: 'counter',
-  dineIn: 'dine-in',
-  driveThru: 'drive-thru',
 };
 
 @ApiTags('orders')
