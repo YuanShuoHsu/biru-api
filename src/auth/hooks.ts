@@ -370,11 +370,20 @@ export const writeAuditEvent = async (
   });
 };
 
-const MEMBER_MANAGEMENT_PATHS = new Set([
-  '/organization/remove-member',
-  '/organization/update-member-role',
-  '/organization/remove-team-member',
-]);
+const MANAGED_MEMBERS: Record<
+  string,
+  (body: Body) => { memberIdOrEmail?: string; userId?: string }
+> = {
+  '/organization/remove-member': ({ memberIdOrEmail }) => ({
+    memberIdOrEmail: asString(memberIdOrEmail),
+  }),
+  '/organization/update-member-role': ({ memberId }) => ({
+    memberIdOrEmail: asString(memberId),
+  }),
+  '/organization/remove-team-member': ({ userId }) => ({
+    userId: asCoercedId(userId),
+  }),
+};
 
 const SELF_DELETE_PATHS = new Set(['/delete-user', '/delete-user/callback']);
 
@@ -488,17 +497,14 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
           };
       }
 
-      if (MEMBER_MANAGEMENT_PATHS.has(ctx.path)) {
+      const managedMember = MANAGED_MEMBERS[ctx.path];
+      if (managedMember) {
         const session = await getSessionFromCtx(ctx);
         const body = asRow(ctx.body) ?? {};
         if (session)
           await assertMayManageMember(
             session.user,
-            {
-              memberIdOrEmail:
-                asString(body.memberIdOrEmail) ?? asString(body.memberId),
-              userId: asCoercedId(body.userId),
-            },
+            managedMember(body),
             asString(body.organizationId) ??
               asString(asRow(session.session)?.activeOrganizationId),
           );

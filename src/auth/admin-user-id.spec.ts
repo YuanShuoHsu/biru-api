@@ -15,7 +15,7 @@ import { authDatabase, createAuth } from './index.js';
 
 const BASE_URL = 'http://localhost:3001';
 
-describe('userId 傳成陣列時照 better-auth 轉成字串後的對象處理', () => {
+describe('照 better-auth 實際讀的欄位與轉法判斷操作對象', () => {
   let client: PGlite;
   let db: Transaction;
   let auth: ReturnType<typeof betterAuth>;
@@ -182,4 +182,51 @@ describe('userId 傳成陣列時照 better-auth 轉成字串後的對象處理',
     );
     expect(rows).toHaveLength(1);
   });
+
+  const roleOfMember = async (id: string) =>
+    (
+      await client.query<{ role: string }>(
+        `select role from member where id = $1`,
+        [id],
+      )
+    ).rows[0]?.role;
+
+  it('remove-member 夾帶自己的 userId 也不能移除平台管理員成員', async () => {
+    const response = await request(
+      '/organization/remove-member',
+      { memberIdOrEmail: 'm-ann', userId: ids.bo, organizationId: 'biru' },
+      'bo',
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({
+      code: 'PLATFORM_ADMIN_MEMBER_PROTECTED',
+    });
+    expect(await roleOfMember('m-ann')).toBe('owner');
+  });
+
+  it.each([
+    ['userId', () => ({ userId: ids.bo })],
+    ['memberIdOrEmail', () => ({ memberIdOrEmail: 'm-bo' })],
+  ])(
+    'update-member-role 夾帶 %s 也不能改平台管理員成員的角色',
+    async (_, smuggled) => {
+      const response = await request(
+        '/organization/update-member-role',
+        {
+          memberId: 'm-ann',
+          role: 'member',
+          organizationId: 'biru',
+          ...smuggled(),
+        },
+        'bo',
+      );
+
+      expect(response.status).toBe(403);
+      expect(await response.json()).toMatchObject({
+        code: 'PLATFORM_ADMIN_MEMBER_PROTECTED',
+      });
+      expect(await roleOfMember('m-ann')).toBe('owner');
+    },
+  );
 });
