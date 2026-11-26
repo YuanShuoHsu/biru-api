@@ -59,6 +59,7 @@ import {
   STORE_UTC_OFFSET_MS,
 } from '../common/constants/timezone.js';
 
+import { redactAuditFields } from '../attendance/attendance-audit.js';
 import { isAuthorized } from '../auth/permissions.js';
 import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
 import { toLanguage } from '../common/utils/language.js';
@@ -376,6 +377,12 @@ const refundedQuantitiesOf = (
 
 const PUBLIC_BOARD_LEAD_MS = 60 * 60 * 1000;
 const ADMIN_BOARD_LEAD_MS = 24 * 60 * 60 * 1000;
+
+const CUSTOMER_FILTER_FIELDS = new Set<string>([
+  'customerName',
+  'customerTelephone',
+  'customerEmail',
+]);
 
 const ORDER_SORT_NULLS: Partial<Record<string, NullsAs>> = {
   confirmationNumber: 'last',
@@ -877,7 +884,19 @@ export class OrdersService {
       ancestorIds: [],
       action: 'export',
       changes: Object.fromEntries(
-        [...Object.entries(query), ['rowCount', rows.length]]
+        Object.entries({
+          ...redactAuditFields(
+            Object.fromEntries(Object.entries(query)),
+            new Set([
+              'quickFilterValue',
+              ...(query.filterField &&
+              CUSTOMER_FILTER_FIELDS.has(query.filterField)
+                ? ['filterValue']
+                : []),
+            ]),
+          ),
+          rowCount: rows.length,
+        })
           .filter(([, value]) => value !== undefined)
           .map(([field, value]) => [field, { before: null, after: value }]),
       ),
