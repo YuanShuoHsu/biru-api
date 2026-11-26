@@ -2,20 +2,31 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import type { _Object } from '@aws-sdk/client-s3';
 import { and, getTableName, gte, inArray, sql } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 
 import { auditLog } from '../db/schema/audit.js';
 import { deletedRecord } from '../db/schema/deleted-records.js';
+import { organization } from '../db/schema/organizations.js';
+import { user } from '../db/schema/users.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import type { ImageOrphanSweepResponseDto } from './dto/image-orphan-sweep.dto.js';
 import { ImageStorageService } from './image-storage.service.js';
-import { IMAGE_KINDS, type ImageKind } from './image-url.js';
+import { IMAGE_KINDS, type SweptImageKind } from './image-url.js';
 import { IMAGE_TABLES } from './images.service.js';
 
 const GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000;
 
+const SWEPT_IMAGE_COLUMNS: { kind: SweptImageKind; column: AnyPgColumn }[] = [
+  ...IMAGE_KINDS.map((kind) => ({ kind, column: IMAGE_TABLES[kind].image })),
+  { kind: 'user', column: user.image },
+  { kind: 'organization', column: organization.logo },
+];
+
 const keyOf = (url: string) =>
-  new URL(url).pathname.split('/').slice(-2).join('/');
+  URL.canParse(url)
+    ? [new URL(url).pathname.split('/').slice(-2).join('/')]
+    : [];
 
 @Injectable()
 export class ImageOrphansService {
@@ -27,8 +38,8 @@ export class ImageOrphansService {
   ) {}
 
   async sweep(apply: boolean): Promise<ImageOrphanSweepResponseDto> {
-    const listings: { kind: ImageKind; objects: _Object[] }[] = [];
-    for (const kind of IMAGE_KINDS) {
+    const listings: { kind: SweptImageKind; objects: _Object[] }[] = [];
+    for (const { kind } of SWEPT_IMAGE_COLUMNS) {
       const objects = await this.imageStorageService.list(`${kind}/`);
       if (!objects) return { applied: apply, kinds: [] };
       listings.push({ kind, objects });
@@ -75,41 +86,59 @@ export class ImageOrphansService {
   }
 
   private async referencedKeys(replacedSince: Date) {
+    const deletedImage = sql<string>`case ${sql.join(
+      SWEPT_IMAGE_COLUMNS.map(
+        ({ column }) =>
+          sql`when ${deletedRecord.tableName} = ${getTableName(column.table)} then ${deletedRecord.data}->>${column.name}`,
+      ),
+      sql` `,
+    )} end`;
+    const replacedImage = sql<string>`case ${sql.join(
+      SWEPT_IMAGE_COLUMNS.map(
+        ({ kind, column }) =>
+          sql`when ${auditLog.resource} = ${kind} then ${auditLog.changes}->${column.name}->>'before'`,
+      ),
+      sql` `,
+    )} end`;
+
     const urls = await Promise.all([
-      ...Object.values(IMAGE_TABLES).map((table) =>
+      ...SWEPT_IMAGE_COLUMNS.map(({ column }) =>
         this.db
-          .select({ image: table.image })
-          .from(table)
-          .where(sql`starts_with(${table.image}, 'https://')`),
+          .select({ image: sql<string>`${column}` })
+          .from(column.table)
+          .where(sql`starts_with(${column}, 'https://')`),
       ),
       this.db
-        .select({ image: sql<string>`${deletedRecord.data}->>'image'` })
+        .select({ image: deletedImage })
         .from(deletedRecord)
         .where(
           and(
             inArray(
               deletedRecord.tableName,
-              Object.values(IMAGE_TABLES).map((table) => getTableName(table)),
+              SWEPT_IMAGE_COLUMNS.map(({ column }) =>
+                getTableName(column.table),
+              ),
             ),
-            sql`starts_with(${deletedRecord.data}->>'image', 'https://')`,
+            sql`starts_with(${deletedImage}, 'https://')`,
           ),
         ),
       this.db
-        .select({
-          image: sql<string>`${auditLog.changes}->'image'->>'before'`,
-        })
+        .select({ image: replacedImage })
         .from(auditLog)
         .where(
           and(
             gte(auditLog.createdAt, replacedSince),
-            inArray(auditLog.resource, [...IMAGE_KINDS]),
-            sql`starts_with(${auditLog.changes}->'image'->>'before', 'https://')`,
+            inArray(
+              auditLog.resource,
+              SWEPT_IMAGE_COLUMNS.map(({ kind }) => kind),
+            ),
+            sql`starts_with(${replacedImage}, 'https://')`,
           ),
         ),
     ]);
 
     return new Set(
-      urls.flat().flatMap(({ image }) => (image ? [keyOf(image)] : [])),
+      urls.flat().flatMap(({ image }) => (image ? keyOf(image) : [])),
     );
   }
 }

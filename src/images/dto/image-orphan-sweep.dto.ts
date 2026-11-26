@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { IsBoolean, IsOptional } from 'class-validator';
 
-import { IMAGE_KINDS, type ImageKind } from '../image-url.js';
+import { SWEPT_IMAGE_KINDS, type SweptImageKind } from '../image-url.js';
 
 export class ImageOrphanSweepDto {
   @ApiPropertyOptional({
@@ -14,8 +14,8 @@ export class ImageOrphanSweepDto {
 }
 
 class ImageOrphanKindDto {
-  @ApiProperty({ enum: IMAGE_KINDS })
-  kind: ImageKind;
+  @ApiProperty({ enum: SWEPT_IMAGE_KINDS })
+  kind: SweptImageKind;
 
   scanned: number;
 

@@ -211,6 +211,36 @@ describe.each([
     expect(send).not.toHaveBeenCalled();
   });
 
+  it('會員自己換頭像只記下頭像的異動，沒換頭像不寫異動紀錄', async () => {
+    const userAudits = async () => {
+      const { rows } = await client.query<{
+        changes: Record<string, { before: unknown; after: unknown }>;
+      }>(
+        `select a.changes from audit_log a join "user" u on u.id = a.resource_id
+         where a.resource = 'user' and u.email = 'ann@example.com'
+         order by a.created_at`,
+      );
+
+      return rows.map(({ changes }) => changes);
+    };
+    await request('/update-user', { image: IMAGE });
+    const before = await userImage('ann@example.com');
+    const existing = (await userAudits()).length;
+
+    const after = s3 ? storedUrl('user', OTHER_IMAGE, 'webp') : OTHER_IMAGE;
+
+    await request('/update-user', { image: OTHER_IMAGE, bio: 'changed' });
+    await request('/update-user', { bio: 'changed again' });
+    await request('/update-user', { image: OTHER_IMAGE });
+    await request('/update-user', { image: null });
+
+    const added = (await userAudits()).slice(existing);
+    expect(added).toEqual([
+      { image: { before, after } },
+      { image: { before: after, after: null } },
+    ]);
+  });
+
   it.each([[HTTPS_IMAGE], [GOOGLE_IMAGE], [null], ['']])(
     '頭像 %j 原樣寫入',
     async (image) => {
