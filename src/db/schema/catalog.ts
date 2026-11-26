@@ -14,6 +14,8 @@ import {
 
 import { timestamps } from './columns.helpers.js';
 import {
+  cupSealEnum,
+  cupSizeEnum,
   restrictedDietEnum,
   servingTemperatureEnum,
   servingTemperatureLevelEnum,
@@ -191,6 +193,8 @@ export const catalogModifier = pgTable(
     customerProvidedCup: boolean('customer_provided_cup')
       .notNull()
       .default(false),
+    cupSize: cupSizeEnum('cup_size'),
+    cupSeal: cupSealEnum('cup_seal'),
     sortOrder: integer('sort_order').notNull().default(0),
     ...timestamps,
   },

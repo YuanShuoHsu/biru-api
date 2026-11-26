@@ -15,6 +15,8 @@ import { timestamps } from './columns.helpers.js';
 import {
   servingTemperatureLevelEnum,
   sweetnessLevelEnum,
+  type CupSeal,
+  type CupSize,
   type ServingTemperatureLevel,
   type SweetnessLevel,
 } from './enums.js';
@@ -83,6 +85,8 @@ export interface OrderItemModifierSnapshot {
   modifierName: string;
   priceAdjustment: string | null;
   customerProvidedCup?: boolean;
+  cupSize?: CupSize;
+  cupSeal?: CupSeal;
 }
 
 export interface OrderItemAddOnSnapshot {

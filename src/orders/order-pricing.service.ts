@@ -244,7 +244,13 @@ export class OrderPricingService {
             columns: { image: false },
             where: inArray(modifier.id, allModifierIds),
             with: {
-              catalogModifier: { columns: { customerProvidedCup: true } },
+              catalogModifier: {
+                columns: {
+                  cupSeal: true,
+                  cupSize: true,
+                  customerProvidedCup: true,
+                },
+              },
               modifierGroup: true,
             },
           })
@@ -449,6 +455,12 @@ export class OrderPricingService {
             priceAdjustment: mod.priceAdjustment,
             ...(mod.catalogModifier?.customerProvidedCup && {
               customerProvidedCup: true,
+            }),
+            ...(mod.catalogModifier?.cupSize && {
+              cupSize: mod.catalogModifier.cupSize,
+            }),
+            ...(mod.catalogModifier?.cupSeal && {
+              cupSeal: mod.catalogModifier.cupSeal,
             }),
           };
         }),

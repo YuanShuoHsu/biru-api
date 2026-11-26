@@ -14,6 +14,7 @@ import {
   type SQL,
 } from 'drizzle-orm';
 
+import { SERVING_TEMPERATURE_OF_LEVEL } from '../common/constants/serving-temperature.js';
 import { UNIT_FACTORS } from '../common/constants/units.js';
 import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
 import {
@@ -26,6 +27,12 @@ import {
   type NullsAs,
   orderByDirection,
 } from '../common/utils/data-grid-sort.js';
+import type {
+  CupSeal,
+  CupSize,
+  ServingTemperature,
+  ServingTemperatureLevel,
+} from '../db/schema/enums.js';
 import {
   ingredient,
   inventoryReceipt,
@@ -33,6 +40,7 @@ import {
   recipe,
   recipeIngredient,
   supplier,
+  takeawayPackaging,
   type InventoryTransaction,
   type WasteReason,
 } from '../db/schema/inventory.js';
@@ -43,7 +51,11 @@ import {
   modifierGroup,
   offer,
 } from '../db/schema/menus.js';
-import { order, orderItem } from '../db/schema/orders.js';
+import {
+  order,
+  orderItem,
+  type OrderItemModifierSnapshot,
+} from '../db/schema/orders.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import {
   LOW_STOCK_REACHED_EVENT,
@@ -81,6 +93,8 @@ type Tx = Pick<DrizzleDB, 'insert' | 'select' | 'update'>;
 
 export type StockSource = { menuItemId: string } | { modifierId: string };
 
+type PackagingServings = { servings: number; source: StockSource };
+
 export class InsufficientStockError extends Error {
   constructor(readonly source: StockSource) {
     super(`Insufficient stock for ${JSON.stringify(source)}`);
@@ -95,6 +109,30 @@ const reachesThreshold = (
   threshold !== null &&
   level > Number(threshold) &&
   nextLevel <= Number(threshold);
+
+const packagingKey = (
+  servingTemperature: ServingTemperature,
+  cupSize: CupSize,
+  cupSeal: CupSeal,
+) => `${servingTemperature}:${cupSize}:${cupSeal}`;
+
+const takeawayPackagingKey = (
+  servingTemperatureLevel: ServingTemperatureLevel | null | undefined,
+  modifiers: OrderItemModifierSnapshot[] | null | undefined,
+): string | null => {
+  const cupSeal = modifiers?.find((mod) => mod.cupSeal)?.cupSeal;
+  if (
+    !servingTemperatureLevel ||
+    !cupSeal ||
+    modifiers?.some((mod) => mod.customerProvidedCup)
+  )
+    return null;
+  return packagingKey(
+    SERVING_TEMPERATURE_OF_LEVEL[servingTemperatureLevel],
+    modifiers?.find((mod) => mod.cupSize)?.cupSize ?? '12oz',
+    cupSeal,
+  );
+};
 
 const INVENTORY_TRANSACTION_SORT_NULLS: Partial<Record<string, NullsAs>> = {
   unitCost: 'last',
@@ -920,7 +958,7 @@ export class InventoryTransactionsService {
     offerStockChanged: boolean;
   }> {
     const [placed] = await tx
-      .select({ sellerId: order.sellerId })
+      .select({ mode: order.mode, sellerId: order.sellerId })
       .from(order)
       .where(eq(order.id, orderId));
     if (!placed?.sellerId) return { lowStock: [], offerStockChanged: false };
@@ -931,13 +969,21 @@ export class InventoryTransactionsService {
         menuItemId: orderItem.menuItemId,
         modifiers: orderItem.modifiers,
         orderQuantity: orderItem.orderQuantity,
+        servingTemperatureLevel: orderItem.servingTemperatureLevel,
       })
       .from(orderItem)
       .where(eq(orderItem.orderId, orderId));
 
     const servingsByMenuItemId = new Map<string, number>();
     const servingsByModifierId = new Map<string, number>();
-    for (const { addOns, menuItemId, modifiers, orderQuantity } of items) {
+    const packagingByKey = new Map<string, PackagingServings>();
+    for (const {
+      addOns,
+      menuItemId,
+      modifiers,
+      orderQuantity,
+      servingTemperatureLevel,
+    } of items) {
       for (const id of [
         menuItemId,
         ...(addOns ?? []).map((addOn) => addOn.menuItemId),
@@ -954,6 +1000,22 @@ export class InventoryTransactionsService {
           modifierId,
           (servingsByModifierId.get(modifierId) ?? 0) + orderQuantity,
         );
+      if (placed.mode === 'dineIn') continue;
+      for (const cup of [
+        { menuItemId, modifiers, servingTemperatureLevel },
+        ...(addOns ?? []),
+      ]) {
+        const key = takeawayPackagingKey(
+          cup.servingTemperatureLevel,
+          cup.modifiers,
+        );
+        if (!key) continue;
+        const packaging = packagingByKey.get(key);
+        packagingByKey.set(key, {
+          servings: (packaging?.servings ?? 0) + orderQuantity,
+          source: packaging?.source ?? { menuItemId: cup.menuItemId },
+        });
+      }
     }
     if (!servingsByMenuItemId.size)
       return { lowStock: [], offerStockChanged: false };
@@ -965,10 +1027,33 @@ export class InventoryTransactionsService {
       tx,
     );
 
+    const packagingByRecipeId = new Map<string, PackagingServings>();
+    if (packagingByKey.size)
+      for (const row of await tx
+        .select({
+          cupSeal: takeawayPackaging.cupSeal,
+          cupSize: takeawayPackaging.cupSize,
+          recipeId: takeawayPackaging.recipeId,
+          servingTemperature: takeawayPackaging.servingTemperature,
+        })
+        .from(takeawayPackaging)
+        .where(eq(takeawayPackaging.organizationId, placed.sellerId))) {
+        const packaging = packagingByKey.get(
+          packagingKey(row.servingTemperature, row.cupSize, row.cupSeal),
+        );
+        if (!packaging) continue;
+        const sameRecipe = packagingByRecipeId.get(row.recipeId);
+        packagingByRecipeId.set(row.recipeId, {
+          servings: (sameRecipe?.servings ?? 0) + packaging.servings,
+          source: sameRecipe?.source ?? packaging.source,
+        });
+      }
+
     const { quantities, sourceByIngredientId } = await this.ingredientUsage(
       servingsByMenuItemId,
       servingsByModifierId,
       tx,
+      packagingByRecipeId,
     );
 
     const { lowStock } = await this.record(
@@ -991,6 +1076,7 @@ export class InventoryTransactionsService {
     servingsByMenuItemId: Map<string, number>,
     servingsByModifierId: Map<string, number>,
     tx: Tx,
+    packagingByRecipeId = new Map<string, PackagingServings>(),
   ): Promise<{
     quantities: Map<string, number>;
     sourceByIngredientId: Map<string, StockSource>;
@@ -1010,6 +1096,7 @@ export class InventoryTransactionsService {
         or(
           inArray(recipe.menuItemId, [...servingsByMenuItemId.keys()]),
           inArray(recipe.modifierId, [...servingsByModifierId.keys()]),
+          inArray(recipe.id, [...packagingByRecipeId.keys()]),
         ),
       )
       .orderBy(asc(recipe.menuItemId), asc(recipe.modifierId));
@@ -1034,15 +1121,17 @@ export class InventoryTransactionsService {
       );
 
     for (const { id, menuItemId, modifierId, recipeYield } of recipes) {
+      const packaging = packagingByRecipeId.get(id);
       const source = menuItemId
         ? { menuItemId }
         : modifierId
           ? { modifierId }
-          : null;
+          : (packaging?.source ?? null);
       const servings =
-        (menuItemId
+        ((menuItemId
           ? servingsByMenuItemId.get(menuItemId)
-          : modifierId && servingsByModifierId.get(modifierId)) || 0;
+          : modifierId && servingsByModifierId.get(modifierId)) || 0) +
+        (packaging?.servings ?? 0);
 
       for (const material of materials.filter(
         ({ recipeId }) => recipeId === id,

@@ -49,6 +49,12 @@ export const servingTemperatureLevelEnum = pgEnum('serving_temperature_level', [
 export type ServingTemperatureLevel =
   (typeof servingTemperatureLevelEnum.enumValues)[number];
 
+export const cupSizeEnum = pgEnum('cup_size', ['12oz', '16oz']);
+export type CupSize = (typeof cupSizeEnum.enumValues)[number];
+
+export const cupSealEnum = pgEnum('cup_seal', ['lid', 'film']);
+export type CupSeal = (typeof cupSealEnum.enumValues)[number];
+
 export const sweetnessEnum = pgEnum('sweetness', [
   'NotApplicable',
   'Fixed',

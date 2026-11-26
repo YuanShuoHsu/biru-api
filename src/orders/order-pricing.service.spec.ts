@@ -424,6 +424,44 @@ describe('OrderPricingService.resolveOrderItems', () => {
       expect(item.unitPrice).toBe('100.00');
     });
 
+    it('選項在品牌目錄標了杯型或封口時記進快照，沒標的不帶', async () => {
+      const item = await resolve(
+        cartItemOf({ modifiers: { sealing: ['large', 'film', 'oat'] } }),
+        {
+          groups: [cupGroupOf(latte.id, 3)],
+          modifiers: [
+            {
+              ...modifierOf('large', false),
+              catalogModifier: {
+                cupSeal: null,
+                cupSize: '16oz',
+                customerProvidedCup: false,
+              },
+            },
+            {
+              ...modifierOf('film', false),
+              catalogModifier: {
+                cupSeal: 'film',
+                cupSize: null,
+                customerProvidedCup: false,
+              },
+            },
+            modifierOf('oat', false),
+          ],
+        },
+      );
+
+      expect(item.modifiers).toEqual([
+        expect.objectContaining({ cupSize: '16oz', modifierId: 'large' }),
+        expect.objectContaining({ cupSeal: 'film', modifierId: 'film' }),
+        expect.objectContaining({ modifierId: 'oat' }),
+      ]);
+      expect(item.modifiers[0]).not.toHaveProperty('cupSeal');
+      expect(item.modifiers[1]).not.toHaveProperty('cupSize');
+      expect(item.modifiers[2]).not.toHaveProperty('cupSize');
+      expect(item.modifiers[2]).not.toHaveProperty('cupSeal');
+    });
+
     it('售價不到 5 元的飲品折到 0 元為止，快照記下實際折掉的金額', async () => {
       const item = await resolve(
         cartItemOf({ modifiers: { sealing: ['own-cup'] } }),
