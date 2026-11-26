@@ -275,6 +275,8 @@ export const createAuth = (
         enabled: process.env.NODE_ENV === 'production',
         domain: '.birucoffee.com',
       },
+      // https://www.better-auth.com/docs/concepts/cookies
+      cookiePrefix: process.env.COOKIE_PREFIX,
     },
     appName: 'biru-api',
     databaseHooks: {

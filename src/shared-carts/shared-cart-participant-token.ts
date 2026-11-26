@@ -2,14 +2,20 @@ import { randomBytes } from 'node:crypto';
 
 import type { Response } from 'express';
 
-import { clearSiteCookie, setSiteCookie } from '../common/utils/cookies.js';
+import {
+  clearSiteCookie,
+  setSiteCookie,
+  siteCookieName,
+} from '../common/utils/cookies.js';
 import { isSameToken, sign } from '../orders/order-qr-token.js';
 
 const SHARED_CART_DEVICE_PURPOSE = 'biru-shared-cart-device-v1';
 const SHARED_CART_SOCKET_PURPOSE = 'biru-shared-cart-socket-v1';
 
 export const sharedCartParticipantCookie = (organizationId: string) =>
-  `biru_shared_cart_participant_v2_${Buffer.from(organizationId).toString('base64url')}`;
+  siteCookieName(
+    `biru_shared_cart_participant_v2_${Buffer.from(organizationId).toString('base64url')}`,
+  );
 
 export const newSharedCartDeviceKey = () =>
   randomBytes(32).toString('base64url');

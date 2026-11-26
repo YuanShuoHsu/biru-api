@@ -68,6 +68,17 @@ export const envSchema = z
     ECPAY_OPERATION_MODE: z.enum(['Test', 'Production'], {
       error: requiredOr('must be Test or Production'),
     }),
+    CRON_ENABLED: z
+      .string()
+      .refine(
+        (value) => !value || value === 'true' || value === 'false',
+        'must be true or false',
+      )
+      .optional(),
+    COOKIE_PREFIX: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]*$/, 'must be letters, digits, - or _')
+      .optional(),
     ECPAY_BASE_MERCHANT_ID: required,
     ECPAY_BASE_HASH_KEY: required,
     ECPAY_BASE_HASH_IV: required,

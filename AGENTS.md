@@ -562,8 +562,13 @@ value). A new variable must be added to that schema with the rule the code actua
 - `ECPAY_INVOICE_MERCHANT_ID` / `ECPAY_INVOICE_HASH_KEY` / `ECPAY_INVOICE_HASH_IV` — invoicing
 - `ECPAY_OPERATION_MODE` — ECPay stage vs. production endpoint selection. Also gates every
   `@Cron`: local, stage and production share one database, so cron jobs run only when this is
-  `Production` (every `@Cron` must pass `disabled: !CRON_ENABLED`). `@Interval` jobs that are
+  `Production` (every `@Cron` must pass `disabled: !CRON_ENABLED`), unless `CRON_ENABLED` is set. `@Interval` jobs that are
   already environment-scoped are not gated
+- `CRON_ENABLED` — `true` / `false`; overrides the `ECPAY_OPERATION_MODE` rule above. Leave it unset while environments
+  share one database, or the crons run twice on it (#573)
+- `COOKIE_PREFIX` — Letters, digits, `-` or `_`; better-auth's `advanced.cookiePrefix` (unset keeps `better-auth`) and,
+  as `<prefix>.<name>`, every `setSiteCookie` name (`siteCookieName`), so an environment on another database doesn't
+  overwrite the other's cookies on `.birucoffee.com`. Changing it signs everyone out of that environment
 - `NEXT_URL` — Frontend origin (CORS + ECPay redirect allowlist)
 - `NEXT_ADMIN_URL` — Admin frontend origin (same two uses)
 - `FALLBACK_LANGUAGE` — Default i18n locale (e.g. `zh-TW`); read with `getOrThrow`
