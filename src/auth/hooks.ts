@@ -103,15 +103,15 @@ const toTarget =
     return value ? { resource, id: value } : undefined;
   };
 
-const userTarget = toTarget('user');
+const userTarget = (id: unknown) => toTarget('user')(asCoercedId(id));
 const invitationTarget = toTarget('invitation');
 
 const BEFORE_TARGETS: Record<string, (body: Body) => Target | undefined> = {
   '/admin/ban-user': ({ userId }) => userTarget(userId),
   '/admin/remove-user': ({ userId }) => userTarget(userId),
-  '/admin/set-role': ({ userId }) => userTarget(asCoercedId(userId)),
+  '/admin/set-role': ({ userId }) => userTarget(userId),
   '/admin/unban-user': ({ userId }) => userTarget(userId),
-  '/admin/update-user': ({ userId }) => userTarget(asCoercedId(userId)),
+  '/admin/update-user': ({ userId }) => userTarget(userId),
   '/organization/accept-invitation': ({ invitationId }) =>
     invitationTarget(invitationId),
   '/organization/cancel-invitation': ({ invitationId }) =>
@@ -180,7 +180,7 @@ const toEvents = (
         : [];
     }
     case '/admin/set-user-password': {
-      const id = asString(body.userId);
+      const id = asCoercedId(body.userId);
 
       return id
         ? [
@@ -238,7 +238,12 @@ const toEvents = (
         ? [
             {
               target: { resource: 'team', id },
-              changes: { member: { before: body.userId ?? null, after: null } },
+              changes: {
+                member: {
+                  before: asCoercedId(body.userId) ?? null,
+                  after: null,
+                },
+              },
             },
           ]
         : [];
@@ -396,7 +401,7 @@ const countRevokedSessions = async (
     return row ? { userId: row.userId, count: 1 } : undefined;
   }
 
-  const userId = asString(body.userId);
+  const userId = asCoercedId(body.userId);
   if (!userId) return undefined;
 
   const rows = await authDb().query.session.findMany({
@@ -443,7 +448,7 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
         const userId = isSelfDelete
           ? session?.user.id
           : session?.user.role === 'admin'
-            ? asString(asRow(ctx.body)?.userId)
+            ? asCoercedId(asRow(ctx.body)?.userId)
             : undefined;
 
         if (userId) {
@@ -492,7 +497,7 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
             {
               memberIdOrEmail:
                 asString(body.memberIdOrEmail) ?? asString(body.memberId),
-              userId: asString(body.userId),
+              userId: asCoercedId(body.userId),
             },
             asString(body.organizationId) ??
               asString(asRow(session.session)?.activeOrganizationId),
