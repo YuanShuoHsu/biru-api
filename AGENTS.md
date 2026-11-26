@@ -63,7 +63,7 @@ Every PR against `develop` or `master`, and every push to `develop`, runs `lint`
 | OrganizationsModule  | `src/organizations/`   | Organizations (tenants), teams, members                                                                |
 | UsersModule          | `src/users/`           | Admin user list, stats, batch delete, sessions (per-user get/update/remove: better-auth admin)         |
 | MenusModule          | `src/menus/`           | Menus, sections, items, offers, add-ons, modifiers                                                     |
-| CatalogModule        | `src/catalog/`         | Brand catalog (`docs/menu-catalog.md`): platform-admin catalog section CRUD and reorder                |
+| CatalogModule        | `src/catalog/`         | Brand catalog (`docs/menu-catalog.md`): platform-admin catalog section and item CRUD and reorder       |
 | OrdersModule         | `src/orders/`          | Order lifecycle, payment recording, menu-item sales reporting                                          |
 | CouponsModule        | `src/coupons/`         | Coupons, user wallets (`userCoupon`), claim / grant / redeem                                           |
 | PointsModule         | `src/points/`          | Loyalty point transactions, redemption, brand-wide point rules                                         |

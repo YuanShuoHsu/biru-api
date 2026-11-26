@@ -16,12 +16,10 @@ export const catalogErrorCodes = [
   'catalogSectionHasSubsections',
   'catalogSectionInUse',
   'catalogSectionNotFound',
-  'fixedSweetnessLevelRequired',
   'parentCatalogSectionDescendant',
   'parentCatalogSectionNotFound',
   'parentCatalogSectionOwnerMismatch',
   'parentCatalogSectionSelf',
-  'promoDateRangeInvalid',
 ] as const;
 
 export type CatalogErrorCode = (typeof catalogErrorCodes)[number];

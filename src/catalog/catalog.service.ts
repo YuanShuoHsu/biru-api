@@ -5,7 +5,6 @@ import { I18nContext } from 'nestjs-i18n';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { Transaction } from '../attendance/attendance-audit.js';
-import { SERVING_TEMPERATURE_OF_LEVEL } from '../common/constants/serving-temperature.js';
 import { orderByDirection } from '../common/utils/data-grid-sort.js';
 import { toLanguage } from '../common/utils/language.js';
 import { reorderSortOrders } from '../common/utils/sort-order.js';
@@ -20,6 +19,12 @@ import { organization } from '../db/schema/organizations.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import { ImageStorageService } from '../images/image-storage.service.js';
 import { imageRefQuery, type WithImageRef } from '../images/image-url.js';
+import {
+  assertPromoDateRange,
+  DRINK_OPTION_FIELDS,
+  NEW_MENU_ITEM_DRINK_OPTIONS,
+  resolveDrinkOptions,
+} from '../menus/menus.service.js';
 
 import {
   badRequestError,
@@ -31,57 +36,12 @@ import type { CreateCatalogSectionDto } from './dto/create-catalog-section.dto.j
 import type { UpdateCatalogItemDto } from './dto/update-catalog-item.dto.js';
 import type { UpdateCatalogSectionDto } from './dto/update-catalog-section.dto.js';
 
-type DrinkOptions = Pick<
-  CatalogItem,
-  | 'servingTemperatures'
-  | 'recommendedServingTemperatureLevel'
-  | 'sweetness'
-  | 'fixedSweetnessLevel'
-  | 'recommendedSweetnessLevel'
->;
-
-const NEW_ITEM_DRINK_OPTIONS: DrinkOptions = {
-  servingTemperatures: [],
-  recommendedServingTemperatureLevel: null,
-  sweetness: 'NotApplicable',
-  fixedSweetnessLevel: null,
-  recommendedSweetnessLevel: null,
-};
-
-const resolveDrinkOptions = (
-  current: DrinkOptions,
-  data: UpdateCatalogItemDto,
-): Omit<DrinkOptions, 'servingTemperatures' | 'sweetness'> => {
-  const next = <K extends keyof DrinkOptions>(field: K): DrinkOptions[K] =>
-    data[field] === undefined
-      ? current[field]
-      : (data[field] as DrinkOptions[K]);
-
-  const sweetness = next('sweetness');
-  const temperatureLevel = next('recommendedServingTemperatureLevel');
-  const fixedSweetnessLevel =
-    sweetness === 'Fixed' ? next('fixedSweetnessLevel') : null;
-  if (sweetness === 'Fixed' && !fixedSweetnessLevel)
-    throw badRequestError('fixedSweetnessLevelRequired');
-
-  return {
-    recommendedServingTemperatureLevel:
-      temperatureLevel &&
-      next('servingTemperatures').includes(
-        SERVING_TEMPERATURE_OF_LEVEL[temperatureLevel],
-      )
-        ? temperatureLevel
-        : null,
-    fixedSweetnessLevel,
-    recommendedSweetnessLevel:
-      sweetness === 'Adjustable' ? next('recommendedSweetnessLevel') : null,
-  };
-};
-
-const assertPromoDateRange = ({ priceSpecification }: UpdateCatalogItemDto) => {
-  const { validFrom, validThrough } = priceSpecification ?? {};
-  if (validFrom && validThrough && validFrom > validThrough)
-    throw badRequestError('promoDateRangeInvalid');
+const assertBrandSection = (
+  section: Pick<CatalogSection, 'ownerOrganizationId'> | undefined,
+) => {
+  if (!section) throw notFoundError('catalogSectionNotFound');
+  if (section.ownerOrganizationId !== null)
+    throw badRequestError('catalogItemSectionOwnerMismatch');
 };
 
 @Injectable()
@@ -245,7 +205,13 @@ export class CatalogService {
     catalogSectionId: string,
     data: CreateCatalogItemDto,
   ): Promise<CatalogItem> {
-    assertPromoDateRange(data);
+    assertPromoDateRange(data.priceSpecification);
+    assertBrandSection(
+      await this.db.query.catalogSection.findFirst({
+        where: eq(catalogSection.id, catalogSectionId),
+        columns: { ownerOrganizationId: true },
+      }),
+    );
     const image = await this.imageStorage.store('catalogItem', data.image);
 
     return this.db.transaction(async (tx) => {
@@ -254,9 +220,7 @@ export class CatalogService {
         .from(catalogSection)
         .where(eq(catalogSection.id, catalogSectionId))
         .for('key share');
-      if (!section) throw notFoundError('catalogSectionNotFound');
-      if (section.ownerOrganizationId !== null)
-        throw badRequestError('catalogItemSectionOwnerMismatch');
+      assertBrandSection(section);
 
       await tx
         .update(catalogItem)
@@ -271,7 +235,7 @@ export class CatalogService {
           sortOrder: 0,
           ...data,
           image,
-          ...resolveDrinkOptions(NEW_ITEM_DRINK_OPTIONS, data),
+          ...resolveDrinkOptions(NEW_MENU_ITEM_DRINK_OPTIONS, data),
         })
         .returning();
 
@@ -302,34 +266,39 @@ export class CatalogService {
     id: string,
     data: UpdateCatalogItemDto,
   ): Promise<CatalogItem> {
-    assertPromoDateRange(data);
+    assertPromoDateRange(data.priceSpecification);
+    const touchesDrinkOptions = DRINK_OPTION_FIELDS.some(
+      (field) => data[field] !== undefined,
+    );
     const image = await this.imageStorage.store('catalogItem', data.image);
 
     return this.db.transaction(async (tx) => {
-      const [current] = await tx
-        .select({
-          servingTemperatures: catalogItem.servingTemperatures,
-          recommendedServingTemperatureLevel:
-            catalogItem.recommendedServingTemperatureLevel,
-          sweetness: catalogItem.sweetness,
-          fixedSweetnessLevel: catalogItem.fixedSweetnessLevel,
-          recommendedSweetnessLevel: catalogItem.recommendedSweetnessLevel,
-        })
-        .from(catalogItem)
-        .where(eq(catalogItem.id, id))
-        .for('update');
-      if (!current) throw notFoundError('catalogItemNotFound');
+      const [current] = touchesDrinkOptions
+        ? await tx
+            .select({
+              servingTemperatures: catalogItem.servingTemperatures,
+              recommendedServingTemperatureLevel:
+                catalogItem.recommendedServingTemperatureLevel,
+              sweetness: catalogItem.sweetness,
+              fixedSweetnessLevel: catalogItem.fixedSweetnessLevel,
+              recommendedSweetnessLevel: catalogItem.recommendedSweetnessLevel,
+            })
+            .from(catalogItem)
+            .where(eq(catalogItem.id, id))
+            .for('update')
+        : [];
 
       const [updated] = await tx
         .update(catalogItem)
         .set({
           ...data,
           image,
-          ...resolveDrinkOptions(current, data),
+          ...(current && resolveDrinkOptions(current, data)),
           updatedAt: new Date(),
         })
         .where(eq(catalogItem.id, id))
         .returning();
+      if (!updated) throw notFoundError('catalogItemNotFound');
 
       return updated;
     });
