@@ -14,7 +14,10 @@ import {
   type SQL,
 } from 'drizzle-orm';
 
-import { SERVING_TEMPERATURE_OF_LEVEL } from '../common/constants/serving-temperature.js';
+import {
+  DEFAULT_CUP_SEAL,
+  SERVING_TEMPERATURE_OF_LEVEL,
+} from '../common/constants/serving-temperature.js';
 import { UNIT_FACTORS } from '../common/constants/units.js';
 import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
 import {
@@ -120,17 +123,18 @@ const takeawayPackagingKey = (
   servingTemperatureLevel: ServingTemperatureLevel | null | undefined,
   modifiers: OrderItemModifierSnapshot[] | null | undefined,
 ): string | null => {
-  const cupSeal = modifiers?.find((mod) => mod.cupSeal)?.cupSeal;
   if (
     !servingTemperatureLevel ||
-    !cupSeal ||
     modifiers?.some((mod) => mod.customerProvidedCup)
   )
     return null;
+  const servingTemperature =
+    SERVING_TEMPERATURE_OF_LEVEL[servingTemperatureLevel];
   return packagingKey(
-    SERVING_TEMPERATURE_OF_LEVEL[servingTemperatureLevel],
+    servingTemperature,
     modifiers?.find((mod) => mod.cupSize)?.cupSize ?? '12oz',
-    cupSeal,
+    modifiers?.find((mod) => mod.cupSeal)?.cupSeal ??
+      DEFAULT_CUP_SEAL[servingTemperature],
   );
 };
 

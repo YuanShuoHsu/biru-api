@@ -1,4 +1,5 @@
 import type {
+  CupSeal,
   ServingTemperature,
   ServingTemperatureLevel,
 } from '../../db/schema/enums.js';
@@ -25,4 +26,9 @@ export const SERVING_TEMPERATURE_LEVEL_NAMES: Record<
   NoIce: '去冰',
   Warm: '溫',
   Hot: '熱',
+};
+
+export const DEFAULT_CUP_SEAL: Record<ServingTemperature, CupSeal> = {
+  Hot: 'lid',
+  Iced: 'film',
 };

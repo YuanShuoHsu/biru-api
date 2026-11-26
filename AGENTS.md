@@ -341,8 +341,9 @@ orders, and don't accept negative counts.
 Order consumption also deducts takeaway packaging: for each item and add-on of an order whose `mode` is not `dineIn`, the
 `takeaway_packaging` row matching its serving temperature (`SERVING_TEMPERATURE_OF_LEVEL`), the `cupSize` (default `12oz`)
 and `cupSeal` its modifiers' snapshot carries (copied from `catalog_modifier` when the order is placed) gives a recipe consumed
-once per serving, like any other recipe (`enforceStock` included). No serving temperature, no `cupSeal`, a
-`customerProvidedCup` modifier or no matching row means nothing is deducted and nothing is checked.
+once per serving, like any other recipe (`enforceStock` included). Without a `cupSeal` modifier the store default applies
+(`DEFAULT_CUP_SEAL`: hot drinks a lid, iced drinks a film), so customers choose a seal only as an exception. No serving
+temperature, a `customerProvidedCup` modifier or no matching row means nothing is deducted and nothing is checked.
 
 An ingredient with `unlimitedStock` is never deducted: order consumption, batch materials and low-stock checks skip it, and
 recording waste on it is rejected with `unlimitedStockWaste` in the service, not only hidden in the admin UI.

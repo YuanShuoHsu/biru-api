@@ -249,14 +249,34 @@ describe('外帶杯材依冷熱、容量與封口扣庫存', () => {
     });
   });
 
-  it('自備環保杯、內用、沒有選封口或沒有冷熱的品項不扣', async () => {
+  it('沒有選封口時熱飲用杯蓋、冷飲用封膜', async () => {
+    await addOrder('o1', 'counter', [
+      { quantity: 1, servingTemperatureLevel: 'Hot', modifiers: [] },
+      {
+        quantity: 2,
+        servingTemperatureLevel: 'RegularIce',
+        modifiers: [large],
+      },
+    ]);
+
+    await consume('o1');
+
+    expect(await levels()).toEqual({
+      'cold-cup-16': 98,
+      'hot-cup': 99,
+      'hot-lid': 99,
+      'plastic-film': 98,
+    });
+  });
+
+  it('自備環保杯、內用、沒有冷熱的品項不扣', async () => {
     await addOrder('o1', 'counter', [
       {
         quantity: 1,
         servingTemperatureLevel: 'Hot',
         modifiers: [lid, ownCup],
       },
-      { quantity: 1, servingTemperatureLevel: 'Hot', modifiers: [] },
+      { quantity: 1, servingTemperatureLevel: 'Hot', modifiers: [ownCup] },
       { quantity: 1, servingTemperatureLevel: null, modifiers: [lid] },
     ]);
     await addOrder('o2', 'dineIn', [
