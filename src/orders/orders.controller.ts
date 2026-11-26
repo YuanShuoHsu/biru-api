@@ -11,6 +11,7 @@ import {
   Res,
 } from '@nestjs/common';
 import {
+  ApiCreatedResponse,
   ApiHeader,
   ApiOkResponse,
   ApiOperation,
@@ -254,6 +255,29 @@ export class OrdersController {
       orderId,
       orderItemId,
       prepared,
+    );
+  }
+
+  @Post(':orderId/items/:orderItemId/cup-received')
+  @Roles({ order: ['update'] }, 'organizationSlug')
+  @Audit({
+    resource: 'order',
+    idSource: { param: 'orderItemId' },
+    via: { table: 'orderItem', ownerColumn: 'orderId' },
+  })
+  @ApiOperation({
+    summary: '收到客人的自備杯，把這杯排進工作單（訂單製作中才可）',
+  })
+  @ApiCreatedResponse({ type: OrderItemResponseDto })
+  receiveItemCup(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('orderId') orderId: string,
+    @Param('orderItemId') orderItemId: string,
+  ): Promise<OrderItemResponseDto> {
+    return this.ordersService.receiveOrderItemCup(
+      organizationSlug,
+      orderId,
+      orderItemId,
     );
   }
 

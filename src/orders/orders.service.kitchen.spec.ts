@@ -88,6 +88,7 @@ describe('OrdersService.listKitchenOrders', () => {
       createdAt: '2026-11-12 01:00:00',
       pickupTime: '2026-11-11 00:59:59',
     });
+    await addOrder('cup-only', { paymentDate: '2026-11-12 03:30:00' });
     await addOrder('window-edge', {
       createdAt: '2026-11-11 05:00:00',
       paymentDate: '2026-11-12 04:30:00',
@@ -100,6 +101,11 @@ describe('OrdersService.listKitchenOrders', () => {
          ('tea', 'paid-late', 'm3', '紅茶', 1, 100, null),
          ('soda', 'scheduled', 'm4', '汽水', 1, 100, null),
          ('elsewhere', 'other-store', 'm1', '拿鐵', 1, 100, null);
+       insert into order_item (id, order_id, menu_item_id, menu_item_name, order_quantity, unit_price, modifiers, cup_received_at) values
+         ('own-cup-waiting', 'paid-late', 'm5', '美式', 1, 95, '[{"modifierGroupId":"g","modifierGroupName":"封口","modifierId":"own","modifierName":"自備杯","priceAdjustment":"-5.00","customerProvidedCup":true}]', null),
+         ('own-cup-received', 'paid-late', 'm5', '美式', 1, 95, '[{"modifierGroupId":"g","modifierGroupName":"封口","modifierId":"own","modifierName":"自備杯","priceAdjustment":"-5.00","customerProvidedCup":true}]', now()),
+         ('add-on-cup-waiting', 'cup-only', 'm6', '蛋糕', 1, 100, null, null);
+       update order_item set add_ons = '[{"menuItemId":"m5","menuItemName":"美式","unitPrice":"95","modifiers":[{"modifierGroupId":"g","modifierGroupName":"封口","modifierId":"own","modifierName":"自備杯","priceAdjustment":"-5.00","customerProvidedCup":true}]}]' where id = 'add-on-cup-waiting';
        insert into order_ticket_job (id, order_id, printer_id, organization_id, kind, order_item_ids, copy, status) values
          ('early-bar', 'paid-early', 'bar', 'org', 'order', '{latte}', 'original', 'printed'),
          ('early-kitchen', 'paid-early', 'kitchen', 'org', 'order', '{cake}', 'original', 'queued'),
@@ -175,6 +181,16 @@ describe('OrdersService.listKitchenOrders', () => {
       ['paid-early', ['cake']],
       ['paid-late', ['tea']],
     ]);
+  });
+
+  it('還沒收杯的自備杯品項不列，品項全在等杯的訂單也不列', async () => {
+    const orders = await service.listKitchenOrders('biru', {});
+
+    expect(orders.map(({ id }) => id)).not.toContain('cup-only');
+    expect(
+      orders.find(({ id }) => id === 'paid-late')?.items.map(({ id }) => id),
+    ).toEqual(expect.arrayContaining(['tea', 'own-cup-received']));
+    expect(orders.find(({ id }) => id === 'paid-late')?.items).toHaveLength(2);
   });
 
   it('別家店的印表機查不到任何訂單', async () => {

@@ -22,6 +22,7 @@ import {
   type OrderTicketItem,
 } from './order-ticket-receipt.js';
 import { isOrderTicketPrintable } from './order-transitions.js';
+import { awaitsCustomerCup } from './own-cup.js';
 
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -685,13 +686,10 @@ export class OrderTicketService implements PrintJobSource {
       covering.flatMap(({ orderItemIds }) => orderItemIds),
     );
     const pending = items.filter(
-      ({ addOns, cupReceivedAt, id, modifiers }) =>
-        !covered.has(id) &&
-        (!onlyOrderItemIds || onlyOrderItemIds.includes(id)) &&
-        (cupReceivedAt ||
-          ![modifiers, ...(addOns ?? []).map((addOn) => addOn.modifiers)]
-            .flatMap((mods) => mods ?? [])
-            .some((mod) => mod.customerProvidedCup)),
+      (item) =>
+        !covered.has(item.id) &&
+        (!onlyOrderItemIds || onlyOrderItemIds.includes(item.id)) &&
+        !awaitsCustomerCup(item),
     );
     if (!pending.length) return [];
 

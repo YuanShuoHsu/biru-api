@@ -254,6 +254,29 @@ describe('PrepEstimateService', () => {
     );
   });
 
+  it('還沒收杯的自備杯品項不計入等候時間，整張都在等杯的訂單不排隊', async () => {
+    await client.exec(
+      `insert into organization (id, name, slug, pickup_lead_minutes, created_at, address_country, address_locality, address_region, street_address) values
+         ('cups', 'Cups', 'cups', 8, now(), 'TW', '桃園市', '大園區', '中正東路一段');
+       insert into "order" (id, customer, mode, order_number, order_status, payment_method, seller_id, subtotal) values
+         ('cup-waiting', '{"name":"客人"}', 'pickup', '1', 'OrderProcessing', 'Cash', 'cups', 100),
+         ('cup-mixed', '{"name":"客人"}', 'pickup', '2', 'OrderProcessing', 'Cash', 'cups', 200);
+       insert into order_item (id, order_id, menu_item_id, menu_item_name, order_quantity, unit_price, modifiers) values
+         ('waiting-cake', 'cup-waiting', 'cake', 'cake', 1, 95, '[{"modifierGroupId":"g","modifierGroupName":"封口","modifierId":"own","modifierName":"自備杯","priceAdjustment":"-5.00","customerProvidedCup":true}]'),
+         ('mixed-cake', 'cup-mixed', 'cake', 'cake', 1, 95, '[{"modifierGroupId":"g","modifierGroupName":"封口","modifierId":"own","modifierName":"自備杯","priceAdjustment":"-5.00","customerProvidedCup":true}]'),
+         ('mixed-latte', 'cup-mixed', 'latte', 'latte', 1, 100, null);`,
+    );
+    const org = { id: 'cups', pickupLeadMinutes: 8 };
+
+    await expect(service.prepMinutesWith(org, 30)).resolves.toBe(38);
+
+    await client.query(
+      `update order_item set cup_received_at = now() where id = 'waiting-cake'`,
+    );
+
+    await expect(service.prepMinutesWith(org, 30)).resolves.toBe(58);
+  });
+
   it('找不到門市時回 404', async () => {
     await expect(service.findBySlug('missing')).rejects.toThrow(
       NotFoundException,

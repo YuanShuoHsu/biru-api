@@ -2,12 +2,14 @@
 // https://www.better-auth.com/docs/concepts/cli
 // https://www.better-auth.com/docs/concepts/database
 // https://www.better-auth.com/docs/plugins/phone-number
+// https://www.better-auth.com/docs/plugins/2fa#schema
 
 import { relations, sql } from 'drizzle-orm';
 import {
   boolean,
   check,
   index,
+  integer,
   pgTable,
   text,
   timestamp,
@@ -48,6 +50,7 @@ export const user = pgTable(
     phoneNumberVerified: boolean('phone_number_verified')
       .default(false)
       .notNull(),
+    twoFactorEnabled: boolean('two_factor_enabled').default(false),
   },
   (table) => [
     check(
@@ -122,12 +125,32 @@ export const verification = pgTable(
   (table) => [index('verification_identifier_idx').on(table.identifier)],
 );
 
+export const twoFactor = pgTable(
+  'two_factor',
+  {
+    id: text('id').primaryKey(),
+    secret: text('secret').notNull(),
+    backupCodes: text('backup_codes').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    verified: boolean('verified').default(true),
+    failedVerificationCount: integer('failed_verification_count').default(0),
+    lockedUntil: timestamp('locked_until'),
+  },
+  (table) => [
+    index('twoFactor_secret_idx').on(table.secret),
+    index('twoFactor_userId_idx').on(table.userId),
+  ],
+);
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
   teamMembers: many(teamMember),
   members: many(member),
   invitations: many(invitation),
+  twoFactors: many(twoFactor),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -140,6 +163,13 @@ export const sessionRelations = relations(session, ({ one }) => ({
 export const accountRelations = relations(account, ({ one }) => ({
   user: one(user, {
     fields: [account.userId],
+    references: [user.id],
+  }),
+}));
+
+export const twoFactorRelations = relations(twoFactor, ({ one }) => ({
+  user: one(user, {
+    fields: [twoFactor.userId],
     references: [user.id],
   }),
 }));
