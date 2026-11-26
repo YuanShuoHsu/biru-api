@@ -281,9 +281,15 @@ export const createAuth = (
           before: async (account, context) => {
             if (!isAccountLinkPath(context)) return;
 
-            authHookState().linkedUser = await authDb().query.user.findFirst({
-              where: eq(schema.user.id, account.userId),
-            });
+            try {
+              authHookState().linkedUser = await runInAuthSavepoint(() =>
+                authDb().query.user.findFirst({
+                  where: eq(schema.user.id, account.userId),
+                }),
+              );
+            } catch (error) {
+              logger.error('Failed to snapshot audit target', error);
+            }
           },
         },
       },
@@ -323,10 +329,12 @@ export const createAuth = (
           after: async (user, context) => {
             if (!isAccountLinkPath(context)) return;
 
-            const before = authHookState().linkedUser;
-            if (before?.id !== user.id) return;
-
             try {
+              const state = authHookState();
+              const before = state.linkedUser;
+              if (before?.id !== user.id) return;
+              state.linkedUser = user;
+
               await runInAuthSavepoint(() =>
                 writeAuditEvent(context?.context.session?.user ?? user, {
                   target: { resource: 'user', id: user.id },
