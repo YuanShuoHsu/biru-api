@@ -54,6 +54,7 @@ export const auditActionEnum = pgEnum('audit_action', [
   'create',
   'update',
   'delete',
+  'export',
 ]);
 export type AuditAction = (typeof auditActionEnum.enumValues)[number];
 

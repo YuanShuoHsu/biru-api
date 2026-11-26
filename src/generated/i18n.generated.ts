@@ -557,6 +557,9 @@ export type I18nTranslations = {
                 "closing": string;
                 "consumed": string;
                 "createdAt": string;
+                "customerEmail": string;
+                "customerName": string;
+                "customerTelephone": string;
                 "day": string;
                 "discount": string;
                 "employerInsurance": string;
@@ -576,9 +579,12 @@ export type I18nTranslations = {
                 "note": string;
                 "opening": string;
                 "orderNumber": string;
+                "orderStatus": string;
                 "orders": string;
+                "paymentDate": string;
                 "paymentMethod": string;
                 "personnelCost": string;
+                "pickupTime": string;
                 "quantity": string;
                 "quantityChange": string;
                 "reason": string;
@@ -588,6 +594,8 @@ export type I18nTranslations = {
                 "revenue": string;
                 "revenueExcludingTax": string;
                 "standardCost": string;
+                "subtotal": string;
+                "tableNumber": string;
                 "theoreticalConsumption": string;
                 "total": string;
                 "unit": string;
@@ -604,6 +612,15 @@ export type I18nTranslations = {
                 "receive": string;
                 "restore": string;
                 "waste": string;
+            };
+            "orderStatuses": {
+                "OrderCancelled": string;
+                "OrderDelivered": string;
+                "OrderPaymentDue": string;
+                "OrderPickupAvailable": string;
+                "OrderProblem": string;
+                "OrderProcessing": string;
+                "OrderReturned": string;
             };
             "paymentMethods": {
                 "ApplePay": string;

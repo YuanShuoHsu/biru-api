@@ -9,12 +9,14 @@ import {
   Query,
   Req,
   Res,
+  StreamableFile,
 } from '@nestjs/common';
 import {
   ApiCreatedResponse,
   ApiHeader,
   ApiOkResponse,
   ApiOperation,
+  ApiProduces,
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
@@ -54,7 +56,10 @@ import {
   KitchenOrdersQueryDto,
 } from './dto/kitchen-orders.dto.js';
 import { OrderBoardItemDto } from './dto/order-board-response.dto.js';
-import { OrderPaginationQueryDto } from './dto/order-pagination-query.dto.js';
+import {
+  OrderExportQueryDto,
+  OrderPaginationQueryDto,
+} from './dto/order-pagination-query.dto.js';
 import { PrepEstimateQueryDto } from './dto/prep-estimate-query.dto.js';
 import {
   PrepEstimateResponseDto,
@@ -68,6 +73,7 @@ import {
 } from './dto/order-response.dto.js';
 import { SetOrderItemPreparedDto } from './dto/set-order-item-prepared.dto.js';
 import { orderAccessToken } from './order-access-token.js';
+import { OrderCsvService } from './order-csv.service.js';
 import {
   ORDER_QR_SESSION_COOKIE,
   setOrderQrSessionCookie,
@@ -81,6 +87,7 @@ import { PrepEstimateService } from './prep-estimate.service.js';
 @Controller('organizations/:organizationSlug/orders')
 export class OrdersController {
   constructor(
+    private readonly orderCsvService: OrderCsvService,
     private readonly orderQrService: OrderQrService,
     private readonly ordersService: OrdersService,
     private readonly prepEstimateService: PrepEstimateService,
@@ -150,6 +157,28 @@ export class OrdersController {
     @Query() query: OrderPaginationQueryDto,
   ): Promise<AdminOrderListResponseDto> {
     return this.ordersService.listOrders(organizationSlug, query);
+  }
+
+  @Get('export.csv')
+  @Roles({ order: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '匯出訂單列表 CSV' })
+  @ApiProduces('text/csv')
+  @ApiOkResponse({ schema: { type: 'string' } })
+  async exportOrders(
+    @Param('organizationSlug') organizationSlug: string,
+    @Query() query: OrderExportQueryDto,
+    @Session() session: UserSession,
+  ): Promise<StreamableFile> {
+    const csv = await this.orderCsvService.orders(
+      organizationSlug,
+      query,
+      session.user,
+    );
+
+    return new StreamableFile(Buffer.from(csv), {
+      type: 'text/csv; charset=utf-8',
+      disposition: 'attachment; filename="orders.csv"',
+    });
   }
 
   @Get('board')
