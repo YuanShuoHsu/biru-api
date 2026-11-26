@@ -349,5 +349,22 @@ describe('OrderTicketService 出單機（PGlite）', () => {
 
       expect(await detailLines()).toEqual(['少冰 / 加杯蓋']);
     });
+
+    it('門市沒有包材設定時存的是 null：沒選封口不印，選了沒標封口的選項只印選項名稱', async () => {
+      await insertItem('unchosen', 'RegularIce', null);
+      await insertItem('untagged', 'LessIce', null, {
+        modifiers: [
+          {
+            modifierGroupId: 'sealing',
+            modifierGroupName: '封口方式',
+            modifierId: 'lid',
+            modifierName: '杯蓋',
+            priceAdjustment: null,
+          },
+        ],
+      });
+
+      expect(await detailLines()).toEqual(['少冰 / 杯蓋', '正常冰']);
+    });
   });
 });

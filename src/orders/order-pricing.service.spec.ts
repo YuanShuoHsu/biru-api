@@ -42,6 +42,7 @@ const createService = (
   itemModifierGroups: object[] = [],
   modifiers: object[] = [],
   menuItemAddOns: object[] = [],
+  findTakeawayPackaging = vi.fn().mockResolvedValue(undefined),
 ) => {
   const db = {
     query: {
@@ -58,6 +59,7 @@ const createService = (
         findMany: vi.fn().mockResolvedValue(itemModifierGroups),
       },
       modifier: { findMany: vi.fn().mockResolvedValue(modifiers) },
+      takeawayPackaging: { findFirst: findTakeawayPackaging },
       offer: {
         findMany: vi.fn().mockResolvedValue(
           menuItems.map(({ id }: { id?: string }) => ({
@@ -560,7 +562,7 @@ describe('OrderPricingService.resolveOrderItems', () => {
     });
   });
 
-  describe('外帶飲品下單時決定封口，選了封口照選項，沒選時熱飲杯蓋、冰飲封膜', () => {
+  describe('外帶飲品下單時決定封口，選了封口照選項，門市有包材設定時沒選用預設', () => {
     const drinkOf = (id: string, name: string) => ({
       ...menuItemOf(id, name),
       availableModes: ['counter', 'dineIn'],
@@ -588,11 +590,24 @@ describe('OrderPricingService.resolveOrderItems', () => {
       cupSize: null,
       customerProvidedCup: true,
     });
+    const untaggedLid = sealingOf('untagged-lid', {
+      cupSeal: null,
+      cupSize: null,
+      customerProvidedCup: false,
+    });
+    const withPackaging = () => vi.fn().mockResolvedValue({ id: 'packaging' });
 
-    const resolve = async (
-      cartItem: CreateOrderItemDto,
-      mode: OrderMode = 'counter',
-      menuItems: object[] = [drink, tea],
+    const resolveAll = async (
+      cartItems: CreateOrderItemDto[],
+      {
+        findTakeawayPackaging = withPackaging(),
+        menuItems = [drink, tea],
+        mode = 'counter',
+      }: {
+        findTakeawayPackaging?: ReturnType<typeof withPackaging>;
+        menuItems?: object[];
+        mode?: OrderMode;
+      } = {},
     ) => {
       const service = createService(
         menuItems,
@@ -607,7 +622,7 @@ describe('OrderPricingService.resolveOrderItems', () => {
             modifiers: [],
           },
         })),
-        [lid, ownCup],
+        [lid, ownCup, untaggedLid],
         [
           {
             addOnMenuItemId: tea.id,
@@ -615,10 +630,97 @@ describe('OrderPricingService.resolveOrderItems', () => {
             menuItemId: drink.id,
           },
         ],
+        findTakeawayPackaging,
       );
-      const [item] = await service.resolveOrderItems('org', [cartItem], mode);
+      return service.resolveOrderItems('org', cartItems, mode);
+    };
+
+    const resolve = async (
+      cartItem: CreateOrderItemDto,
+      mode: OrderMode = 'counter',
+      menuItems: object[] = [drink, tea],
+    ) => {
+      const [item] = await resolveAll([cartItem], { menuItems, mode });
       return item;
     };
+
+    describe('門市還沒有任何外帶包材設定時不套用預設', () => {
+      const withoutPackaging = () => vi.fn().mockResolvedValue(undefined);
+
+      it('沒選封口存 null，加購也是', async () => {
+        const [hot, iced] = await resolveAll(
+          [
+            cartItemOf({
+              addOns: [
+                {
+                  menuItemId: tea.id,
+                  modifiers: {},
+                  servingTemperatureLevel: 'NoIce',
+                },
+              ],
+              servingTemperatureLevel: 'Hot',
+            }),
+            cartItemOf({ servingTemperatureLevel: 'RegularIce' }),
+          ],
+          { findTakeawayPackaging: withoutPackaging() },
+        );
+
+        expect(hot.cupSeal).toBeNull();
+        expect(hot.addOns[0]).not.toHaveProperty('cupSeal');
+        expect(iced.cupSeal).toBeNull();
+      });
+
+      it('選了標了封口的選項就存選項的值', async () => {
+        const [item] = await resolveAll(
+          [
+            cartItemOf({
+              modifiers: { sealing: ['lid'] },
+              servingTemperatureLevel: 'LessIce',
+            }),
+          ],
+          { findTakeawayPackaging: withoutPackaging() },
+        );
+
+        expect(item.cupSeal).toBe('lid');
+      });
+
+      it('選了沒標封口的杯蓋選項時存 null，不會被當成封膜', async () => {
+        const [item] = await resolveAll(
+          [
+            cartItemOf({
+              modifiers: { sealing: ['untagged-lid'] },
+              servingTemperatureLevel: 'LessIce',
+            }),
+          ],
+          { findTakeawayPackaging: withoutPackaging() },
+        );
+
+        expect(item.cupSeal).toBeNull();
+      });
+    });
+
+    it('門市有沒有包材設定每張單只查一次', async () => {
+      const findTakeawayPackaging = withPackaging();
+
+      await resolveAll(
+        [
+          cartItemOf({
+            addOns: [
+              {
+                menuItemId: tea.id,
+                modifiers: {},
+                servingTemperatureLevel: 'NoIce',
+              },
+            ],
+            servingTemperatureLevel: 'Hot',
+          }),
+          cartItemOf({ servingTemperatureLevel: 'RegularIce' }),
+        ],
+        { findTakeawayPackaging },
+      );
+
+      expect(findTakeawayPackaging).toHaveBeenCalledTimes(1);
+    });
 
     it('外帶熱飲沒選封口用杯蓋', async () => {
       const item = await resolve(

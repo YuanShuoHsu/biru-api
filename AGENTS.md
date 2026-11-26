@@ -344,7 +344,8 @@ row matching its serving temperature (`SERVING_TEMPERATURE_OF_LEVEL`), the `cupS
 serving, like any other recipe (`enforceStock` included). The seal is decided once, when the order is placed
 (`OrderPricingService`), and stored in `order_item.cup_seal` and the add-on snapshot's `cupSeal`: a `cupSeal` modifier, or
 else the brand-wide default (`DEFAULT_CUP_SEAL`: hot drinks a lid, iced drinks a film), so customers choose a seal only as
-an exception. Dine-in orders, items without a serving temperature and `customerProvidedCup` items get no seal. Consumption
+an exception. A store with no `takeaway_packaging` row gets no default, only the seal a modifier carries (looked up once
+per order). Dine-in orders, items without a serving temperature and `customerProvidedCup` items get no seal. Consumption
 and the order ticket (which prints a default seal so staff can see it) both read the stored seal, never recompute it, so
 an item without one, including every order placed before it was stored, deducts nothing and checks nothing; no matching
 row does the same.

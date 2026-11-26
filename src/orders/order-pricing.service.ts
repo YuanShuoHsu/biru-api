@@ -26,6 +26,7 @@ import type {
   ModifierGroup,
   PriceSpecification,
 } from '../db/schema/menus.js';
+import { takeawayPackaging } from '../db/schema/inventory.js';
 import {
   menu,
   menuItem,
@@ -180,6 +181,7 @@ const discountOwnCup = (
 
 const cupSealOf = (
   mode: OrderMode,
+  hasTakeawayPackaging: boolean,
   servingTemperatureLevel: ServingTemperatureLevel | null,
   modifiers: OrderItemModifierSnapshot[],
 ): CupSeal | null =>
@@ -188,7 +190,11 @@ const cupSealOf = (
   modifiers.some((mod) => mod.customerProvidedCup)
     ? null
     : (modifiers.find((mod) => mod.cupSeal)?.cupSeal ??
-      DEFAULT_CUP_SEAL[SERVING_TEMPERATURE_OF_LEVEL[servingTemperatureLevel]]);
+      (hasTakeawayPackaging
+        ? DEFAULT_CUP_SEAL[
+            SERVING_TEMPERATURE_OF_LEVEL[servingTemperatureLevel]
+          ]
+        : null));
 
 type Customization = Omit<CreateOrderItemDto, 'quantity'>;
 
@@ -342,8 +348,15 @@ export class OrderPricingService {
     mode: OrderMode,
     availableAt: Date | null = null,
   ): Promise<ResolvedOrderItem[]> {
-    const catalog = await this.loadCatalog(organizationId, items);
+    const [catalog, packaging] = await Promise.all([
+      this.loadCatalog(organizationId, items),
+      this.db.query.takeawayPackaging.findFirst({
+        columns: { id: true },
+        where: eq(takeawayPackaging.organizationId, organizationId),
+      }),
+    ]);
     if (!catalog) throw notFoundError('menuChanged');
+    const hasTakeawayPackaging = !!packaging;
     const {
       groupsByMenuItemId,
       itemAddOns,
@@ -500,7 +513,12 @@ export class OrderPricingService {
         resolveModifierSnapshots(item, addOn.modifiers),
         Number(unitPrice),
       );
-      const cupSeal = cupSealOf(mode, servingTemperatureLevel, modifiers);
+      const cupSeal = cupSealOf(
+        mode,
+        hasTakeawayPackaging,
+        servingTemperatureLevel,
+        modifiers,
+      );
       return {
         menuItemId: item.id,
         menuItemName: getName(item.name),
@@ -558,7 +576,12 @@ export class OrderPricingService {
         orderQuantity: cartItem.quantity,
         modifiers: itemModifiers,
         addOns,
-        cupSeal: cupSealOf(mode, servingTemperatureLevel, itemModifiers),
+        cupSeal: cupSealOf(
+          mode,
+          hasTakeawayPackaging,
+          servingTemperatureLevel,
+          itemModifiers,
+        ),
         servingTemperatureLevel,
         sweetnessLevel,
       };
