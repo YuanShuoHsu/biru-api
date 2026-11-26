@@ -190,11 +190,7 @@ const cupSealOf = (
   modifiers.some((mod) => mod.customerProvidedCup)
     ? null
     : (modifiers.find((mod) => mod.cupSeal)?.cupSeal ??
-      (hasTakeawayPackaging
-        ? DEFAULT_CUP_SEAL[
-            SERVING_TEMPERATURE_OF_LEVEL[servingTemperatureLevel]
-          ]
-        : null));
+      (hasTakeawayPackaging ? DEFAULT_CUP_SEAL : null));
 
 type Customization = Omit<CreateOrderItemDto, 'quantity'>;
 

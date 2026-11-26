@@ -28,7 +28,4 @@ export const SERVING_TEMPERATURE_LEVEL_NAMES: Record<
   Hot: '熱',
 };
 
-export const DEFAULT_CUP_SEAL: Record<ServingTemperature, CupSeal> = {
-  Hot: 'lid',
-  Iced: 'film',
-};
+export const DEFAULT_CUP_SEAL: CupSeal = 'film';

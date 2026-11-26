@@ -722,12 +722,12 @@ describe('OrderPricingService.resolveOrderItems', () => {
       expect(findTakeawayPackaging).toHaveBeenCalledTimes(1);
     });
 
-    it('外帶熱飲沒選封口用杯蓋', async () => {
+    it('外帶熱飲沒選封口也用封膜', async () => {
       const item = await resolve(
         cartItemOf({ servingTemperatureLevel: 'Hot' }),
       );
 
-      expect(item.cupSeal).toBe('lid');
+      expect(item.cupSeal).toBe('film');
     });
 
     it('外帶冰飲沒選封口用封膜', async () => {
@@ -789,7 +789,7 @@ describe('OrderPricingService.resolveOrderItems', () => {
         }),
       );
 
-      expect(item.cupSeal).toBe('lid');
+      expect(item.cupSeal).toBe('film');
       expect(item.addOns[0].cupSeal).toBe('film');
       expect(item.addOns[1]).not.toHaveProperty('cupSeal');
     });
