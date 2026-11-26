@@ -679,7 +679,7 @@ export class PayrollService {
     return this.db.transaction(
       async (tx) => {
         const settings = await this.payrollSettings(tx, organizationId, month);
-        const shared = {
+        const preloaded = {
           leaveTypes: await this.leaveTypesOf(tx, organizationId),
           ruleSet: await this.ruleSets.resolve(tx, month),
         };
@@ -699,7 +699,7 @@ export class PayrollService {
                 month,
                 undefined,
                 settings,
-                shared,
+                preloaded,
               ),
             });
           } catch (error) {
@@ -735,7 +735,7 @@ export class PayrollService {
       overtimeExtensionPeriods,
       ...payday
     } = NO_PAYROLL_SETTINGS,
-    shared?: {
+    preloaded?: {
       leaveTypes: (typeof attendanceLeaveType.$inferSelect)[];
       ruleSet: Awaited<ReturnType<PayrollRulesService['resolve']>>;
     },
@@ -813,7 +813,8 @@ export class PayrollService {
       )
       .orderBy(desc(attendanceRequest.reviewedAt), asc(attendanceRequest.id));
     const leaveTypes =
-      shared?.leaveTypes ?? (await this.leaveTypesOf(tx, actor.organizationId));
+      preloaded?.leaveTypes ??
+      (await this.leaveTypesOf(tx, actor.organizationId));
     const medical = leaveTypes.some((policy) =>
       isMedicalLeave(policy.statutoryKind),
     )
@@ -821,8 +822,8 @@ export class PayrollService {
       : null;
     const blockers: PayrollBlocker[] = [];
     const violations: PayrollViolation[] = [];
-    const ruleSet = shared
-      ? shared.ruleSet
+    const ruleSet = preloaded
+      ? preloaded.ruleSet
       : await this.ruleSets.resolve(tx, month);
     if (!ruleSet) throw badRequestError('payrollRuleSetMissing');
     const occupationalAccidentRateMicros =

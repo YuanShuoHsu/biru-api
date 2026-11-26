@@ -286,7 +286,7 @@ describe('Estimating payslips for the break-even report', () => {
       { resolve } as unknown as PayrollRulesService,
       {} as PayrollEarningsService,
     );
-    const snapshotFn = vi.fn(snapshot);
+    const snapshotFn = vi.fn((..._args: unknown[]) => snapshot());
     Object.defineProperty(service, 'snapshot', { value: snapshotFn });
     return {
       leaveTypes,
@@ -309,8 +309,14 @@ describe('Estimating payslips for the break-even report', () => {
     expect(resolve).toHaveBeenCalledTimes(1);
     expect(resolve).toHaveBeenCalledWith(expect.anything(), '2026-02');
     expect(snapshot).toHaveBeenCalledTimes(2);
-    for (const call of snapshot.mock.calls)
-      expect(call.at(-1)).toEqual({ leaveTypes, ruleSet });
+    for (const call of snapshot.mock.calls) {
+      const preloaded = call.at(-1) as {
+        leaveTypes: unknown;
+        ruleSet: unknown;
+      };
+      expect(preloaded.leaveTypes).toBe(leaveTypes);
+      expect(preloaded.ruleSet).toBe(ruleSet);
+    }
   });
 
   it('computes each employee in a read-only transaction and writes nothing', async () => {
