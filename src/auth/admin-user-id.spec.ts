@@ -110,7 +110,16 @@ describe('照 better-auth 實際讀的欄位與轉法判斷操作對象', () => 
       [ids.bo, ids.ann],
     );
     await client.query(
-      `insert into team (id, name, organization_id, created_at) values ('t-bar', 'Bar', 'biru', now())`,
+      `insert into organization (id, name, slug, created_at, closed_at, address_country, address_locality, address_region, street_address)
+       values ('closed', 'Closed', 'closed', now(), now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
+    );
+    await client.query(
+      `insert into member (id, organization_id, user_id, role, joined_as_platform_admin, created_at)
+       values ('m-bo-closed', 'closed', $1, 'owner', false, now())`,
+      [ids.bo],
+    );
+    await client.query(
+      `insert into team (id, name, organization_id, created_at) values ('t-bar', 'Bar', 'biru', now()), ('t-closed', 'Closed', 'closed', now())`,
     );
     await client.query(
       `insert into team_member (id, team_id, user_id, created_at) values ('tm-ann', 't-bar', $1, now())`,
@@ -229,4 +238,96 @@ describe('照 better-auth 實際讀的欄位與轉法判斷操作對象', () => 
       expect(await roleOfMember('m-ann')).toBe('owner');
     },
   );
+
+  describe('沒帶或帶空字串的 organizationId 照 better-auth 改用目前選的門市', () => {
+    const setActiveOrganization = (organizationId: string | null) =>
+      client.query(
+        `update session set active_organization_id = $2 where user_id = $1`,
+        [ids.bo, organizationId],
+      );
+
+    afterEach(async () => {
+      await setActiveOrganization(null);
+    });
+
+    it.each([
+      [
+        '/organization/remove-member',
+        () => ({ memberIdOrEmail: 'm-ann', organizationId: '' }),
+      ],
+      [
+        '/organization/update-member-role',
+        () => ({ memberId: 'm-ann', role: 'member', organizationId: '' }),
+      ],
+      [
+        '/organization/remove-team-member',
+        () => ({ teamId: 't-bar', userId: ids.ann, organizationId: '' }),
+      ],
+    ])('%s 不能動平台管理員成員', async (path, body) => {
+      await setActiveOrganization('biru');
+
+      const response = await request(path, body(), 'bo');
+
+      expect(response.status).toBe(403);
+      expect(await response.json()).toMatchObject({
+        code: 'PLATFORM_ADMIN_MEMBER_PROTECTED',
+      });
+      expect(await roleOfMember('m-ann')).toBe('owner');
+      const { rows } = await client.query(
+        `select id from team_member where id = 'tm-ann'`,
+      );
+      expect(rows).toHaveLength(1);
+    });
+
+    it('create-team 夾帶別家門市的 teamId 也不能在已關店的門市建立小組', async () => {
+      await setActiveOrganization('closed');
+
+      const response = await request(
+        '/organization/create-team',
+        { name: 'Sneaky', teamId: 't-bar' },
+        'bo',
+      );
+
+      expect(response.status).toBe(403);
+      expect(await response.json()).toMatchObject({
+        code: 'ORGANIZATION_CLOSED',
+      });
+    });
+
+    it('update-team 帶頂層 organizationId 也不能改已關店門市的小組', async () => {
+      await setActiveOrganization('closed');
+
+      const response = await request(
+        '/organization/update-team',
+        {
+          teamId: 't-closed',
+          organizationId: 'biru',
+          data: { name: 'Sneaky' },
+        },
+        'bo',
+      );
+
+      expect(response.status).toBe(403);
+      expect(await response.json()).toMatchObject({
+        code: 'ORGANIZATION_CLOSED',
+      });
+      const { rows } = await client.query<{ name: string }>(
+        `select name from team where id = 't-closed'`,
+      );
+      expect(rows[0].name).toBe('Closed');
+    });
+
+    it('指定已關店的門市建立小組照常被拒', async () => {
+      const response = await request(
+        '/organization/create-team',
+        { name: 'Plain', organizationId: 'closed' },
+        'bo',
+      );
+
+      expect(response.status).toBe(403);
+      expect(await response.json()).toMatchObject({
+        code: 'ORGANIZATION_CLOSED',
+      });
+    });
+  });
 });

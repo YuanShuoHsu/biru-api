@@ -33,6 +33,7 @@ import { assertUserDeletable } from './deletion-guards.js';
 import type { LocalizeAuthError } from './i18n.js';
 import { assertKeepsOwner, assertMayManageMember } from './owner-guards.js';
 import { removeRevokedPlatformAdminMemberships } from './platform-admin-members.js';
+import { isPlatformAdmin } from './platform-role.js';
 import { rememberSignInLanguage } from './sign-up-language.js';
 
 import type {
@@ -456,7 +457,7 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
         const isSelfDelete = SELF_DELETE_PATHS.has(ctx.path);
         const userId = isSelfDelete
           ? session?.user.id
-          : session?.user.role === 'admin'
+          : isPlatformAdmin(session?.user.role)
             ? asCoercedId(asRow(ctx.body)?.userId)
             : undefined;
 
@@ -478,7 +479,8 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
         ) {
           const session = await getSessionFromCtx(ctx);
           if (
-            session?.user.role?.split(',').includes('admin') &&
+            session &&
+            isPlatformAdmin(session.user.role) &&
             session.user.id === asCoercedId(body.userId)
           )
             throw new APIError('BAD_REQUEST', {
@@ -505,7 +507,7 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
           await assertMayManageMember(
             session.user,
             managedMember(body),
-            asString(body.organizationId) ??
+            asString(body.organizationId) ||
               asString(asRow(session.session)?.activeOrganizationId),
           );
       }
@@ -539,6 +541,7 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
         const session = await getSessionFromCtx(ctx);
         if (session)
           await assertOrganizationOpen(
+            ctx.path,
             asRow(ctx.body) ?? {},
             asString(asRow(session.session)?.activeOrganizationId),
           );

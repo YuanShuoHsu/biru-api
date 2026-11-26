@@ -5,58 +5,71 @@ import * as schema from '../db/schema/index.js';
 
 import { authDb } from './auth-transaction.js';
 
-export const ORGANIZATION_WRITE_PATHS = new Set([
-  '/organization/accept-invitation',
-  '/organization/add-member',
-  '/organization/add-team-member',
-  '/organization/create-team',
-  '/organization/invite-member',
-  '/organization/remove-team',
-  '/organization/update',
-  '/organization/update-member-role',
-  '/organization/update-team',
-]);
-
 type Body = Record<string, unknown>;
 
 const asString = (value: unknown) =>
   typeof value === 'string' ? value : undefined;
 
-const findOrganizationId = async (
-  body: Body,
-  activeOrganizationId: string | null | undefined,
-) => {
-  const organizationId = asString(body.organizationId);
-  if (organizationId) return organizationId;
+const bodyOrActive = (
+  organizationId: unknown,
+  activeOrganizationId: string | undefined,
+) => asString(organizationId) || activeOrganizationId;
 
-  const invitationId = asString(body.invitationId);
-  if (invitationId) {
-    const row = await authDb().query.invitation.findFirst({
-      where: eq(schema.invitation.id, invitationId),
-      columns: { organizationId: true },
-    });
+const invitationOrganizationId = async (invitationId: unknown) => {
+  const id = asString(invitationId);
+  if (!id) return undefined;
 
-    return row?.organizationId;
-  }
+  const row = await authDb().query.invitation.findFirst({
+    where: eq(schema.invitation.id, id),
+    columns: { organizationId: true },
+  });
 
-  const teamId = asString(body.teamId);
-  if (teamId) {
-    const row = await authDb().query.team.findFirst({
-      where: eq(schema.team.id, teamId),
-      columns: { organizationId: true },
-    });
-
-    return row?.organizationId;
-  }
-
-  return activeOrganizationId ?? undefined;
+  return row?.organizationId;
 };
 
+const ORGANIZATION_OF: Record<
+  string,
+  (
+    body: Body,
+    activeOrganizationId: string | undefined,
+  ) => Promise<string | undefined> | string | undefined
+> = {
+  '/organization/accept-invitation': ({ invitationId }) =>
+    invitationOrganizationId(invitationId),
+  '/organization/add-member': ({ organizationId }, active) =>
+    bodyOrActive(organizationId, active),
+  '/organization/add-team-member': ({ organizationId }, active) =>
+    bodyOrActive(organizationId, active),
+  '/organization/create-team': ({ organizationId }, active) =>
+    bodyOrActive(organizationId, active),
+  '/organization/invite-member': ({ organizationId }, active) =>
+    bodyOrActive(organizationId, active),
+  '/organization/remove-team': ({ organizationId }, active) =>
+    bodyOrActive(organizationId, active),
+  '/organization/update': ({ organizationId }, active) =>
+    bodyOrActive(organizationId, active),
+  '/organization/update-member-role': ({ organizationId }, active) =>
+    bodyOrActive(organizationId, active),
+  '/organization/update-team': ({ data }, active) =>
+    bodyOrActive(
+      typeof data === 'object' && data !== null
+        ? (data as Body).organizationId
+        : undefined,
+      active,
+    ),
+};
+
+export const ORGANIZATION_WRITE_PATHS = new Set(Object.keys(ORGANIZATION_OF));
+
 export const assertOrganizationOpen = async (
+  path: string,
   body: Body,
-  activeOrganizationId: string | null | undefined,
+  activeOrganizationId: string | undefined,
 ) => {
-  const organizationId = await findOrganizationId(body, activeOrganizationId);
+  const organizationId = await ORGANIZATION_OF[path]?.(
+    body,
+    activeOrganizationId,
+  );
   if (!organizationId) return;
 
   const row = await authDb().query.organization.findFirst({
