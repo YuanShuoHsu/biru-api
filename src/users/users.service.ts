@@ -291,6 +291,7 @@ export class UsersService {
           email: user.email,
           emailSubscribed: user.emailSubscribed,
           firstName: user.firstName,
+          lang: user.lang,
           lastName: user.lastName,
         })
         .from(user)

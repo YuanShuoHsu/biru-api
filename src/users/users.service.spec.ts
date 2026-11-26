@@ -171,6 +171,7 @@ describe('UsersService 頭像', () => {
         email: 'data@example.com',
         firstName: 'A',
         image,
+        lang: 'en',
       },
       {
         id: 'https',
@@ -198,9 +199,10 @@ describe('UsersService 頭像', () => {
       expect.objectContaining({
         id: 'data',
         imageUrl: `/api/users/data/image/${imageVersion(image)}.webp`,
+        lang: 'en',
       }),
-      expect.objectContaining({ id: 'https', imageUrl: url }),
-      expect.objectContaining({ id: 'none', imageUrl: null }),
+      expect.objectContaining({ id: 'https', imageUrl: url, lang: 'zh-TW' }),
+      expect.objectContaining({ id: 'none', imageUrl: null, lang: 'zh-TW' }),
     ]);
     expect(Object.keys(data[0]).sort()).toEqual([
       'banExpires',
@@ -215,6 +217,7 @@ describe('UsersService 頭像', () => {
       'hasSession',
       'id',
       'imageUrl',
+      'lang',
       'lastName',
       'name',
       'role',
