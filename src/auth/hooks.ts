@@ -33,7 +33,6 @@ import { assertUserDeletable } from './deletion-guards.js';
 import type { LocalizeAuthError } from './i18n.js';
 import { assertKeepsOwner, assertMayManageMember } from './owner-guards.js';
 import { removeRevokedPlatformAdminMemberships } from './platform-admin-members.js';
-import { isPlatformAdmin } from './platform-role.js';
 import { rememberSignInLanguage } from './sign-up-language.js';
 
 import type {
@@ -390,6 +389,21 @@ const SELF_DELETE_PATHS = new Set(['/delete-user', '/delete-user/callback']);
 
 const PLATFORM_ROLE_PATHS = new Set(['/admin/set-role', '/admin/update-user']);
 
+const REQUESTED_ROLES: Record<string, (body: Body) => unknown> = {
+  '/admin/create-user': ({ role, data }) => role ?? asRow(data)?.role,
+  '/admin/set-role': ({ role }) => role,
+  '/admin/update-user': ({ data }) => asRow(data)?.role,
+};
+
+const requestsManyRoles = (requested: unknown) => {
+  const roles = Array.isArray(requested) ? requested : [requested];
+
+  return (
+    roles.length > 1 ||
+    roles.some((role) => typeof role === 'string' && role.includes(','))
+  );
+};
+
 const REVOKE_SESSION_PATHS = new Set([
   '/admin/revoke-user-session',
   '/admin/revoke-user-sessions',
@@ -457,7 +471,7 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
         const isSelfDelete = SELF_DELETE_PATHS.has(ctx.path);
         const userId = isSelfDelete
           ? session?.user.id
-          : isPlatformAdmin(session?.user.role)
+          : session?.user.role === 'admin'
             ? asCoercedId(asRow(ctx.body)?.userId)
             : undefined;
 
@@ -471,6 +485,12 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
         }
       }
 
+      if (requestsManyRoles(REQUESTED_ROLES[ctx.path]?.(asRow(ctx.body) ?? {})))
+        throw new APIError('BAD_REQUEST', {
+          message: 'A user can only have one role',
+          code: 'USER_CAN_ONLY_HAVE_ONE_ROLE',
+        });
+
       if (PLATFORM_ROLE_PATHS.has(ctx.path)) {
         const body = asRow(ctx.body) ?? {};
         if (
@@ -479,8 +499,7 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
         ) {
           const session = await getSessionFromCtx(ctx);
           if (
-            session &&
-            isPlatformAdmin(session.user.role) &&
+            session?.user.role === 'admin' &&
             session.user.id === asCoercedId(body.userId)
           )
             throw new APIError('BAD_REQUEST', {

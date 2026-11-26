@@ -144,37 +144,4 @@ describe('assertKeepsOwner', () => {
       ),
     ).resolves.toBeUndefined();
   });
-
-  it('角色含多個值時也認得平台管理員', async () => {
-    await join('m-amy', 'amy', 'owner');
-    await join('m-root', 'root', 'owner', true);
-    await client.exec(
-      `update "user" set role = 'admin,user' where id = 'root'`,
-    );
-
-    try {
-      await expect(
-        runInAuthTransaction(db, () =>
-          assertMayManageMember(
-            { id: 'amy', role: 'user' },
-            { memberIdOrEmail: 'm-root' },
-            'biru',
-          ),
-        ),
-      ).rejects.toMatchObject({
-        body: { code: 'PLATFORM_ADMIN_MEMBER_PROTECTED' },
-      });
-      await expect(
-        runInAuthTransaction(db, () =>
-          assertMayManageMember(
-            { id: 'amy', role: 'user,admin' },
-            { memberIdOrEmail: 'm-root' },
-            'biru',
-          ),
-        ),
-      ).resolves.toBeUndefined();
-    } finally {
-      await client.exec(`update "user" set role = 'admin' where id = 'root'`);
-    }
-  });
 });

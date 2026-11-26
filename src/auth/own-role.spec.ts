@@ -168,23 +168,69 @@ describe('平台管理員不能改自己的平台角色', () => {
     expect(await roleOf(annId)).toBe('admin');
   });
 
-  it('角色含多個值的平台管理員也不能改自己', async () => {
-    await client.query(`update "user" set role = 'admin,user' where id = $1`, [
-      annId,
-    ]);
-    try {
-      const response = await request('/admin/set-role', {
-        userId: annId,
-        role: 'user',
-      });
+  it.each([
+    [
+      'set-role 帶角色陣列',
+      '/admin/set-role',
+      (id: string) => ({ userId: id, role: ['admin', 'user'] }),
+    ],
+    [
+      'set-role 帶逗號字串',
+      '/admin/set-role',
+      (id: string) => ({ userId: id, role: 'admin,user' }),
+    ],
+    [
+      'update-user 帶角色陣列',
+      '/admin/update-user',
+      (id: string) => ({ userId: id, data: { role: ['user', 'admin'] } }),
+    ],
+    [
+      'create-user 帶角色陣列',
+      '/admin/create-user',
+      () => ({
+        email: 'dee@example.com',
+        name: 'Dee',
+        password: 'password-1234',
+        role: ['user', 'admin'],
+        data: { firstName: 'Dee' },
+      }),
+    ],
+    [
+      'create-user 在 data 帶逗號字串',
+      '/admin/create-user',
+      () => ({
+        email: 'dee@example.com',
+        name: 'Dee',
+        password: 'password-1234',
+        data: { firstName: 'Dee', role: 'user,admin' },
+      }),
+    ],
+  ])('%s 時擋下，不能給一個以上的角色', async (_, path, body) => {
+    const response = await request(path, body(boId));
 
-      expect(response.status).toBe(400);
-      expect(await roleOf(annId)).toBe('admin,user');
-    } finally {
-      await client.query(`update "user" set role = 'admin' where id = $1`, [
-        annId,
-      ]);
-    }
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: 'USER_CAN_ONLY_HAVE_ONE_ROLE',
+      message: '每位用戶只能有一個角色',
+    });
+    expect(await roleOf(boId)).toBe('user');
+    const { rows } = await client.query(
+      `select id from "user" where email = 'dee@example.com'`,
+    );
+    expect(rows).toHaveLength(0);
+  });
+
+  it('只有一個角色的陣列照常設定', async () => {
+    const response = await request('/admin/set-role', {
+      userId: boId,
+      role: ['admin'],
+    });
+
+    expect(response.status).toBe(200);
+    expect(await roleOf(boId)).toBe('admin');
+    expect(
+      (await request('/admin/set-role', { userId: boId, role: 'user' })).status,
+    ).toBe(200);
   });
 
   it('用 update-user 帶 role 改自己時擋下，其他欄位也不會寫入', async () => {

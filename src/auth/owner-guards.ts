@@ -4,7 +4,6 @@ import { and, eq, ne } from 'drizzle-orm';
 import * as schema from '../db/schema/index.js';
 
 import { authDb } from './auth-transaction.js';
-import { isPlatformAdmin } from './platform-role.js';
 
 // biru-admin 的成員頁與團隊頁照這兩條規則隱藏會被拒絕的操作，改規則時要一起改那邊，否則畫面會出現按了必定失敗的按鈕
 export const assertKeepsOwner = async (memberId: string) => {
@@ -37,7 +36,7 @@ export const assertMayManageMember = async (
   target: { memberIdOrEmail?: string; userId?: string },
   organizationId: string | undefined,
 ) => {
-  if (isPlatformAdmin(actor.role) || !organizationId) return;
+  if (actor.role === 'admin' || !organizationId) return;
 
   const actorMember = await authDb().query.member.findFirst({
     where: and(
@@ -64,7 +63,7 @@ export const assertMayManageMember = async (
       ),
     )
     .limit(1);
-  if (isPlatformAdmin(found?.role))
+  if (found?.role === 'admin')
     throw new APIError('FORBIDDEN', {
       message: 'Only a platform admin can remove or change a platform admin',
       code: 'PLATFORM_ADMIN_MEMBER_PROTECTED',
