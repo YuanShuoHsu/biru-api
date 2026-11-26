@@ -2108,6 +2108,13 @@
       "when": 1795610192585,
       "tag": "0300_own_cup",
       "breakpoints": true
+    },
+    {
+      "idx": 301,
+      "version": "7",
+      "when": 1795633670927,
+      "tag": "0301_two_factor",
+      "breakpoints": true
     }
   ]
 }

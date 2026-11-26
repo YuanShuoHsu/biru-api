@@ -2,7 +2,11 @@
 
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { betterAuth } from 'better-auth/minimal';
-import { admin as adminPlugin, organization } from 'better-auth/plugins';
+import {
+  admin as adminPlugin,
+  organization,
+  twoFactor,
+} from 'better-auth/plugins';
 import { db } from '../../db/index.js';
 import * as schema from '../../db/schema/index.js';
 
@@ -46,6 +50,7 @@ export const auth = betterAuth({
         allowRemovingAllTeams: true,
       },
     }),
+    twoFactor(),
   ],
   rateLimit: {
     enabled: true,
