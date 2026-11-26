@@ -34,13 +34,13 @@ const redact = (text: string) =>
     .replace(/https?:\/\/\S+/g, '[url]')
     .replace(/([^\s<>"'@,;:])[^\s<>"'@,;:]*@/g, '$1***@');
 
-const deviceOf = (request?: Request) => {
+const deviceOf = (request: Request | undefined, unknown: string) => {
   const result = new UAParser(
     request?.headers.get('user-agent') || undefined,
   ).getResult();
   return {
-    browser_name: result.browser?.name || 'Unknown',
-    operating_system: result.os?.name || 'Unknown',
+    browser_name: result.browser?.name || unknown,
+    operating_system: result.os?.name || unknown,
   };
 };
 
@@ -193,7 +193,7 @@ export class MailsService {
       }),
       template,
       context: {
-        ...deviceOf(request),
+        ...deviceOf(request, this.i18n.t('mail.unknown_device', { lang })),
         home_url,
         i18nLang: lang,
         name,

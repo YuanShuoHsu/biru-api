@@ -243,5 +243,6 @@
   "smtp_test": {
     "subject": "{productName} SMTP テスト",
     "text": "このメールが届いていれば、SMTP の設定は正しく行われています。"
-  }
+  },
+  "unknown_device": "不明"
 }

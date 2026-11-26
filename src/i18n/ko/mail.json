@@ -243,5 +243,6 @@
   "smtp_test": {
     "subject": "{productName} SMTP 테스트",
     "text": "이 이메일을 받으셨다면 SMTP 설정이 올바르게 되어 있습니다."
-  }
+  },
+  "unknown_device": "미확인"
 }

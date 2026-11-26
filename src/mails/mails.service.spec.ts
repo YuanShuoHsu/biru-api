@@ -260,6 +260,12 @@ describe('MailsService 語系', () => {
     expect(sent[1].html).toContain('from a Unknown device using Unknown');
   });
 
+  it('沒有 user-agent 時，安全提示的未知裝置用收件人語系', async () => {
+    await sendVerificationEmail('zh-TW');
+
+    expect(sent[0].html).toContain('使用 未知 的 未知 裝置');
+  });
+
   it('其他驗證信頁尾只留產品名稱', async () => {
     await sendVerificationEmail('en');
 
@@ -663,11 +669,11 @@ describe('MailsService 語系', () => {
       to: 'ann@example.com',
       template,
       context: {
-        browser_name: 'Unknown',
+        browser_name: '不明',
         home_url: 'http://localhost:3000/ja',
         i18nLang: 'ja',
         name: 'Ann',
-        operating_system: 'Unknown',
+        operating_system: '不明',
         productName: 'Biru Coffee',
         support_url: 'mailto:support@example.com',
         ...extra,
