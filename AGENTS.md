@@ -307,16 +307,16 @@ better-auth hooks in `src/auth/index.ts`, keyed `user/` and `organization/`. The
 https URL in its canonical form (`URL.href`), such as Google's avatar, or a data URL matching `IMAGE_DATA_URL_PATTERN`
 (`src/common/constants/image.ts`), and nothing longer than `IMAGE_DATA_URL_MAX_LENGTH`; any other string is rejected
 with `INVALID_IMAGE`.
-They are not `IMAGE_KINDS`, so `/api/images/:kind` does not serve them. The orphan sweep lists `organization/` too, but never
-`user/`: a member's own avatar change writes no `audit_log`, so the replaced avatar would have no 7-day grace.
+They are not `IMAGE_KINDS`, so `/api/images/:kind` does not serve them; the orphan sweep lists their prefixes too.
 
 Nothing deletes a stored object on replace or delete; `POST /api/images/orphans/sweep` (platform admin, dry-run unless
 `apply: true`) removes objects under each kind's prefix that are over 7 days old and not referenced. References are the
-tables' `image` columns (and `organization.logo`), the same field of `deleted_record` rows from these tables, and its
-`before` in `audit_log` rows for these resources from the last 7 days, so a replaced image survives 7 days after the
-swap. A new path that writes `image` must carry `@Audit` (and `image` must stay out of `AUDIT_IGNORED_COLUMNS`), and one
-that writes `organization.logo` must write its `audit_log` as `afterUpdateOrganization` does, or the old image can be
-swept as soon as it is replaced.
+tables' `image` columns (and `user.image`, `organization.logo`), the same field of `deleted_record` rows from these
+tables, and its `before` in `audit_log` rows for these resources from the last 7 days, so a replaced image survives 7
+days after the swap. A new path that writes `image` must carry `@Audit` (and `image` must stay out of
+`AUDIT_IGNORED_COLUMNS`), and one that writes `user.image` or `organization.logo` must write its `audit_log` as
+`/update-user` (only the `image` change) and `afterUpdateOrganization` do, or the old image can be swept as soon as it
+is replaced.
 
 ### Points Expiry
 

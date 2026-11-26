@@ -7,6 +7,7 @@ import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { auditLog } from '../db/schema/audit.js';
 import { deletedRecord } from '../db/schema/deleted-records.js';
 import { organization } from '../db/schema/organizations.js';
+import { user } from '../db/schema/users.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import type { ImageOrphanSweepResponseDto } from './dto/image-orphan-sweep.dto.js';
@@ -18,6 +19,7 @@ const GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000;
 
 const SWEPT_IMAGE_COLUMNS: { kind: SweptImageKind; column: AnyPgColumn }[] = [
   ...IMAGE_KINDS.map((kind) => ({ kind, column: IMAGE_TABLES[kind].image })),
+  { kind: 'user', column: user.image },
   { kind: 'organization', column: organization.logo },
 ];
 

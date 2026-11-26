@@ -72,6 +72,7 @@ type Event = {
   target: Target;
   before?: AuditRow;
   changes?: AuditChanges;
+  fields?: string[];
 };
 
 type Body = Record<string, unknown>;
@@ -192,6 +193,13 @@ const toEvents = (
           ]
         : [];
     }
+    case '/update-user': {
+      const id = asString(before?.id);
+
+      return id
+        ? [{ target: { resource: 'user', id }, before, fields: ['image'] }]
+        : [];
+    }
     case '/organization/add-team-member': {
       const id = asString(returned.teamId);
 
@@ -290,15 +298,20 @@ const getLabel = async (resource: AuditedResource, row: AuditRow) => {
 
 const writeEvent = async (
   actor: { id: string; name: string; email: string },
-  { target, before, changes: explicitChanges }: Event,
+  { target, before, changes: explicitChanges, fields }: Event,
 ) => {
   const after = await findRow(target);
   const row = after ?? before;
   if (!row) return;
 
-  const changes =
+  const diffed =
     explicitChanges ??
     diffAuditRows(before, after, AUDIT_IGNORED_COLUMNS[target.resource]);
+  const changes = fields
+    ? Object.fromEntries(
+        Object.entries(diffed).filter(([field]) => fields.includes(field)),
+      )
+    : diffed;
   if (!Object.keys(changes).length) return;
 
   const action: AuditAction = explicitChanges
@@ -497,6 +510,19 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
         } catch (error) {
           logger.error('Failed to snapshot audit target', error);
         }
+      }
+
+      // 換下的頭像要有異動紀錄，孤兒圖片清理才會保留 7 天
+      if (ctx.path === '/update-user' && 'image' in (asRow(ctx.body) ?? {})) {
+        const session = await getSessionFromCtx(ctx);
+        if (session)
+          try {
+            authHookState().snapshot = await runInAuthSavepoint(() =>
+              findRow({ resource: 'user', id: session.user.id }),
+            );
+          } catch (error) {
+            logger.error('Failed to snapshot audit target', error);
+          }
       }
 
       const target = BEFORE_TARGETS[ctx.path]?.(asRow(ctx.body) ?? {});

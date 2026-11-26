@@ -281,6 +281,7 @@ describe('ImageOrphansService', () => {
       'catalogSection/',
       'catalogItem/',
       'catalogModifier/',
+      'user/',
       'organization/',
     ]);
     expect(
@@ -369,6 +370,47 @@ describe('ImageOrphansService', () => {
       await db
         .delete(schema.organization)
         .where(sql`${schema.organization.id} = 'org-1'`);
+    }
+  });
+
+  it('會員頭像以欄位與 7 天內換下的舊圖為參照', async () => {
+    await db.insert(schema.user).values({
+      id: 'user-1',
+      name: 'Member',
+      firstName: 'Member',
+      email: 'member@example.com',
+      image: `${PUBLIC_URL}/user/current.webp`,
+    });
+    await db.insert(schema.auditLog).values({
+      id: 'audit-user-1',
+      actorName: 'Member',
+      actorEmail: 'member@example.com',
+      resource: 'user',
+      resourceId: 'user-1',
+      action: 'update',
+      changes: {
+        image: {
+          before: `${PUBLIC_URL}/user/replaced.webp`,
+          after: `${PUBLIC_URL}/user/current.webp`,
+        },
+      },
+      createdAt: sql`now() - interval '6 days'`,
+    });
+    objects['user/'] = [
+      { Key: 'user/current.webp', LastModified: OLD },
+      { Key: 'user/replaced.webp', LastModified: OLD },
+      { Key: 'user/orphan.webp', LastModified: OLD },
+    ];
+
+    try {
+      const result = await createService().sweep(false);
+
+      expect(kindOf(result, 'user')?.keys).toEqual(['user/orphan.webp']);
+    } finally {
+      await db
+        .delete(schema.auditLog)
+        .where(sql`${schema.auditLog.id} = 'audit-user-1'`);
+      await db.delete(schema.user).where(sql`${schema.user.id} = 'user-1'`);
     }
   });
 
