@@ -99,20 +99,7 @@ export class OrderNotificationsService {
         ),
       );
 
-    const adjuster = alias(user, 'adjuster');
-    const adjustments = await this.db
-      .select({
-        organizationId: pointTransaction.organizationId,
-        adjuster: adjuster.name,
-        member: user.name,
-        points: pointTransaction.points,
-        reason: pointTransaction.note,
-      })
-      .from(pointTransaction)
-      .innerJoin(user, eq(user.id, pointTransaction.userId))
-      .leftJoin(adjuster, eq(adjuster.id, pointTransaction.adjustedBy))
-      .where(adjustedBetween(since, until))
-      .orderBy(asc(pointTransaction.createdAt));
+    const adjustments = await this.pointAdjustmentsBetween(since, until);
 
     let notified = 0;
     for (const seller of sellers) {
@@ -187,7 +174,6 @@ export class OrderNotificationsService {
     if (!admins.length) return 0;
 
     const { since, until } = yesterdayOf(now);
-    const adjuster = alias(user, 'adjuster');
     const [stores, adjustments, lowStock] = await Promise.all([
       this.db
         .select({
@@ -218,19 +204,7 @@ export class OrderNotificationsService {
           ),
         )
         .orderBy(asc(organization.name)),
-      this.db
-        .select({
-          organizationId: pointTransaction.organizationId,
-          adjuster: adjuster.name,
-          member: user.name,
-          points: pointTransaction.points,
-          reason: pointTransaction.note,
-        })
-        .from(pointTransaction)
-        .innerJoin(user, eq(user.id, pointTransaction.userId))
-        .leftJoin(adjuster, eq(adjuster.id, pointTransaction.adjustedBy))
-        .where(adjustedBetween(since, until))
-        .orderBy(asc(pointTransaction.createdAt)),
+      this.pointAdjustmentsBetween(since, until),
       this.db
         .select({
           organizationId: ingredient.organizationId,
@@ -322,6 +296,23 @@ export class OrderNotificationsService {
     }
 
     return notified;
+  }
+
+  private pointAdjustmentsBetween(since: Date, until: Date) {
+    const adjuster = alias(user, 'adjuster');
+    return this.db
+      .select({
+        organizationId: pointTransaction.organizationId,
+        adjuster: adjuster.name,
+        member: user.name,
+        points: pointTransaction.points,
+        reason: pointTransaction.note,
+      })
+      .from(pointTransaction)
+      .innerJoin(user, eq(user.id, pointTransaction.userId))
+      .leftJoin(adjuster, eq(adjuster.id, pointTransaction.adjustedBy))
+      .where(adjustedBetween(since, until))
+      .orderBy(asc(pointTransaction.createdAt));
   }
 
   private soldOrAdjustedBetween(since: Date, until: Date): SQL | undefined {
