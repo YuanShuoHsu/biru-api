@@ -310,7 +310,7 @@ describe('OrderTicketService 出單機（PGlite）', () => {
     });
 
     it('沒選封口的外帶飲品印出預設封口，加購飲品也印', async () => {
-      await insertItem('hot', 'Hot', 'lid', {
+      await insertItem('hot', 'Hot', 'film', {
         addOns: [
           {
             cupSeal: 'film',
@@ -329,7 +329,7 @@ describe('OrderTicketService 出單機（PGlite）', () => {
         '+ 紅茶 / 去冰 / 封膜',
         '少冰',
         '正常冰 / 封膜',
-        '熱 / 杯蓋',
+        '熱 / 封膜',
       ]);
     });
 

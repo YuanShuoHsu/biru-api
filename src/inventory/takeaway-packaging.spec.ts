@@ -54,6 +54,7 @@ describe('外帶杯材依冷熱、容量與下單時存下的封口扣庫存', (
       ['hot-cup', '100'],
       ['hot-lid', '100'],
       ['cold-cup-16', '100'],
+      ['paper-film', '100'],
       ['plastic-film', '100'],
     ])
       await client.query(
@@ -62,6 +63,7 @@ describe('外帶杯材依冷熱、容量與下單時存下的封口扣庫存', (
         [id, ORG, JSON.stringify({ 'zh-TW': id }), level],
       );
     await addPackaging('Hot', '12oz', 'lid', ['hot-cup', 'hot-lid']);
+    await addPackaging('Hot', '12oz', 'film', ['hot-cup', 'paper-film']);
     await addPackaging('Iced', '16oz', 'film', ['cold-cup-16', 'plastic-film']);
   });
 
@@ -172,6 +174,7 @@ describe('外帶杯材依冷熱、容量與下單時存下的封口扣庫存', (
       'cold-cup-16': 100,
       'hot-cup': 98,
       'hot-lid': 98,
+      'paper-film': 100,
       'plastic-film': 100,
     });
   });
@@ -207,6 +210,25 @@ describe('外帶杯材依冷熱、容量與下單時存下的封口扣庫存', (
     await consume('o1');
 
     expect(await levels()).toMatchObject({ 'hot-cup': 94, 'hot-lid': 94 });
+  });
+
+  it('外帶熱飲封膜扣熱飲杯與紙膜', async () => {
+    await addOrder('o1', 'pickup', [
+      {
+        quantity: 2,
+        servingTemperatureLevel: 'Hot',
+        cupSeal: 'film',
+        modifiers: [],
+      },
+    ]);
+
+    await consume('o1');
+
+    expect(await levels()).toMatchObject({
+      'hot-cup': 98,
+      'hot-lid': 100,
+      'paper-film': 98,
+    });
   });
 
   it('外帶冷飲選大杯與封膜扣 16oz 冷飲杯與膠膜，取消後還回去', async () => {
@@ -273,6 +295,7 @@ describe('外帶杯材依冷熱、容量與下單時存下的封口扣庫存', (
       'cold-cup-16': 99,
       'hot-cup': 99,
       'hot-lid': 99,
+      'paper-film': 100,
       'plastic-film': 99,
     });
   });
@@ -305,6 +328,7 @@ describe('外帶杯材依冷熱、容量與下單時存下的封口扣庫存', (
       'cold-cup-16': 98,
       'hot-cup': 99,
       'hot-lid': 99,
+      'paper-film': 100,
       'plastic-film': 98,
     });
   });
@@ -342,7 +366,7 @@ describe('外帶杯材依冷熱、容量與下單時存下的封口扣庫存', (
     await consume('o1');
     await consume('o2');
 
-    expect(Object.values(await levels())).toEqual([100, 100, 100, 100]);
+    expect(Object.values(await levels())).toEqual([100, 100, 100, 100, 100]);
   });
 
   it('沒有對應的包材設定時不扣也不擋單', async () => {
@@ -351,7 +375,7 @@ describe('外帶杯材依冷熱、容量與下單時存下的封口扣庫存', (
         quantity: 1,
         servingTemperatureLevel: 'Hot',
         cupSeal: 'film',
-        modifiers: [film],
+        modifiers: [large],
       },
       {
         quantity: 1,
@@ -362,7 +386,7 @@ describe('外帶杯材依冷熱、容量與下單時存下的封口扣庫存', (
     ]);
 
     await expect(consume('o1')).resolves.toBeDefined();
-    expect(Object.values(await levels())).toEqual([100, 100, 100, 100]);
+    expect(Object.values(await levels())).toEqual([100, 100, 100, 100, 100]);
   });
 
   it('杯材不夠時建單會被擋下並指出用到它的品項，已付款補扣則超賣', async () => {
