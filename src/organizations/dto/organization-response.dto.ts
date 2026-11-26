@@ -95,4 +95,7 @@ export class MyOrganizationListItemDto extends OrganizationResponseDto {
       '目前使用者有刪除權限；有訂單、出勤或薪資紀錄時依法須保存，不可刪除',
   })
   deletable: boolean;
+
+  @ApiProperty({ description: '目前使用者以平台管理員身分加入這間門市' })
+  joinedAsPlatformAdmin: boolean;
 }

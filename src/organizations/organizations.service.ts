@@ -423,7 +423,11 @@ export class OrganizationsService {
 
   async myOrganizations(userId: string): Promise<MyOrganizationListItemDto[]> {
     const rows = await this.db
-      .select({ organization, role: member.role })
+      .select({
+        organization,
+        role: member.role,
+        joinedAsPlatformAdmin: member.joinedAsPlatformAdmin,
+      })
       .from(member)
       .innerJoin(organization, eq(organization.id, member.organizationId))
       .where(eq(member.userId, userId))
@@ -435,10 +439,11 @@ export class OrganizationsService {
         .map(({ organization: { id } }) => id),
     );
 
-    return rows.map(({ organization: row, role }) => ({
+    return rows.map(({ organization: row, role, joinedAsPlatformAdmin }) => ({
       ...row,
       canUpdate: isAuthorized(role, { organization: ['update'] }),
       deletable: deletableIds.has(row.id),
+      joinedAsPlatformAdmin,
     }));
   }
 
