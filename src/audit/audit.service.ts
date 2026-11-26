@@ -30,6 +30,7 @@ import {
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import {
+  attendanceChangeName,
   attendanceEmployeeId,
   attendanceResourceName,
   isLabeledField,
@@ -107,6 +108,9 @@ const targetEmployeeName = sql`
 
 const targetResourceName = sql`
   CASE WHEN entry.source = 'attendance' THEN ${attendanceResourceName(entry('resource'), entry('"resourceId"'))} END`;
+
+const targetChangeName = sql`
+  CASE WHEN entry.source = 'attendance' THEN ${attendanceChangeName(entry('changes'))} END`;
 
 @Injectable()
 export class AuditService {
@@ -197,6 +201,7 @@ export class AuditService {
           buildLocalizedTextFilterCondition(resourceLabel, 'contains', value),
           ilike(targetEmployeeName, `%${escapeLike(value)}%`),
           ilike(targetResourceName, `%${escapeLike(value)}%`),
+          ilike(targetChangeName, `%${escapeLike(value)}%`),
         ],
       }),
     );
