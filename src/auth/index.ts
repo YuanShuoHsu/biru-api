@@ -751,6 +751,7 @@ export const createAuth = (
       },
       deleteUser: {
         enabled: true,
+        deleteTokenExpiresIn: 60 * 60,
         sendDeleteAccountVerification: async (
           {
             user,
