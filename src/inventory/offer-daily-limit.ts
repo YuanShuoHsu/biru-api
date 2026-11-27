@@ -37,11 +37,8 @@ const businessDayStart = (time: number): Date =>
     platformMidnight(time - BUSINESS_DAY_START_MS) + BUSINESS_DAY_START_MS,
   );
 
-export const resetDailyLimits = async (
-  tx: Tx,
-  organizationId?: string,
-): Promise<string[]> => {
-  const due = await tx
+const dueOffers = (db: Pick<DrizzleDB, 'select'>, organizationId?: string) =>
+  db
     .select({ id: offer.id, organizationId: menu.organizationId })
     .from(offer)
     .innerJoin(menuItem, eq(menuItem.id, offer.menuItemId))
@@ -55,7 +52,19 @@ export const resetDailyLimits = async (
           lt(offer.dailyLimitResetOn, businessDay(Date.now())),
         ),
       ),
-    )
+    );
+
+export const hasDueDailyLimits = async (
+  db: Pick<DrizzleDB, 'select'>,
+  organizationId: string,
+): Promise<boolean> =>
+  (await dueOffers(db, organizationId).limit(1)).length > 0;
+
+export const resetDailyLimits = async (
+  tx: Tx,
+  organizationId?: string,
+): Promise<string[]> => {
+  const due = await dueOffers(tx, organizationId)
     .orderBy(asc(offer.id))
     .for('update', { of: offer });
   if (!due.length) return [];
@@ -79,6 +88,7 @@ export const resetDailyLimits = async (
 
 export const dailyLimitChanges = async (
   tx: Tx,
+  organizationId: string,
   offerId: string | undefined,
   {
     dailyLimit,
@@ -111,7 +121,12 @@ export const dailyLimitChanges = async (
           sold: sql<number>`coalesce(sum((${order.heldOfferStock} ->> ${offerId})::numeric), 0)::float8`,
         })
         .from(order)
-        .where(gte(order.createdAt, businessDayStart(Date.now())))
+        .where(
+          and(
+            eq(order.sellerId, organizationId),
+            gte(order.createdAt, businessDayStart(Date.now())),
+          ),
+        )
     : [{ sold: 0 }];
 
   return {

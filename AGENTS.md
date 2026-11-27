@@ -357,11 +357,13 @@ recording waste on it is rejected with `unlimitedStockWaste` in the service, not
 An `offer` with `daily_limit` is a daily-limited item: its `inventory_level.value` stays what is left today and is reset to
 `daily_limit` at the start of each business day, the Taiwan date four hours earlier (`businessDay`,
 `src/inventory/offer-daily-limit.ts`), so 04:00 starts a new day. `daily_limit_reset_on` is the business day it was last reset;
-`resetDailyLimits` resets every offer behind it and `MenuStockService.resetDailyLimits` then refreshes the sold-out states. The
-04:00 cron runs it for every store, and the order menu read and order consumption run it for their store first, so a
-missed or disabled cron changes nothing. Setting a new `daily_limit` sets today's remaining to the limit less what today's
-orders hold (`held_offer_stock`), never below 0, and only `menu: ['update']` may set it; clearing it leaves the remaining
-as sent. Cancelling an order from an earlier business day does not give its held servings back to a daily-limited offer.
+`MenuStockService.resetDailyLimits` resets every offer behind it and then refreshes the sold-out states. The 04:00 cron
+runs it for every store, and the order menu read, placing an order and a payment result run it for their store first, so
+a missed or disabled cron changes nothing. They run it before, never inside, the order's transaction: it locks every
+offer of the store that is due, which would break the ascending-id lock order of the offers the order holds. Setting a
+new `daily_limit` sets today's remaining to the limit less what today's orders hold (`held_offer_stock`), never below 0,
+and only `menu: ['update']` may change it; clearing it leaves the remaining as sent. Cancelling an order from an earlier
+business day does not give its held servings back to a daily-limited offer.
 
 `inventory_transaction.created_by` is the user who recorded a count (the opening stock and count saved with an ingredient included), batch, waste or receipt (`session.user.id`, passed down from the
 controller); order consumption and restore leave it null. A new staff-initiated path that writes transactions must pass it —

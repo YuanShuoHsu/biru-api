@@ -884,15 +884,15 @@ describe('庫存扣除、還原與自動售完', () => {
       expect(row.inventory_level).toEqual({ unitText: '片', value: 6 });
     });
 
-    it('下單扣量前先補做恢復', async () => {
+    it('門市沒有待恢復的定價時不開交易', async () => {
       await addItem('cake', { remaining: 0 });
-      await setDailyLimit('cake', 3, yesterday);
-      await addOrder('o1', [{ menuItemId: 'cake', quantity: 2 }]);
+      await setDailyLimit('cake', 3, today);
+      const transaction = vi.spyOn(db, 'transaction');
 
-      await expect(consume('o1', true)).resolves.toMatchObject({
-        offerStockChanged: true,
-      });
-      expect(await remainingOf('cake')).toBe(1);
+      await expect(menuStock.resetDailyLimits(ORG)).resolves.toBe(0);
+
+      expect(transaction).not.toHaveBeenCalled();
+      transaction.mockRestore();
     });
 
     it('前一個營業日的訂單取消時不加回每日限量，非每日限量的照常加回', async () => {
@@ -931,7 +931,7 @@ describe('庫存扣除、還原與自動售完', () => {
       await moveOrderToYesterday('o2');
 
       const changes = await db.transaction((tx) =>
-        dailyLimitChanges(tx, 'cake-offer', {
+        dailyLimitChanges(tx, ORG, 'cake-offer', {
           dailyLimit: 10,
           inventoryLevel: undefined,
         }),
@@ -951,26 +951,26 @@ describe('庫存扣除、還原與自動售完', () => {
 
       await expect(
         db.transaction((tx) =>
-          dailyLimitChanges(tx, 'cake-offer', { dailyLimit: 2 }),
+          dailyLimitChanges(tx, ORG, 'cake-offer', { dailyLimit: 2 }),
         ),
       ).resolves.toMatchObject({ inventoryLevel: { value: 0 } });
 
       await setDailyLimit('cake', 2, today);
       await expect(
         db.transaction((tx) =>
-          dailyLimitChanges(tx, 'cake-offer', { dailyLimit: 2 }),
+          dailyLimitChanges(tx, ORG, 'cake-offer', { dailyLimit: 2 }),
         ),
       ).resolves.toEqual({});
       await expect(
         db.transaction((tx) =>
-          dailyLimitChanges(tx, 'cake-offer', { dailyLimit: null }),
+          dailyLimitChanges(tx, ORG, 'cake-offer', { dailyLimit: null }),
         ),
       ).resolves.toEqual({ dailyLimit: null, dailyLimitResetOn: null });
     });
 
     it('新建的定價設定每日限量時剩餘就是限量', async () => {
       await expect(
-        dailyLimitChanges(db, undefined, {
+        dailyLimitChanges(db, ORG, undefined, {
           dailyLimit: 4,
           inventoryLevel: { unitText: '份', value: 1 },
         }),

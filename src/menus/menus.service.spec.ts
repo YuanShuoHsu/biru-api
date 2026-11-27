@@ -929,17 +929,20 @@ describe('MenusService localized text filters and sorting', () => {
       ).rejects.toMatchObject(forbidden);
     });
 
-    it('沒有 menu:update 時不能設定每日限量', async () => {
+    it('沒有 menu:update 時不能改每日限量，送出與目前相同的值則通過', async () => {
       await setOffer('InStock');
-
-      await expect(
+      const updateDailyLimit = (dailyLimit: number | null) =>
         service.updateOfferAvailability({
           where: { id: 'americano-offer' },
           organizationId: ORG,
-          data: { availability: 'InStock', dailyLimit: 5 },
+          data: { availability: 'InStock', dailyLimit },
           canUpdateMenu: false,
-        }),
-      ).rejects.toMatchObject(forbidden);
+        });
+
+      await expect(updateDailyLimit(5)).rejects.toMatchObject(forbidden);
+      await expect(updateDailyLimit(null)).resolves.toMatchObject({
+        dailyLimit: null,
+      });
     });
 
     it('有 menu:update 時設定每日限量，今日剩餘以限量重算而非送來的數量', async () => {

@@ -87,7 +87,7 @@ import {
   notFoundError,
 } from './inventory-errors.js';
 import { QUANTITY_TOLERANCE } from './menu-stock.service.js';
-import { businessDay, resetDailyLimits } from './offer-daily-limit.js';
+import { businessDay } from './offer-daily-limit.js';
 import { baseQuantityOf, unitPriceSql } from './pricing.js';
 
 type Tx = Pick<DrizzleDB, 'insert' | 'select' | 'update'>;
@@ -1018,14 +1018,12 @@ export class InventoryTransactionsService {
     if (!servingsByMenuItemId.size)
       return { lowStock: [], offerStockChanged: false };
 
-    const dailyLimitsReset = await resetDailyLimits(tx, placed.sellerId);
-    const offerStockChanged =
-      (await this.holdOfferStock(
-        orderId,
-        servingsByMenuItemId,
-        enforceStock,
-        tx,
-      )) || dailyLimitsReset.length > 0;
+    const offerStockChanged = await this.holdOfferStock(
+      orderId,
+      servingsByMenuItemId,
+      enforceStock,
+      tx,
+    );
 
     const packagingByRecipeId = new Map<string, PackagingServings>();
     if (packagingByKey.size)

@@ -239,15 +239,17 @@ const createService = ({
 
   const couponsService = { restore: vi.fn() };
   const inventory = { consume: vi.fn(), restoreAll: vi.fn() };
-  const menuStock = { refresh: vi.fn() };
+  const menuStock = { refresh: vi.fn(), resetDailyLimits: vi.fn() };
   const orderTickets = { enqueueOrder: vi.fn(), withdrawOrder: vi.fn() };
   const eventEmitter = new EventEmitter2();
   const emit = vi.spyOn(eventEmitter, 'emit');
 
   return {
     couponsService,
+    db,
     emit,
     inventory,
+    menuStock,
     orderTickets,
     service: new OrdersService(
       db as unknown as DrizzleDB,
@@ -544,6 +546,36 @@ describe('OrdersService.recordPaymentResult', () => {
       ingredients,
       organizationId: 'org',
     });
+  });
+
+  it('付款成功時先在交易外補做該門市的每日限量恢復', async () => {
+    const problem: OrderRow = { ...pending, orderStatus: 'OrderProblem' };
+    const { db, inventory, menuStock, service } = createService({
+      current: problem,
+      updated: [{ ...problem, orderStatus: 'OrderProcessing' }],
+    });
+    inventory.consume.mockResolvedValue({
+      lowStock: [],
+      offerStockChanged: false,
+    });
+
+    await service.recordPaymentResult(paymentBody());
+
+    expect(menuStock.resetDailyLimits).toHaveBeenCalledWith('org');
+    expect(menuStock.resetDailyLimits.mock.invocationCallOrder[0]).toBeLessThan(
+      db.transaction.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('付款失敗時不補做每日限量恢復', async () => {
+    const { menuStock, service } = createService({
+      current: pending,
+      updated: [{ ...pending, orderStatus: 'OrderProblem' }],
+    });
+
+    await service.recordPaymentResult(paymentBody({ RtnCode: '10100058' }));
+
+    expect(menuStock.resetDailyLimits).not.toHaveBeenCalled();
   });
 
   it('重新扣庫存沒有跌破門檻時不推播', async () => {
