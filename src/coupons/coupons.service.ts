@@ -54,6 +54,7 @@ import {
   applicableToOrganization,
   isCouponDeleted,
   notPointsRedeem,
+  usableInCurrency,
   withinCapacity,
   withinValidity,
 } from '../common/utils/coupons.js';
@@ -170,6 +171,17 @@ const isUsedUp = (
   { totalLimit, usedCount }: Pick<Coupon, 'totalLimit' | 'usedCount'>,
   reserved: number,
 ) => totalLimit !== null && usedCount + reserved >= totalLimit;
+
+const isUsableInCurrency = (
+  {
+    discountCurrency,
+    discountType,
+    minSubtotal,
+  }: Pick<Coupon, 'discountCurrency' | 'discountType' | 'minSubtotal'>,
+  currency: string,
+) =>
+  discountCurrency === currency ||
+  (discountType === 'percentage' && !Number(minSubtotal));
 
 const isEligibleFor =
   (found: Pick<Coupon, 'menuItemIds' | 'menuSectionIds' | 'scope'>) =>
@@ -1090,8 +1102,10 @@ export class CouponsService {
                 .select({ id: order.id })
                 .from(order)
                 .innerJoin(orderItem, eq(orderItem.orderId, order.id))
+                .innerJoin(organization, eq(organization.id, order.sellerId))
                 .where(
                   and(
+                    eq(organization.currency, c.discountCurrency),
                     ...(c.applicableOrganizationIds
                       ? [inArray(order.sellerId, c.applicableOrganizationIds)]
                       : []),
@@ -1154,6 +1168,7 @@ export class CouponsService {
               eq(userCoupon.userId, userId),
               isNull(userCoupon.usedAt),
               applicableToOrganization(org.id),
+              usableInCurrency(org.currency),
               eq(coupon.isActive, true),
               withinValidity(),
             ),
@@ -1166,6 +1181,7 @@ export class CouponsService {
     const publicCoupons = await this.db.query.coupon.findMany({
       where: and(
         applicableToOrganization(org.id),
+        usableInCurrency(org.currency),
         eq(coupon.isActive, true),
         eq(coupon.isPublic, true),
         notPointsRedeem(),
@@ -1209,6 +1225,7 @@ export class CouponsService {
     const claimables = await this.db.query.coupon.findMany({
       where: and(
         applicableToOrganization(org.id),
+        usableInCurrency(org.currency),
         eq(coupon.isActive, true),
         eq(coupon.isClaimable, true),
         notPointsRedeem(),
@@ -1327,7 +1344,7 @@ export class CouponsService {
     assertGrantable(found);
 
     const target = await this.db.query.user.findFirst({
-      where: sql`lower(${user.email}) = lower(${email.trim()})`,
+      where: eq(user.email, email.trim().toLowerCase()),
     });
     if (!target) throw notFoundError('memberNotFound');
 
@@ -1399,6 +1416,7 @@ export class CouponsService {
           eq(userCoupon.userId, userId),
           eq(coupon.isActive, true),
           applicableToOrganization(org.id),
+          usableInCurrency(org.currency),
         ),
       )
       .orderBy(desc(userCoupon.createdAt));
@@ -1540,6 +1558,13 @@ export class CouponsService {
     if (!found && matches.some((c) => c.isActive))
       throw badRequestError('notApplicableHere');
     if (!found || !found.isActive) throw badRequestError('notFound');
+    if (
+      !isUsableInCurrency(
+        found,
+        await getOrganizationCurrency(this.db, organizationId),
+      )
+    )
+      throw badRequestError('notApplicableHere');
 
     const now = new Date();
     if (found.validFrom && now < found.validFrom)

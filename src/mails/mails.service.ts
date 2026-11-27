@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import type { NodemailerError } from 'nodemailer';
 import type { AttendanceNotificationKind } from '../attendance/attendance-notification.events.js';
@@ -374,7 +374,7 @@ export class MailsService {
     const invitee = await this.db.query.user.findFirst({
       columns: { lang: true },
       where: and(
-        sql`lower(${user.email}) = lower(${email})`,
+        eq(user.email, email.toLowerCase()),
         eq(user.emailVerified, true),
       ),
     });

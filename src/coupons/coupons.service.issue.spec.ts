@@ -230,6 +230,34 @@ describe('CouponsService 註冊禮、生日券與滿額券發放', () => {
     ).resolves.toHaveLength(2);
   });
 
+  it('滿額券只累計與券同幣別門市的訂單', async () => {
+    await client.exec(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address, currency) values
+         ('org', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段', 'TWD'),
+         ('tokyo', 'Tokyo', 'tokyo', now(), 'JP', '東京都', '渋谷区', '道玄坂', 'JPY')`,
+    );
+    await db.insert(coupon).values({
+      code: 'SPEND',
+      createdAt: new Date('2026-03-01T00:00:00Z'),
+      discountType: 'fixed',
+      discountValue: '30',
+      id: 'spend',
+      issueMinSpend: '200',
+      issueTrigger: 'spend',
+    });
+    await paidOrder('twd', '2026-03-05T00:00:00Z');
+    await paidOrder('jpy', '2026-03-06T00:00:00Z');
+    await client.query(
+      `update "order" set seller_id = 'tokyo' where id = 'jpy'`,
+    );
+
+    await service['issueEligibleCoupons']('org', 'may');
+
+    await expect(
+      wallet().then((rows) => rows.filter((row) => row.source === 'spend')),
+    ).resolves.toHaveLength(1);
+  });
+
   it('註冊禮只發啟用中的註冊券，重複呼叫不會多發', async () => {
     await service.issueSignupCoupons('none');
     await service.issueSignupCoupons('none');

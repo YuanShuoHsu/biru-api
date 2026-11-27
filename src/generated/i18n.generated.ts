@@ -228,6 +228,7 @@ export type I18nTranslations = {
         };
         "checklists": {
             "checklistActionNoteRequired": string;
+            "checklistBusinessDateChanged": string;
             "checklistItemInvalidRange": string;
             "checklistItemNotFound": string;
             "checklistItemValueRequired": string;
