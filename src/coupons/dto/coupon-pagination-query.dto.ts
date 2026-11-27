@@ -1,14 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-import { Transform, Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsOptional } from 'class-validator';
 
-import {
-  FILTER_OPERATORS,
-  SORT_DIRECTIONS,
-  type FilterOperator,
-  type SortDirection,
-} from '../../common/constants/pagination.js';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 import { languagesEnum, type Language } from '../../db/schema/enums.js';
 
 export const COUPON_STRING_FILTER_FIELDS = ['code'] as const;
@@ -66,21 +60,7 @@ const COUPON_SORT_FIELDS = [
 
 type CouponSortField = (typeof COUPON_SORT_FIELDS)[number];
 
-export class CouponPaginationQueryDto {
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit?: number = 10;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  @Max(Number.MAX_SAFE_INTEGER)
-  offset?: number = 0;
-
+export class CouponPaginationQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     enum: COUPON_ALL_FILTER_FIELDS,
     enumName: 'CouponFilterField',
@@ -88,34 +68,6 @@ export class CouponPaginationQueryDto {
   @IsOptional()
   @IsIn(COUPON_ALL_FILTER_FIELDS)
   filterField?: CouponFilterField;
-
-  @ApiPropertyOptional({
-    enum: FILTER_OPERATORS,
-    enumName: 'FilterOperator',
-  })
-  @IsOptional()
-  @IsIn(FILTER_OPERATORS)
-  filterOperator?: FilterOperator;
-
-  @IsOptional()
-  @IsString()
-  filterValue?: string;
-
-  @IsOptional()
-  @IsString()
-  quickFilterValue?: string;
-
-  @ApiPropertyOptional({
-    description: '快速搜尋命中的列舉條件,格式為 field:value1,value2',
-    isArray: true,
-    type: String,
-  })
-  @IsOptional()
-  @Transform(({ value }: { value: string | string[] }) =>
-    Array.isArray(value) ? value : [value],
-  )
-  @IsString({ each: true })
-  quickFilterEnums?: string[];
 
   @ApiPropertyOptional({ enum: languagesEnum.enumValues })
   @IsOptional()
@@ -129,9 +81,4 @@ export class CouponPaginationQueryDto {
   @IsOptional()
   @IsIn(COUPON_SORT_FIELDS)
   sortBy?: CouponSortField;
-
-  @ApiPropertyOptional({ enum: SORT_DIRECTIONS, enumName: 'SortDirection' })
-  @IsOptional()
-  @IsIn(SORT_DIRECTIONS)
-  sortDirection?: SortDirection;
 }
