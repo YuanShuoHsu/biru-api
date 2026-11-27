@@ -57,7 +57,7 @@ export class FillChecklistItemDto {
     description:
       '畫面上這份紀錄的營業日；與伺服器的營業日不同時回 409 checklistBusinessDateChanged',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @Matches(DATE_PATTERN)
   @IsISO8601({ strict: true })
   businessDate?: string;
