@@ -2122,6 +2122,13 @@
       "when": 1795679581923,
       "tag": "0302_takeaway_packaging",
       "breakpoints": true
+    },
+    {
+      "idx": 303,
+      "version": "7",
+      "when": 1795748243387,
+      "tag": "0303_order_reviews",
+      "breakpoints": true
     }
   ]
 }

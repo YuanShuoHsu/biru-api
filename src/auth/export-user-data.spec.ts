@@ -135,6 +135,16 @@ describe('POST /export-user-data', () => {
        values ('ann-item', 'latte', 'Latte', 'ann-order', 1, 100)`,
     );
     await client.query(
+      `insert into order_review (id, order_id, organization_id, user_id, rating, comment, reply, replied_at, replied_by) values
+         ('ann-review', 'ann-order', 'biru', $1, 4, 'ann-comment', 'store-reply', now(), $2),
+         ('bo-review', 'bo-order', 'biru', $2, 2, 'bo-comment', null, null, null)`,
+      [ann, bo],
+    );
+    await client.query(
+      `insert into order_review_item (id, review_id, order_item_id, liked)
+       values ('ann-review-item', 'ann-review', 'ann-item', true)`,
+    );
+    await client.query(
       `insert into invoice (id, order_id, type, carrier_type, carrier_num)
        values ('ann-invoice', 'ann-order', 'personal', 'mobile', '/ABC1234')`,
     );
@@ -294,6 +304,15 @@ describe('POST /export-user-data', () => {
           invoices: [{ carrierType: 'mobile', carrierNum: '/ABC1234' }],
         },
       ],
+      orderReviews: [
+        {
+          orderId: 'ann-order',
+          rating: 4,
+          comment: 'ann-comment',
+          reply: 'store-reply',
+          items: [{ orderItemId: 'ann-item', liked: true }],
+        },
+      ],
       pointTransactions: [],
       coupons: [],
       waitlistTickets: [],
@@ -324,6 +343,9 @@ describe('POST /export-user-data', () => {
       ]),
     );
     expect(data.profile).not.toHaveProperty('role');
+    expect(data.orderReviews).toEqual([
+      expect.not.objectContaining({ repliedBy: expect.anything() }),
+    ]);
     expect(data.orders).toEqual([
       expect.not.objectContaining({ idempotencyKey: expect.anything() }),
     ]);

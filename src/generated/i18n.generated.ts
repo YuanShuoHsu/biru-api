@@ -438,8 +438,10 @@ export type I18nTranslations = {
             "orderItemNotFound": string;
             "orderItemRefunded": string;
             "orderNotFound": string;
+            "orderNotDelivered": string;
             "orderQrSecretNeverRotated": string;
             "orderQrSessionNotFound": string;
+            "orderReviewLocked": string;
             "orderTotalTooLarge": string;
             "paymentAttemptsExhausted": string;
             "pickupOutsideOpeningHours": string;
