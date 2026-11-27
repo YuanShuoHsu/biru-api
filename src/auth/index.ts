@@ -47,6 +47,7 @@ import {
   PICKUP_MAX_ADVANCE_DAYS,
   PICKUP_MAX_CUTOFF_MINUTES,
 } from '../common/constants/pickup.js';
+import { PRODUCT_NAME } from '../common/constants/product.js';
 import {
   AUTH_CLIENT_IP_HEADER,
   rateLimitEnabled,
@@ -423,7 +424,7 @@ export const createAuth = (
     plugins: [
       adminPlugin(),
       twoFactor({
-        issuer: 'Biru Coffee',
+        issuer: PRODUCT_NAME,
         otpOptions: {
           sendOTP: async ({ user, otp }, ctx) => {
             await mailsService.sendTwoFactorOtp({ user, otp }, ctx?.request);

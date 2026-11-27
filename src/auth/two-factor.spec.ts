@@ -5,6 +5,7 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 
 import { createPGlite } from '../../test/pglite.js';
 import type { Transaction } from '../attendance/attendance-audit.js';
+import { PRODUCT_NAME } from '../common/constants/product.js';
 import * as schema from '../db/schema/index.js';
 
 import { runInAuthTransaction } from './auth-transaction.js';
@@ -103,7 +104,7 @@ describe('two-factor plugin', () => {
     await client.close();
   });
 
-  it('驗證器 App 顯示 Biru Coffee，設定金鑰與備用碼存進 two_factor', async () => {
+  it('驗證器 App 顯示產品名稱，設定金鑰與備用碼存進 two_factor', async () => {
     const cookie = await signUpAndIn('ann');
 
     const response = await request(
@@ -117,7 +118,7 @@ describe('two-factor plugin', () => {
       totpURI: string;
       backupCodes: string[];
     };
-    expect(new URL(totpURI).searchParams.get('issuer')).toBe('Biru Coffee');
+    expect(new URL(totpURI).searchParams.get('issuer')).toBe(PRODUCT_NAME);
     expect(backupCodes).toHaveLength(10);
     const { rows } = await client.query<{ verified: boolean }>(
       `select verified from two_factor
