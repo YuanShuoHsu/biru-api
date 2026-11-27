@@ -10,15 +10,20 @@ import {
   lt,
   sql,
 } from 'drizzle-orm';
-import { I18nContext } from 'nestjs-i18n';
+import { I18nContext, I18nService } from 'nestjs-i18n';
 
-import { DEFAULT_LANGUAGE, type LocalizedText } from '../db/schema/enums.js';
+import {
+  DEFAULT_LANGUAGE,
+  type LocalizedText,
+  languagesEnum,
+} from '../db/schema/enums.js';
 import { menuItem, menuSection } from '../db/schema/menus.js';
 import { order, orderItem } from '../db/schema/orders.js';
 import { organization } from '../db/schema/organizations.js';
 import { refund } from '../db/schema/refunds.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
 import { toLanguage } from '../common/utils/language.js';
@@ -74,7 +79,10 @@ const KEY_FILTER_TYPES = {
 
 @Injectable()
 export class SalesReportService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly i18n: I18nService<I18nTranslations>,
+  ) {}
 
   async getSalesReport(
     organizationSlug: string,
@@ -366,7 +374,20 @@ export class SalesReportService {
 
     return rows.map((row) => ({
       ...row,
+      name:
+        groupBy === 'category' && row.key === UNCATEGORIZED_KEY
+          ? this.uncategorizedName()
+          : row.name,
       net: roundMoney(row.revenue - row.refunded),
     }));
+  }
+
+  private uncategorizedName(): LocalizedText {
+    return Object.fromEntries(
+      languagesEnum.enumValues.map((lang) => [
+        lang,
+        this.i18n.t('common.reports.uncategorized', { lang }),
+      ]),
+    );
   }
 }

@@ -1,9 +1,11 @@
 import type { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
+import type { I18nService } from 'nestjs-i18n';
 
 import * as schema from '../db/schema/index.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { createPGlite } from '../../test/pglite.js';
 import {
@@ -50,7 +52,7 @@ describe('BreakEvenReportService', () => {
       db,
       payroll as unknown as PayrollService,
       personnel,
-      new SalesReportService(db),
+      new SalesReportService(db, {} as I18nService<I18nTranslations>),
     );
 
     await client.exec(

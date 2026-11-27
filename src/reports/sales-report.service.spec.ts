@@ -1,10 +1,13 @@
+import { readFileSync } from 'node:fs';
+
 import type { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
-import { I18nContext } from 'nestjs-i18n';
+import { I18nContext, type I18nService } from 'nestjs-i18n';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
 import * as schema from '../db/schema/index.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { createPGlite } from '../../test/pglite.js';
 import type { SalesReportPageQueryDto } from './dto/sales-report.dto.js';
@@ -12,6 +15,30 @@ import {
   SalesReportService,
   UNCATEGORIZED_KEY,
 } from './sales-report.service.js';
+
+const i18n = {
+  t: (key: string, { lang }: { lang: string }) =>
+    key
+      .split('.')
+      .slice(1)
+      .reduce<unknown>(
+        (node, part) => (node as Record<string, unknown>)[part],
+        JSON.parse(
+          readFileSync(
+            new URL(`../i18n/${lang}/common.json`, import.meta.url),
+            'utf8',
+          ),
+        ),
+      ),
+} as unknown as I18nService<I18nTranslations>;
+
+const UNCATEGORIZED_NAME = {
+  en: 'Uncategorized',
+  ja: '未分類',
+  ko: '미분류',
+  'zh-CN': '未分类',
+  'zh-TW': '未分類',
+};
 
 describe('SalesReportService', () => {
   let client: PGlite;
@@ -103,7 +130,7 @@ describe('SalesReportService', () => {
     client = createPGlite();
     const db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
-    service = new SalesReportService(db as unknown as DrizzleDB);
+    service = new SalesReportService(db as unknown as DrizzleDB, i18n);
 
     await client.exec(
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
@@ -565,6 +592,30 @@ describe('SalesReportService', () => {
       ).toEqual(['latte']);
     });
 
+    it('未分類列依請求語系的「未分類」篩選與快速搜尋', async () => {
+      expect(
+        (
+          await itemKeys(
+            { groupBy: 'category', quickFilterValue: '未分類' },
+            'zh-TW',
+          )
+        ).keys,
+      ).toEqual([UNCATEGORIZED_KEY]);
+      expect(
+        (
+          await itemKeys(
+            {
+              groupBy: 'category',
+              filterField: 'name',
+              filterOperator: 'equals',
+              filterValue: 'Uncategorized',
+            },
+            'en',
+          )
+        ).keys,
+      ).toEqual([UNCATEGORIZED_KEY]);
+    });
+
     it('依小時分組時 key 依數值排序', async () => {
       await client.query(
         `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address)
@@ -740,7 +791,7 @@ describe('SalesReportService', () => {
       ]),
     ).toEqual([
       ['coffee', { 'zh-TW': '咖啡' }, 1, 2, 90],
-      [UNCATEGORIZED_KEY, null, 2, 2, 104],
+      [UNCATEGORIZED_KEY, UNCATEGORIZED_NAME, 2, 2, 104],
       ['extras', { 'zh-TW': '加料' }, 1, 2, 18],
     ]);
   });

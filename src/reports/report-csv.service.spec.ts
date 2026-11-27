@@ -200,7 +200,7 @@ describe('ReportCsvService', () => {
         },
         {
           key: 'uncategorized',
-          name: null,
+          name: { 'zh-TW': '未分類' },
           quantity: 1,
           refundedQuantity: 0,
           ...totals,
