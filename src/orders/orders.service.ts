@@ -1591,7 +1591,14 @@ export class OrdersService {
           eq(order.id, this.attemptOrderId(this.db, body.MerchantTradeNo)),
         );
       if (paid?.sellerId)
-        await this.menuStockService.resetDailyLimits(paid.sellerId);
+        await this.menuStockService
+          .resetDailyLimits(paid.sellerId)
+          .catch((error: unknown) =>
+            this.logger.error(
+              `Failed to reset daily limits of organization ${paid.sellerId}`,
+              error,
+            ),
+          );
     }
 
     const transitioned = await this.db.transaction(async (tx) => {
