@@ -218,6 +218,14 @@ describe('BannersService', () => {
     expect(
       await ids({ filterField: 'url', filterOperator: 'isEmpty' }),
     ).toEqual(['none']);
+    expect(
+      await ids({ filterField: 'url', filterOperator: 'isNotEmpty' }),
+    ).toEqual(['menu', 'news']);
+    expect(await ids({ sortBy: 'url', sortDirection: 'asc' })).toEqual([
+      'menu',
+      'news',
+      'none',
+    ]);
     expect(await ids({ sortBy: 'url', sortDirection: 'desc' })).toEqual([
       'news',
       'menu',

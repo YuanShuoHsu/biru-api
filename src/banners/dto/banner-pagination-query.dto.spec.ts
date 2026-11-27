@@ -35,6 +35,17 @@ describe('BannerPaginationQueryDto', () => {
     });
   });
 
+  it('accepts filtering and sorting by link', async () => {
+    expect(
+      await invalidProperties({
+        filterField: 'url',
+        filterOperator: 'contains',
+        filterValue: '/order',
+        sortBy: 'url',
+      }),
+    ).toEqual([]);
+  });
+
   it.each([
     [{ limit: 'abc' }, 'limit'],
     [{ limit: '0' }, 'limit'],
