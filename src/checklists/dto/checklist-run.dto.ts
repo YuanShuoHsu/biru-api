@@ -51,6 +51,16 @@ export class FillChecklistItemDto {
   @MaxLength(200)
   @Transform(trim)
   actionNote?: string | null;
+
+  @ApiPropertyOptional({
+    example: '2026-11-27',
+    description:
+      '畫面上這份紀錄的營業日；與伺服器的營業日不同時回 409 checklistBusinessDateChanged',
+  })
+  @IsOptional()
+  @Matches(DATE_PATTERN)
+  @IsISO8601({ strict: true })
+  businessDate?: string;
 }
 
 export class ChecklistRunQueryDto extends PickType(PaginationQueryDto, [

@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 
 import type { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
@@ -161,6 +161,42 @@ describe('ChecklistRunsService', () => {
         amy,
       );
       expect(run.businessDate).toBe('2026-11-17');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('畫面上的營業日已過時回 409 且不寫入，與今天相同才寫入', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-16T16:30:00Z'));
+    try {
+      const template = await createTemplate();
+      const light = template.items[0];
+
+      const error = await service
+        .fill(
+          'biru',
+          template.id,
+          light.id,
+          { checked: false, businessDate: '2026-11-16' },
+          amy,
+        )
+        .catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(ConflictException);
+      expect((error as ConflictException).getResponse()).toMatchObject({
+        code: 'checklistBusinessDateChanged',
+      });
+      await expect(runCount()).resolves.toBe(0);
+
+      const run = await service.fill(
+        'biru',
+        template.id,
+        light.id,
+        { checked: true, businessDate: '2026-11-17' },
+        amy,
+      );
+      expect(run.businessDate).toBe('2026-11-17');
+      expect(run.items[0]).toMatchObject({ checked: true });
     } finally {
       vi.useRealTimers();
     }
