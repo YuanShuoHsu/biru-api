@@ -599,7 +599,7 @@ describe('SalesReportService', () => {
         await service.getSalesReport('biru', { ...range, groupBy, ...query })
       ).rows.map(({ key }) => key);
 
-    it('依日分組時 key 依店家時區日期篩選，跨月與跨午夜的邊界落在正確的一天', async () => {
+    it('依日分組時 key 依店家時區日期篩選，跨月的邊界落在正確的一天', async () => {
       const dayKeys = (
         filterOperator: SalesReportPageQueryDto['filterOperator'],
         filterValue: string,
@@ -620,6 +620,7 @@ describe('SalesReportService', () => {
       expect(await dayKeys('onOrAfter', '2026-10-02')).toEqual(['2026-10-02']);
       expect(await dayKeys('isEmpty', '')).toEqual([]);
       expect(await dayKeys('contains', '2026-10-01')).toHaveLength(3);
+      expect(await dayKeys('is', 'abc')).toHaveLength(3);
     });
 
     it('依小時分組時 key 依數值篩選', async () => {
@@ -643,6 +644,13 @@ describe('SalesReportService', () => {
         }),
       ).toEqual(['Cash']);
       expect(
+        await groupKeys('paymentMethod', {
+          filterField: 'key',
+          filterOperator: 'isAnyOf',
+          filterValue: 'Credit,ApplePay',
+        }),
+      ).toEqual(['Credit']);
+      expect(
         await groupKeys('mode', {
           filterField: 'key',
           filterOperator: 'not',
@@ -656,6 +664,31 @@ describe('SalesReportService', () => {
           filterValue: 'pick',
         }),
       ).toEqual(['pickup', 'counter']);
+    });
+
+    it('只篩選該分組顯示的欄位，其餘欄位的條件略過', async () => {
+      expect(
+        (
+          await itemKeys({
+            filterField: 'key',
+            filterOperator: 'equals',
+            filterValue: 'latte',
+          })
+        ).keys,
+      ).toHaveLength(4);
+      expect(
+        await groupKeys('day', {
+          filterField: 'name',
+          filterOperator: 'isNotEmpty',
+        }),
+      ).toHaveLength(3);
+      expect(
+        await groupKeys('day', {
+          filterField: 'quantity',
+          filterOperator: '>',
+          filterValue: '0',
+        }),
+      ).toHaveLength(3);
     });
 
     it('快速搜尋只比對顯示的名稱，不比對 key', async () => {

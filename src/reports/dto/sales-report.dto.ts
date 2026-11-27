@@ -40,19 +40,22 @@ export class SalesReportQueryDto extends ReportRangeQueryDto {
   groupBy: SalesReportGroupBy;
 }
 
-export const SALES_REPORT_STRING_FILTER_FIELDS = ['key', 'name'] as const;
+const SALES_REPORT_GROUP_FIELDS = ['key', 'name'] as const;
 export const SALES_REPORT_NUMBER_FILTER_FIELDS = [
   'orders',
   'revenue',
   'discount',
   'refunded',
   'net',
+] as const;
+export const SALES_REPORT_ITEM_NUMBER_FILTER_FIELDS = [
   'quantity',
   'refundedQuantity',
 ] as const;
 const SALES_REPORT_FIELDS = [
-  ...SALES_REPORT_STRING_FILTER_FIELDS,
+  ...SALES_REPORT_GROUP_FIELDS,
   ...SALES_REPORT_NUMBER_FILTER_FIELDS,
+  ...SALES_REPORT_ITEM_NUMBER_FILTER_FIELDS,
 ] as const;
 type SalesReportField = (typeof SALES_REPORT_FIELDS)[number];
 

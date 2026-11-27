@@ -34,6 +34,7 @@ import {
 import {
   type ItemSalesReportGroupBy,
   type OrderSalesReportGroupBy,
+  SALES_REPORT_ITEM_NUMBER_FILTER_FIELDS,
   SALES_REPORT_NUMBER_FILTER_FIELDS,
   type SalesReportPageQueryDto,
   type SalesReportQueryDto,
@@ -69,9 +70,7 @@ const KEY_FILTER_TYPES = {
   hour: 'numberFields',
   paymentMethod: 'enumFields',
   mode: 'enumFields',
-  menuItem: 'stringFields',
-  category: 'stringFields',
-} as const;
+} as const satisfies Record<OrderSalesReportGroupBy, string>;
 
 @Injectable()
 export class SalesReportService {
@@ -119,20 +118,24 @@ export class SalesReportService {
     );
 
     const lang = toLanguage(I18nContext.current()?.lang);
-    const withKey = (
-      type: (typeof KEY_FILTER_TYPES)[typeof groupBy],
-      fields: readonly string[],
-    ) => (KEY_FILTER_TYPES[groupBy] === type ? [...fields, 'key'] : fields);
+    const isItemGroup = isItemGroupBy(groupBy);
+    const keyType = isItemGroup ? undefined : KEY_FILTER_TYPES[groupBy];
+    const keyIf = (type: (typeof KEY_FILTER_TYPES)[OrderSalesReportGroupBy]) =>
+      keyType === type ? ['key'] : [];
     const page = pageReportRows(rows, query, {
       values: ({ key, name, ...amounts }) => ({
         ...amounts,
         key: groupBy === 'hour' ? Number(key) : key,
         name: localize(name, lang),
       }),
-      stringFields: withKey('stringFields', ['name']),
-      dateFields: withKey('dateFields', []),
-      enumFields: withKey('enumFields', []),
-      numberFields: withKey('numberFields', SALES_REPORT_NUMBER_FILTER_FIELDS),
+      stringFields: isItemGroup ? ['name'] : [],
+      dateFields: keyIf('dateFields'),
+      enumFields: keyIf('enumFields'),
+      numberFields: [
+        ...SALES_REPORT_NUMBER_FILTER_FIELDS,
+        ...(isItemGroup ? SALES_REPORT_ITEM_NUMBER_FILTER_FIELDS : []),
+        ...keyIf('numberFields'),
+      ],
       textFields: ['name'],
     });
 
