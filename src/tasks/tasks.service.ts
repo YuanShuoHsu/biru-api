@@ -12,6 +12,7 @@ import * as schema from '../db/schema/index.js';
 import { DeletedRecordsService } from '../deleted-records/deleted-records.service.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import { InventoryNotificationsService } from '../inventory/inventory-notifications.service.js';
+import { MenuStockService } from '../inventory/menu-stock.service.js';
 import { OrderNotificationsService } from '../orders/order-notifications.service.js';
 import { OrdersService } from '../orders/orders.service.js';
 import { PayrollRulesService } from '../payroll/payroll-rules.service.js';
@@ -33,6 +34,7 @@ export class TasksService {
     private readonly couponsService: CouponsService,
     private readonly deletedRecordsService: DeletedRecordsService,
     private readonly inventoryNotificationsService: InventoryNotificationsService,
+    private readonly menuStockService: MenuStockService,
     private readonly orderNotificationsService: OrderNotificationsService,
     private readonly ordersService: OrdersService,
     private readonly payrollRulesService: PayrollRulesService,
@@ -80,6 +82,21 @@ export class TasksService {
       if (members) this.logger.log(`為 ${members} 位當月壽星發放生日券`);
     } catch (error) {
       this.logger.error('發放生日券失敗', error);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_4AM, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
+  async handleOfferDailyLimitResetCron() {
+    try {
+      const organizations = await this.menuStockService.resetDailyLimits();
+
+      if (organizations)
+        this.logger.log(`恢復 ${organizations} 間門市的每日限量`);
+    } catch (error) {
+      this.logger.error('恢復每日限量失敗', error);
     }
   }
 

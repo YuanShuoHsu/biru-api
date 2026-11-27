@@ -158,7 +158,7 @@ const createService = ({
   const consume = consumeError
     ? vi.fn().mockRejectedValue(consumeError)
     : vi.fn().mockResolvedValue({ lowStock, offerStockChanged });
-  const menuStock = { refresh: vi.fn() };
+  const menuStock = { refresh: vi.fn(), resetDailyLimits: vi.fn() };
 
   const couponsService = {
     getApplicableCoupon: vi
@@ -703,6 +703,28 @@ describe('OrdersService.createOrder', () => {
         },
       );
       expect(menuStock.refresh).toHaveBeenCalledWith(ORG_ID, true);
+    });
+
+    it('判斷品項能否下單前先在交易外補做該門市的每日限量恢復', async () => {
+      const { db, menuStock, orderPricingService, service } = createService();
+
+      await service.createOrder(
+        'slug',
+        baseDto,
+        null,
+        null,
+        sessionOf('counter'),
+      );
+
+      expect(menuStock.resetDailyLimits).toHaveBeenCalledWith(ORG_ID);
+      expect(
+        menuStock.resetDailyLimits.mock.invocationCallOrder[0],
+      ).toBeLessThan(
+        orderPricingService.resolveOrderItems.mock.invocationCallOrder[0],
+      );
+      expect(
+        menuStock.resetDailyLimits.mock.invocationCallOrder[0],
+      ).toBeLessThan(db.transaction.mock.invocationCallOrder[0]);
     });
 
     it('剩餘數量不足時回傳品項名稱，不同步售完狀態', async () => {

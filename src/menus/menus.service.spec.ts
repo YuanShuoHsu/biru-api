@@ -22,6 +22,7 @@ import {
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { ImageStorageService } from '../images/image-storage.service.js';
 import { withImageRefUrl, withImageUrl } from '../images/image-url.js';
+import { businessDay } from '../inventory/offer-daily-limit.js';
 import type { RecipesService } from '../inventory/recipes.service.js';
 
 import type { CreateMenuItemModifierGroupDto } from './dto/create-menu-item-modifier-group.dto.js';
@@ -926,6 +927,55 @@ describe('MenusService localized text filters and sorting', () => {
           canUpdateMenu: false,
         }),
       ).rejects.toMatchObject(forbidden);
+    });
+
+    it('沒有 menu:update 時不能改每日限量，送出與目前相同的值則通過', async () => {
+      await setOffer('InStock');
+      const updateDailyLimit = (dailyLimit: number | null) =>
+        service.updateOfferAvailability({
+          where: { id: 'americano-offer' },
+          organizationId: ORG,
+          data: { availability: 'InStock', dailyLimit },
+          canUpdateMenu: false,
+        });
+
+      await expect(updateDailyLimit(5)).rejects.toMatchObject(forbidden);
+      await expect(updateDailyLimit(null)).resolves.toMatchObject({
+        dailyLimit: null,
+      });
+    });
+
+    it('有 menu:update 時設定每日限量，今日剩餘以限量重算而非送來的數量', async () => {
+      await setOffer('InStock');
+
+      await expect(
+        service.updateOfferAvailability({
+          where: { id: 'americano-offer' },
+          organizationId: ORG,
+          data: {
+            availability: 'InStock',
+            dailyLimit: 8,
+            inventoryLevel: { value: 3 },
+          },
+          canUpdateMenu: true,
+        }),
+      ).resolves.toMatchObject({
+        dailyLimit: 8,
+        dailyLimitResetOn: businessDay(Date.now()),
+        inventoryLevel: { value: 8 },
+      });
+
+      await expect(
+        service.updateOffer({
+          where: { id: 'americano-offer' },
+          organizationId: ORG,
+          data: { dailyLimit: null, inventoryLevel: { value: 2 } },
+        }),
+      ).resolves.toMatchObject({
+        dailyLimit: null,
+        dailyLimitResetOn: null,
+        inventoryLevel: { value: 2 },
+      });
     });
 
     it('有 menu:update 時可以下架與重新上架', async () => {

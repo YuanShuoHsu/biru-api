@@ -87,6 +87,7 @@ import {
   notFoundError,
 } from './inventory-errors.js';
 import { QUANTITY_TOLERANCE } from './menu-stock.service.js';
+import { businessDay } from './offer-daily-limit.js';
 import { baseQuantityOf, unitPriceSql } from './pricing.js';
 
 type Tx = Pick<DrizzleDB, 'insert' | 'select' | 'update'>;
@@ -1264,15 +1265,24 @@ export class InventoryTransactionsService {
 
   private async releaseOfferStock(orderId: string, tx: Tx): Promise<boolean> {
     const [found] = await tx
-      .select({ heldOfferStock: order.heldOfferStock })
+      .select({
+        createdAt: order.createdAt,
+        heldOfferStock: order.heldOfferStock,
+      })
       .from(order)
       .where(eq(order.id, orderId))
       .for('update');
     const held = Object.entries(found?.heldOfferStock ?? {});
     if (!held.length) return false;
+    const placedToday =
+      businessDay(found.createdAt.getTime()) === businessDay(Date.now());
 
     const locked = await tx
-      .select({ id: offer.id, inventoryLevel: offer.inventoryLevel })
+      .select({
+        dailyLimit: offer.dailyLimit,
+        id: offer.id,
+        inventoryLevel: offer.inventoryLevel,
+      })
       .from(offer)
       .where(
         inArray(
@@ -1283,9 +1293,10 @@ export class InventoryTransactionsService {
       .orderBy(asc(offer.id))
       .for('update');
 
-    for (const { id, inventoryLevel } of locked) {
+    for (const { dailyLimit, id, inventoryLevel } of locked) {
       const remaining = inventoryLevel?.value;
       if (typeof remaining !== 'number') continue;
+      if (dailyLimit !== null && !placedToday) continue;
 
       await tx
         .update(offer)

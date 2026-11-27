@@ -126,6 +126,18 @@ export class CreateOfferDto {
   @ValidateNested()
   inventoryLevel?: QuantitativeValueDto | null;
 
+  @ApiPropertyOptional({
+    description:
+      '每日限量；每天 04:00（台灣時間）把剩餘數量恢復為此數。null 代表非每日限量',
+    nullable: true,
+    type: Number,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(9999)
+  dailyLimit?: number | null;
+
   @ApiPropertyOptional({ type: PriceSpecificationDto, nullable: true })
   @IsOptional()
   @Type(() => PriceSpecificationDto)
