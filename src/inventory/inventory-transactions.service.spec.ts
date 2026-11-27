@@ -6,6 +6,7 @@ import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
 import { createPGlite } from '../../test/pglite.js';
+import { DAY_MS } from '../common/constants/timezone.js';
 import * as schema from '../db/schema/index.js';
 import { modifier, offer } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
@@ -16,6 +17,7 @@ import {
   InventoryTransactionsService,
 } from './inventory-transactions.service.js';
 import { MenuStockService, keepAutoSoldOut } from './menu-stock.service.js';
+import { businessDay, dailyLimitChanges } from './offer-daily-limit.js';
 
 const ORG = 'org';
 
@@ -791,6 +793,191 @@ describe('庫存扣除、還原與自動售完', () => {
       expect(await availabilityOf('cake')).toEqual({
         auto_sold_out: true,
         availability: 'SoldOut',
+      });
+    });
+  });
+
+  describe('每日限量', () => {
+    const today = businessDay(Date.now());
+    const yesterday = businessDay(Date.now() - DAY_MS);
+
+    const setDailyLimit = (
+      menuItemId: string,
+      dailyLimit: number,
+      resetOn: string | null,
+    ) =>
+      client.query(
+        `update offer set daily_limit = $2, daily_limit_reset_on = $3 where menu_item_id = $1`,
+        [menuItemId, dailyLimit, resetOn],
+      );
+
+    const resetOnOf = async (menuItemId: string) => {
+      const {
+        rows: [row],
+      } = await client.query<{ reset_on: string | null }>(
+        `select daily_limit_reset_on::text as reset_on from offer where menu_item_id = $1`,
+        [menuItemId],
+      );
+      return row.reset_on;
+    };
+
+    const moveOrderToYesterday = (orderId: string) =>
+      client.query(
+        `update "order" set created_at = created_at - interval '1 day' where id = $1`,
+        [orderId],
+      );
+
+    it('只恢復上次恢復早於今日營業日的定價，並讓自動售完的恢復供應、店員手動售完的不動', async () => {
+      await addItem('cake', {
+        autoSoldOut: true,
+        availability: 'SoldOut',
+        remaining: 0,
+      });
+      await addItem('pie', { availability: 'SoldOut', remaining: 0 });
+      await addItem('tart', { remaining: 2 });
+      await addItem('cookie', { remaining: 0 });
+      await setDailyLimit('cake', 10, yesterday);
+      await setDailyLimit('pie', 5, null);
+      await setDailyLimit('tart', 8, today);
+      const emit = vi.spyOn(eventEmitter, 'emit');
+
+      await expect(menuStock.resetDailyLimits(ORG)).resolves.toBe(1);
+
+      expect(await remainingOf('cake')).toBe(10);
+      expect(await remainingOf('pie')).toBe(5);
+      expect(await remainingOf('tart')).toBe(2);
+      expect(await remainingOf('cookie')).toBe(0);
+      expect(await resetOnOf('cake')).toBe(today);
+      expect(await resetOnOf('pie')).toBe(today);
+      expect(await availabilityOf('cake')).toEqual({
+        auto_sold_out: false,
+        availability: 'InStock',
+      });
+      expect(await availabilityOf('pie')).toEqual({
+        auto_sold_out: false,
+        availability: 'SoldOut',
+      });
+      expect(emit).toHaveBeenCalledWith(MENU_UPDATED_EVENT, {
+        organizationId: ORG,
+      });
+
+      emit.mockClear();
+      await expect(menuStock.resetDailyLimits(ORG)).resolves.toBe(0);
+      expect(emit).not.toHaveBeenCalled();
+      emit.mockRestore();
+    });
+
+    it('恢復時保留剩餘數量的單位', async () => {
+      await addItem('cake');
+      await client.query(
+        `update offer set inventory_level = '{"unitText":"片","value":1}' where menu_item_id = 'cake'`,
+      );
+      await setDailyLimit('cake', 6, yesterday);
+
+      await menuStock.resetDailyLimits();
+
+      const {
+        rows: [row],
+      } = await client.query<{ inventory_level: unknown }>(
+        `select inventory_level from offer where menu_item_id = 'cake'`,
+      );
+      expect(row.inventory_level).toEqual({ unitText: '片', value: 6 });
+    });
+
+    it('下單扣量前先補做恢復', async () => {
+      await addItem('cake', { remaining: 0 });
+      await setDailyLimit('cake', 3, yesterday);
+      await addOrder('o1', [{ menuItemId: 'cake', quantity: 2 }]);
+
+      await expect(consume('o1', true)).resolves.toMatchObject({
+        offerStockChanged: true,
+      });
+      expect(await remainingOf('cake')).toBe(1);
+    });
+
+    it('前一個營業日的訂單取消時不加回每日限量，非每日限量的照常加回', async () => {
+      await addItem('cake', { remaining: 5 });
+      await addItem('cream', { remaining: 5 });
+      await setDailyLimit('cake', 5, today);
+      await addOrder('o1', [
+        { menuItemId: 'cake', quantity: 2, addOns: ['cream'] },
+      ]);
+      await consume('o1', true);
+      await moveOrderToYesterday('o1');
+
+      await expect(restore('o1')).resolves.toBe(true);
+
+      expect(await remainingOf('cake')).toBe(3);
+      expect(await remainingOf('cream')).toBe(5);
+    });
+
+    it('同一營業日的訂單取消時加回每日限量', async () => {
+      await addItem('cake', { remaining: 5 });
+      await setDailyLimit('cake', 5, today);
+      await addOrder('o1', [{ menuItemId: 'cake', quantity: 2 }]);
+      await consume('o1', true);
+
+      await restore('o1');
+
+      expect(await remainingOf('cake')).toBe(5);
+    });
+
+    it('設定每日限量時扣掉今日營業日已保留的份數，不算前一天的', async () => {
+      await addItem('cake', { remaining: 20 });
+      await addOrder('o1', [{ menuItemId: 'cake', quantity: 3 }]);
+      await addOrder('o2', [{ menuItemId: 'cake', quantity: 4 }]);
+      await consume('o1', true);
+      await consume('o2', true);
+      await moveOrderToYesterday('o2');
+
+      const changes = await db.transaction((tx) =>
+        dailyLimitChanges(tx, 'cake-offer', {
+          dailyLimit: 10,
+          inventoryLevel: undefined,
+        }),
+      );
+
+      expect(changes).toEqual({
+        dailyLimit: 10,
+        dailyLimitResetOn: today,
+        inventoryLevel: { value: 7 },
+      });
+    });
+
+    it('設定的每日限量不到今日已賣時剩餘為 0，限量沒變或清空時不重算', async () => {
+      await addItem('cake', { remaining: 5 });
+      await addOrder('o1', [{ menuItemId: 'cake', quantity: 3 }]);
+      await consume('o1', true);
+
+      await expect(
+        db.transaction((tx) =>
+          dailyLimitChanges(tx, 'cake-offer', { dailyLimit: 2 }),
+        ),
+      ).resolves.toMatchObject({ inventoryLevel: { value: 0 } });
+
+      await setDailyLimit('cake', 2, today);
+      await expect(
+        db.transaction((tx) =>
+          dailyLimitChanges(tx, 'cake-offer', { dailyLimit: 2 }),
+        ),
+      ).resolves.toEqual({});
+      await expect(
+        db.transaction((tx) =>
+          dailyLimitChanges(tx, 'cake-offer', { dailyLimit: null }),
+        ),
+      ).resolves.toEqual({ dailyLimit: null, dailyLimitResetOn: null });
+    });
+
+    it('新建的定價設定每日限量時剩餘就是限量', async () => {
+      await expect(
+        dailyLimitChanges(db, undefined, {
+          dailyLimit: 4,
+          inventoryLevel: { unitText: '份', value: 1 },
+        }),
+      ).resolves.toEqual({
+        dailyLimit: 4,
+        dailyLimitResetOn: today,
+        inventoryLevel: { unitText: '份', value: 4 },
       });
     });
   });

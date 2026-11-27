@@ -18,6 +18,8 @@ import {
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import { MENU_UPDATED_EVENT } from '../events/menu-updated.event.js';
 
+import { resetDailyLimits } from './offer-daily-limit.js';
+
 // 庫存只存到小數第三位，每份用量四捨五入後會差半個最小單位
 export const QUANTITY_TOLERANCE = 0.0005;
 
@@ -76,6 +78,15 @@ export class MenuStockService {
     }
 
     if (changed) this.eventEmitter.emit(MENU_UPDATED_EVENT, { organizationId });
+  }
+
+  async resetDailyLimits(organizationId?: string): Promise<number> {
+    const organizationIds = await this.db.transaction((tx) =>
+      resetDailyLimits(tx, organizationId),
+    );
+    for (const id of organizationIds) await this.refresh(id, true);
+
+    return organizationIds.length;
   }
 
   async sync(organizationId: string): Promise<boolean> {

@@ -16,11 +16,14 @@ import {
 } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { withImageUrl } from '../images/image-url.js';
+import type { MenuStockService } from '../inventory/menu-stock.service.js';
 import type { MenuItemSalesService } from '../orders/menu-item-sales.service.js';
 
 import { PublicMenusService } from './menus-public.service.js';
 
 const ORG = 'org';
+
+const resetDailyLimits = vi.fn(() => Promise.resolve(0));
 
 const MENU_IMAGE = 'data:image/png;base64,iVBORw0KGgo=';
 const SECTION_IMAGE = 'data:image/jpeg;base64,/9j/4AAQ';
@@ -45,6 +48,7 @@ describe('PublicMenusService.findOrderMenu', () => {
       {
         getSalesByMenuItemId: () => Promise.resolve(new Map()),
       } as unknown as MenuItemSalesService,
+      { resetDailyLimits } as unknown as MenuStockService,
     );
     await client.query(
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ($1, 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
@@ -129,6 +133,14 @@ describe('PublicMenusService.findOrderMenu', () => {
 
   afterAll(async () => {
     await client.close();
+  });
+
+  it('讀菜單前先補做這間門市的每日限量恢復', async () => {
+    resetDailyLimits.mockClear();
+
+    await service.findOrderMenu(ORG, 'zh-TW');
+
+    expect(resetDailyLimits).toHaveBeenCalledWith(ORG);
   });
 
   it('lists sub-sections with their items in the menu-wide section order', async () => {

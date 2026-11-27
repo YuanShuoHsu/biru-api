@@ -2129,6 +2129,13 @@
       "when": 1795749090172,
       "tag": "0303_order_reviews",
       "breakpoints": true
+    },
+    {
+      "idx": 304,
+      "version": "7",
+      "when": 1795763134404,
+      "tag": "0304_offer_daily_limit",
+      "breakpoints": true
     }
   ]
 }

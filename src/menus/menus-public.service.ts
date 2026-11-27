@@ -25,6 +25,7 @@ import {
   withImageRefUrl,
   type WithImageRef,
 } from '../images/image-url.js';
+import { MenuStockService } from '../inventory/menu-stock.service.js';
 import {
   MenuItemSalesService,
   SALES_WINDOW_DAYS,
@@ -120,12 +121,15 @@ export class PublicMenusService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly menuItemSalesService: MenuItemSalesService,
+    private readonly menuStockService: MenuStockService,
   ) {}
 
   async findOrderMenu(
     organizationId: string,
     lang: Language,
   ): Promise<OrderMenuResponseDto | null> {
+    await this.menuStockService.resetDailyLimits(organizationId);
+
     const [orderMenu, salesByMenuItemId] = await Promise.all([
       this.db.query.menu.findFirst({
         ...imageRefQuery,

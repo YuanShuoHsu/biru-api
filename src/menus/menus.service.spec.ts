@@ -22,6 +22,7 @@ import {
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { ImageStorageService } from '../images/image-storage.service.js';
 import { withImageRefUrl, withImageUrl } from '../images/image-url.js';
+import { businessDay } from '../inventory/offer-daily-limit.js';
 import type { RecipesService } from '../inventory/recipes.service.js';
 
 import type { CreateMenuItemModifierGroupDto } from './dto/create-menu-item-modifier-group.dto.js';
@@ -926,6 +927,52 @@ describe('MenusService localized text filters and sorting', () => {
           canUpdateMenu: false,
         }),
       ).rejects.toMatchObject(forbidden);
+    });
+
+    it('沒有 menu:update 時不能設定每日限量', async () => {
+      await setOffer('InStock');
+
+      await expect(
+        service.updateOfferAvailability({
+          where: { id: 'americano-offer' },
+          organizationId: ORG,
+          data: { availability: 'InStock', dailyLimit: 5 },
+          canUpdateMenu: false,
+        }),
+      ).rejects.toMatchObject(forbidden);
+    });
+
+    it('有 menu:update 時設定每日限量，今日剩餘以限量重算而非送來的數量', async () => {
+      await setOffer('InStock');
+
+      await expect(
+        service.updateOfferAvailability({
+          where: { id: 'americano-offer' },
+          organizationId: ORG,
+          data: {
+            availability: 'InStock',
+            dailyLimit: 8,
+            inventoryLevel: { value: 3 },
+          },
+          canUpdateMenu: true,
+        }),
+      ).resolves.toMatchObject({
+        dailyLimit: 8,
+        dailyLimitResetOn: businessDay(Date.now()),
+        inventoryLevel: { value: 8 },
+      });
+
+      await expect(
+        service.updateOffer({
+          where: { id: 'americano-offer' },
+          organizationId: ORG,
+          data: { dailyLimit: null, inventoryLevel: { value: 2 } },
+        }),
+      ).resolves.toMatchObject({
+        dailyLimit: null,
+        dailyLimitResetOn: null,
+        inventoryLevel: { value: 2 },
+      });
     });
 
     it('有 menu:update 時可以下架與重新上架', async () => {

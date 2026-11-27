@@ -2,8 +2,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { Type } from 'class-transformer';
 import {
+  IsInt,
   IsNumber,
   IsOptional,
+  Max,
   Min,
   ValidateIf,
   ValidateNested,
@@ -32,4 +34,16 @@ export class UpdateOfferAvailabilityDto extends UpdateItemAvailabilityDto {
   @Type(() => OfferInventoryLevelValueDto)
   @ValidateNested()
   inventoryLevel?: OfferInventoryLevelValueDto;
+
+  @ApiPropertyOptional({
+    description:
+      '每日限量；每天 04:00（台灣時間）把剩餘數量恢復為此數。null 代表非每日限量；需 menu:update 才能改',
+    nullable: true,
+    type: Number,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(9999)
+  dailyLimit?: number | null;
 }
