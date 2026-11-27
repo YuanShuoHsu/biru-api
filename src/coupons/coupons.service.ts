@@ -191,9 +191,11 @@ const couponDiscount = (
 
 const COUPON_SORT_NULLS: Partial<Record<string, NullsAs>> = {
   minSubtotal: 'last',
+  totalLimit: 'highest',
   perUserLimit: 'highest',
   pointsCost: 'last',
   validFrom: 'lowest',
+  validThrough: 'highest',
 };
 
 const COUPON_RECIPIENT_SORT_NULLS: Partial<Record<string, NullsAs>> = {
@@ -396,12 +398,15 @@ export class CouponsService {
     const couponFieldMap: Record<string, Column | SQL> = {
       code: coupon.code,
       scope: sql`${coupon.scope}::text`,
+      discountType: sql`${coupon.discountType}::text`,
       discountValue: coupon.discountValue,
       minSubtotal: coupon.minSubtotal,
+      totalLimit: coupon.totalLimit,
       usedCount: coupon.usedCount,
       perUserLimit: coupon.perUserLimit,
       pointsCost: coupon.pointsCost,
       validFrom: coupon.validFrom,
+      validThrough: coupon.validThrough,
       isActive: sql`${coupon.isActive}::text`,
       createdAt: coupon.createdAt,
     };
