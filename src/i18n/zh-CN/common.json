@@ -303,6 +303,10 @@
     "personnelInputTax": "人事成本没有统一发票，不能设为进项税可抵扣"
   },
   "orderTickets": {
+    "cupSeals": {
+      "film": "封膜",
+      "lid": "杯盖"
+    },
     "modes": {
       "counter": "现场外带",
       "dineIn": "堂食",

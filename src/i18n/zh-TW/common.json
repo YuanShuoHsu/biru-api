@@ -303,6 +303,10 @@
     "personnelInputTax": "人事成本沒有統一發票，不能設為進項稅可扣抵"
   },
   "orderTickets": {
+    "cupSeals": {
+      "film": "封膜",
+      "lid": "杯蓋"
+    },
     "modes": {
       "counter": "現場外帶",
       "dineIn": "內用",

@@ -116,7 +116,7 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 - `invoices.ts` — `invoice`, `invoiceAllowance`, `invoicePrintJob`
 - `refunds.ts` — `refund`
 - `ecpay-payment-attempts.ts`, `ecpay-callback-logs.ts` — `ecpayPaymentAttempt` (with the ECPay `charge_fee` once paid), `ecpayCallbackLog`
-- `inventory.ts` — `supplier` (`uniform_invoice`: issues 統一發票 to the store, see Break-Even), `ingredient`, `inventoryReceipt`, `inventoryTransaction` (`receipt_id` set: a delivery received on that receipt), `recipe`, `recipeIngredient`
+- `inventory.ts` — `supplier` (`uniform_invoice`: issues 統一發票 to the store, see Break-Even), `ingredient`, `inventoryReceipt`, `inventoryTransaction` (`receipt_id` set: a delivery received on that receipt), `recipe`, `recipeIngredient`, `takeawayPackaging` (the cup and lid or film recipe a non-dine-in drink consumes, per serving temperature, `cup_size` and `cup_seal`; see Ingredient Stock)
 - `waitlist.ts` — `waitlistSetting`, `waitlistTicket`
 - `printers.ts` — `printer`, `orderTicketJob`
 - `push.ts` — `pushSubscription`
@@ -126,7 +126,7 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 - `store-layout.ts` — `storeLayout`
 - `audit.ts` — `auditLog`; `deleted-records.ts` — `deletedRecord`
 - `quant.ts` — `quantBot` and the other `quant*` tables
-- `enums.ts` — shared pgEnums (`genders`, `languages`, `restrictedDiet`, serving temperature and sweetness) plus `LocalizedText`, `DEFAULT_LANGUAGE`
+- `enums.ts` — shared pgEnums (`genders`, `languages`, `restrictedDiet`, serving temperature, sweetness, `cupSize` and `cupSeal`) plus `LocalizedText`, `DEFAULT_LANGUAGE`
 - `columns.helpers.ts` — shared column builders. Its `timestamps` are `timestamp` **without** time zone;
   the attendance and payroll tables use `withTimezone: true` instead, so don't switch them to the helper.
 
@@ -337,6 +337,19 @@ order can't be refused, and `record` flags the ingredient `oversold` in the low-
 stock non-negative: placing an order uses `enforceStock`, and counts and opening stock are validated as non-negative in
 the DTOs. A negative level means the books are wrong and staff must recount; don't turn it into a reason to reject paid
 orders, and don't accept negative counts.
+
+Order consumption also deducts takeaway packaging: for each item and add-on with a stored seal, the `takeaway_packaging`
+row matching its serving temperature (`SERVING_TEMPERATURE_OF_LEVEL`), the `cupSize` its modifiers' snapshot carries
+(copied from `catalog_modifier` when the order is placed; default `12oz`) and that seal gives a recipe consumed once per
+serving, like any other recipe (`enforceStock` included). The seal is decided once, when the order is placed
+(`OrderPricingService`), and stored in `order_item.cup_seal` and the add-on snapshot's `cupSeal`: a `cupSeal` modifier, or
+else the brand-wide default (`DEFAULT_CUP_SEAL`: a film, which the serving temperature's packaging row makes a paper
+film for hot drinks and a plastic one for iced), so customers choose a seal only as an exception (a lid, or their own
+cup). A store with no `takeaway_packaging` row gets no default, only the seal a modifier carries (looked up once per
+order). Dine-in orders, items without a serving temperature and `customerProvidedCup` items get no seal. Consumption
+and the order ticket (which prints a default seal so staff can see it) both read the stored seal, never recompute it, so
+an item without one, including every order placed before it was stored, deducts nothing and checks nothing; no matching
+row does the same.
 
 An ingredient with `unlimitedStock` is never deducted: order consumption, batch materials and low-stock checks skip it, and
 recording waste on it is rejected with `unlimitedStockWaste` in the service, not only hidden in the admin UI.

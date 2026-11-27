@@ -21,7 +21,12 @@ import {
 } from 'drizzle-orm/pg-core';
 
 import { timestamps } from './columns.helpers.js';
-import { type LocalizedText } from './enums.js';
+import {
+  cupSealEnum,
+  cupSizeEnum,
+  servingTemperatureEnum,
+  type LocalizedText,
+} from './enums.js';
 import { menuItem, modifier } from './menus.js';
 import { order } from './orders.js';
 import { organization } from './organizations.js';
@@ -258,6 +263,36 @@ export const recipeIngredient = pgTable(
 );
 
 export type RecipeIngredient = typeof recipeIngredient.$inferSelect;
+
+export const takeawayPackaging = pgTable(
+  'takeaway_packaging',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    servingTemperature: servingTemperatureEnum('serving_temperature').notNull(),
+    cupSize: cupSizeEnum('cup_size').notNull(),
+    cupSeal: cupSealEnum('cup_seal').notNull(),
+    recipeId: text('recipe_id')
+      .notNull()
+      .references(() => recipe.id, { onDelete: 'cascade' }),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex(
+      'takeawayPackaging_organizationId_temperature_size_seal_uidx',
+    ).on(
+      table.organizationId,
+      table.servingTemperature,
+      table.cupSize,
+      table.cupSeal,
+    ),
+    index('takeawayPackaging_recipeId_idx').on(table.recipeId),
+  ],
+);
+
+export type TakeawayPackaging = typeof takeawayPackaging.$inferSelect;
 
 export const supplierRelations = relations(supplier, ({ one, many }) => ({
   organization: one(organization, {

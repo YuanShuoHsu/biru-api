@@ -4,7 +4,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import { I18nContext } from 'nestjs-i18n';
 
 import { OWN_CUP_DISCOUNT } from '../common/constants/own-cup.js';
-import { SERVING_TEMPERATURE_OF_LEVEL } from '../common/constants/serving-temperature.js';
+import {
+  DEFAULT_CUP_SEAL,
+  SERVING_TEMPERATURE_OF_LEVEL,
+} from '../common/constants/serving-temperature.js';
 import { platformDateString } from '../common/constants/timezone.js';
 import { toLanguage } from '../common/utils/language.js';
 import { isWithinOpeningHours } from '../common/utils/opening-hours.js';
@@ -12,6 +15,7 @@ import { isWithinOpeningHours } from '../common/utils/opening-hours.js';
 import { asc, eq, inArray } from 'drizzle-orm';
 import {
   DEFAULT_LANGUAGE,
+  type CupSeal,
   type LocalizedText,
   type ServingTemperatureLevel,
   type SweetnessLevel,
@@ -22,6 +26,7 @@ import type {
   ModifierGroup,
   PriceSpecification,
 } from '../db/schema/menus.js';
+import { takeawayPackaging } from '../db/schema/inventory.js';
 import {
   menu,
   menuItem,
@@ -174,11 +179,25 @@ const discountOwnCup = (
   );
 };
 
+const cupSealOf = (
+  mode: OrderMode,
+  hasTakeawayPackaging: boolean,
+  servingTemperatureLevel: ServingTemperatureLevel | null,
+  modifiers: OrderItemModifierSnapshot[],
+): CupSeal | null =>
+  mode === 'dineIn' ||
+  !servingTemperatureLevel ||
+  modifiers.some((mod) => mod.customerProvidedCup)
+    ? null
+    : (modifiers.find((mod) => mod.cupSeal)?.cupSeal ??
+      (hasTakeawayPackaging ? DEFAULT_CUP_SEAL : null));
+
 type Customization = Omit<CreateOrderItemDto, 'quantity'>;
 
 export interface ResolvedOrderItem {
   id: string;
   addOns: OrderItemAddOnSnapshot[];
+  cupSeal: CupSeal | null;
   leadTimeMinutes: number;
   menuItemId: string;
   menuItemName: string;
@@ -244,7 +263,13 @@ export class OrderPricingService {
             columns: { image: false },
             where: inArray(modifier.id, allModifierIds),
             with: {
-              catalogModifier: { columns: { customerProvidedCup: true } },
+              catalogModifier: {
+                columns: {
+                  cupSeal: true,
+                  cupSize: true,
+                  customerProvidedCup: true,
+                },
+              },
               modifierGroup: true,
             },
           })
@@ -319,8 +344,15 @@ export class OrderPricingService {
     mode: OrderMode,
     availableAt: Date | null = null,
   ): Promise<ResolvedOrderItem[]> {
-    const catalog = await this.loadCatalog(organizationId, items);
+    const [catalog, packaging] = await Promise.all([
+      this.loadCatalog(organizationId, items),
+      this.db.query.takeawayPackaging.findFirst({
+        columns: { id: true },
+        where: eq(takeawayPackaging.organizationId, organizationId),
+      }),
+    ]);
     if (!catalog) throw notFoundError('menuChanged');
+    const hasTakeawayPackaging = !!packaging;
     const {
       groupsByMenuItemId,
       itemAddOns,
@@ -450,6 +482,12 @@ export class OrderPricingService {
             ...(mod.catalogModifier?.customerProvidedCup && {
               customerProvidedCup: true,
             }),
+            ...(mod.catalogModifier?.cupSize && {
+              cupSize: mod.catalogModifier.cupSize,
+            }),
+            ...(mod.catalogModifier?.cupSeal && {
+              cupSeal: mod.catalogModifier.cupSeal,
+            }),
           };
         }),
       );
@@ -467,16 +505,24 @@ export class OrderPricingService {
       );
       const sweetnessLevel = resolveSweetnessLevel(item, addOn.sweetnessLevel);
       const unitPrice = getOfferPrice(item);
+      const modifiers = discountOwnCup(
+        resolveModifierSnapshots(item, addOn.modifiers),
+        Number(unitPrice),
+      );
+      const cupSeal = cupSealOf(
+        mode,
+        hasTakeawayPackaging,
+        servingTemperatureLevel,
+        modifiers,
+      );
       return {
         menuItemId: item.id,
         menuItemName: getName(item.name),
         unitPrice,
-        modifiers: discountOwnCup(
-          resolveModifierSnapshots(item, addOn.modifiers),
-          Number(unitPrice),
-        ),
+        modifiers,
         servingTemperatureLevel,
         sweetnessLevel,
+        ...(cupSeal && { cupSeal }),
       };
     };
 
@@ -526,6 +572,12 @@ export class OrderPricingService {
         orderQuantity: cartItem.quantity,
         modifiers: itemModifiers,
         addOns,
+        cupSeal: cupSealOf(
+          mode,
+          hasTakeawayPackaging,
+          servingTemperatureLevel,
+          itemModifiers,
+        ),
         servingTemperatureLevel,
         sweetnessLevel,
       };

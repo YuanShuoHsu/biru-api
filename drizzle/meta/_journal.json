@@ -2115,6 +2115,13 @@
       "when": 1795633670927,
       "tag": "0301_two_factor",
       "breakpoints": true
+    },
+    {
+      "idx": 302,
+      "version": "7",
+      "when": 1795679581923,
+      "tag": "0302_takeaway_packaging",
+      "breakpoints": true
     }
   ]
 }

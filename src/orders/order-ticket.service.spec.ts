@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+
 import type { PGlite } from '@electric-sql/pglite';
 import type { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -236,6 +238,133 @@ describe('OrderTicketService 出單機（PGlite）', () => {
       });
 
       expect(await enqueuedItemIds()).toEqual(['own-cup']);
+    });
+  });
+
+  describe('工作單標出每杯的封口', () => {
+    const zhTW: unknown = JSON.parse(
+      readFileSync('src/i18n/zh-TW/common.json', 'utf8'),
+    );
+    const translated = () =>
+      new OrderTicketService(
+        db as unknown as DrizzleDB,
+        new EventEmitter2(),
+        {
+          t: (key: string) =>
+            key
+              .split('.')
+              .slice(1)
+              .reduce<unknown>(
+                (value, part) => (value as Record<string, unknown>)[part],
+                zhTW,
+              ),
+        } as unknown as I18nService<I18nTranslations>,
+        new PrintersService(
+          db as unknown as DrizzleDB,
+          {
+            getOrThrow: () => 'http://api.test',
+          } as unknown as ConfigService,
+        ),
+      );
+
+    const insertItem = (
+      id: string,
+      servingTemperatureLevel: string,
+      cupSeal: string | null,
+      {
+        addOns = null,
+        modifiers = null,
+      }: { addOns?: object[] | null; modifiers?: object[] | null } = {},
+    ) =>
+      client.query(
+        `insert into order_item (id, order_id, menu_item_id, menu_item_name, unit_price, order_quantity, serving_temperature_level, cup_seal, add_ons, modifiers)
+         values ($1, 'o1', 'm1', $1, 100, 1, $2, $3, $4, $5)`,
+        [
+          id,
+          servingTemperatureLevel,
+          cupSeal,
+          addOns && JSON.stringify(addOns),
+          modifiers && JSON.stringify(modifiers),
+        ],
+      );
+
+    const detailLines = async () => {
+      const ticketService = translated();
+      await ticketService.createPrinter('biru', '吧台');
+      await db.transaction((tx) =>
+        ticketService.enqueueOrder(tx as unknown as DrizzleDB, 'o1', ORG),
+      );
+      const [registered] = await db.select().from(printerTable);
+      const [entry] = await ticketService.poll(registered);
+      return [...entry.receipt.matchAll(/<text> {3}(.*?)&#10;<\/text>/g)]
+        .map(([, detail]) => detail)
+        .sort();
+    };
+
+    beforeEach(async () => {
+      await client.query(
+        `insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal, order_status)
+         values ('o1', '{"name":"王小明"}', 'counter', '1', 'Cash', $1, 300, 'OrderProcessing')`,
+        [ORG],
+      );
+    });
+
+    it('沒選封口的外帶飲品印出預設封口，加購飲品也印', async () => {
+      await insertItem('hot', 'Hot', 'film', {
+        addOns: [
+          {
+            cupSeal: 'film',
+            menuItemId: 'm2',
+            menuItemName: '紅茶',
+            modifiers: [],
+            servingTemperatureLevel: 'NoIce',
+            unitPrice: '30.00',
+          },
+        ],
+      });
+      await insertItem('iced', 'RegularIce', 'film');
+      await insertItem('old', 'LessIce', null);
+
+      expect(await detailLines()).toEqual([
+        '+ 紅茶 / 去冰 / 封膜',
+        '少冰',
+        '正常冰 / 封膜',
+        '熱 / 封膜',
+      ]);
+    });
+
+    it('客人選了封口選項時只印選項名稱，不重複印封口', async () => {
+      await insertItem('chosen', 'LessIce', 'lid', {
+        modifiers: [
+          {
+            cupSeal: 'lid',
+            modifierGroupId: 'sealing',
+            modifierGroupName: '封口方式',
+            modifierId: 'lid',
+            modifierName: '加杯蓋',
+            priceAdjustment: null,
+          },
+        ],
+      });
+
+      expect(await detailLines()).toEqual(['少冰 / 加杯蓋']);
+    });
+
+    it('門市沒有包材設定時存的是 null：沒選封口不印，選了沒標封口的選項只印選項名稱', async () => {
+      await insertItem('unchosen', 'RegularIce', null);
+      await insertItem('untagged', 'LessIce', null, {
+        modifiers: [
+          {
+            modifierGroupId: 'sealing',
+            modifierGroupName: '封口方式',
+            modifierId: 'lid',
+            modifierName: '杯蓋',
+            priceAdjustment: null,
+          },
+        ],
+      });
+
+      expect(await detailLines()).toEqual(['少冰 / 杯蓋', '正常冰']);
     });
   });
 });

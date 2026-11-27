@@ -113,6 +113,7 @@ export const RESTORE_PERMISSIONS: Partial<
   recipe: { inventory: ['create'] },
   recipe_ingredient: { inventory: ['create'] },
   supplier: { purchasing: ['create'] },
+  takeaway_packaging: { inventory: ['create'] },
   team: { team: ['create'] },
   team_member: { member: ['update'] },
 };
