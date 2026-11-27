@@ -940,6 +940,7 @@ export type I18nTranslations = {
             "subject": string;
             "text": string;
         };
+        "unknown_device": string;
     };
     "push": {
         "order_pickup_available": {
