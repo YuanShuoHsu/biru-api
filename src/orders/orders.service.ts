@@ -1337,6 +1337,7 @@ export class OrdersService {
         orderId: id,
         orderStatus: rule.toStatus,
         organizationId: sellerId,
+        direction: rule.direction,
       });
 
       if (rule.recordsPayment)

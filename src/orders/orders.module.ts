@@ -5,6 +5,7 @@ import { InventoryModule } from '../inventory/inventory.module.js';
 import { MailsModule } from '../mails/mails.module.js';
 import { PointsModule } from '../points/points.module.js';
 import { PrintersModule } from '../printers/printers.module.js';
+import { NotificationsModule } from '../push/notifications.module.js';
 
 import { DineInTablesController } from './dine-in-tables.controller.js';
 import { FrequentItemsService } from './frequent-items.service.js';
@@ -12,6 +13,7 @@ import { MenuItemSalesController } from './menu-item-sales.controller.js';
 import { MenuItemSalesService } from './menu-item-sales.service.js';
 import { OrderModesController } from './order-modes.controller.js';
 import { OrderNotificationsService } from './order-notifications.service.js';
+import { OrderPickupNotificationsService } from './order-pickup-notifications.service.js';
 import { OrderPricingModule } from './order-pricing.module.js';
 import { OrderQrController } from './order-qr.controller.js';
 import { OrderQrService } from './order-qr.service.js';
@@ -30,6 +32,7 @@ import { UserOrdersController } from './user-orders.controller.js';
     CouponsModule,
     InventoryModule,
     MailsModule,
+    NotificationsModule,
     OrderPricingModule,
     PointsModule,
     PrintersModule,
@@ -49,6 +52,7 @@ import { UserOrdersController } from './user-orders.controller.js';
     FrequentItemsService,
     MenuItemSalesService,
     OrderNotificationsService,
+    OrderPickupNotificationsService,
     OrderQrService,
     OrderStatsService,
     OrderTicketService,

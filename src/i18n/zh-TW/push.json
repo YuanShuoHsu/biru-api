@@ -1,4 +1,8 @@
 {
+  "order_pickup_available": {
+    "title": "{organizationName}：餐點好了",
+    "body": "{orderNumber} 號餐點好了，請至取餐處取餐。"
+  },
   "waitlist_called": {
     "title": "{organizationName}：輪到您了",
     "body": "現在叫號 {ticketNumber}，請至櫃檯報到。"

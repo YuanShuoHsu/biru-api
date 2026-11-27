@@ -17,7 +17,7 @@ import { pinnedAgent, resolvePublicAddresses } from './public-address.js';
 
 const PUSH_TIMEOUT_MS = 10_000;
 
-export type PushRecipient = { waitlistTicketId: string };
+export type PushRecipient = { waitlistTicketId: string } | { orderId: string };
 
 export type PushMessage = {
   title: I18nPath;
@@ -62,7 +62,12 @@ export class NotificationsService {
         .where(
           and(
             eq(pushSubscription.app, 'storefront'),
-            eq(pushSubscription.waitlistTicketId, recipient.waitlistTicketId),
+            'orderId' in recipient
+              ? eq(pushSubscription.orderId, recipient.orderId)
+              : eq(
+                  pushSubscription.waitlistTicketId,
+                  recipient.waitlistTicketId,
+                ),
           ),
         );
       if (

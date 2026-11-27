@@ -1,4 +1,8 @@
 {
+  "order_pickup_available": {
+    "title": "{organizationName}: your order is ready",
+    "body": "Order {orderNumber} is ready. Please collect it at the pickup point."
+  },
   "waitlist_called": {
     "title": "{organizationName}: it's your turn",
     "body": "Now calling {ticketNumber}. Please check in at the counter."

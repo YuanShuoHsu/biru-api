@@ -293,6 +293,23 @@ describe('OrdersService.applyTransitions', () => {
     expect(emittedEvents(emit)).toEqual([ORDER_STATUS_UPDATED_EVENT]);
   });
 
+  it('製作中推進到可取餐時，狀態事件帶出推進方向', async () => {
+    const processing = { ...unpaid, orderStatus: 'OrderProcessing' as const };
+    const { emit, service } = createService({
+      current: processing,
+      updated: [{ ...processing, orderStatus: 'OrderPickupAvailable' }],
+    });
+
+    await service.applyTransitions('slug', ['o1'], 'OrderPickupAvailable');
+
+    expect(emit).toHaveBeenCalledWith(ORDER_STATUS_UPDATED_EVENT, {
+      orderId: 'o1',
+      orderStatus: 'OrderPickupAvailable',
+      organizationId: 'org',
+      direction: 'advance',
+    });
+  });
+
   it('現金收款會送出已付款事件並排工作單', async () => {
     const { emit, orderTickets, sets, service } = createService({
       current: unpaid,
