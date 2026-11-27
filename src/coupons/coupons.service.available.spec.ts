@@ -103,6 +103,47 @@ describe('CouponsService.getAvailable 每人限用次數', () => {
     ]);
   });
 
+  it('幣別與店家不同的定額券與有最低消費的券不列出', async () => {
+    await db.insert(coupon).values([
+      {
+        code: 'YEN',
+        discountCurrency: 'JPY',
+        discountType: 'fixed',
+        discountValue: '100',
+        id: 'yen',
+        isPublic: true,
+      },
+      {
+        code: 'YENMIN',
+        discountCurrency: 'JPY',
+        discountType: 'percentage',
+        discountValue: '10',
+        id: 'yen-min',
+        isPublic: true,
+        minSubtotal: '500',
+      },
+      {
+        code: 'YENPCT',
+        discountCurrency: 'JPY',
+        discountType: 'percentage',
+        discountValue: '10',
+        id: 'yen-pct',
+        isPublic: true,
+      },
+      {
+        code: 'YENZERO',
+        discountCurrency: 'JPY',
+        discountType: 'percentage',
+        discountValue: '10',
+        id: 'yen-zero',
+        isPublic: true,
+        minSubtotal: '0',
+      },
+    ]);
+
+    expect(await availableIds(null)).toEqual(['anyone', 'yen-pct', 'yen-zero']);
+  });
+
   it('取消或退回的訂單不算用過', async () => {
     await addOrder('o1', 'ONCE', { orderStatus: 'OrderCancelled' });
     await addOrder('o2', 'ONCE', { orderStatus: 'OrderReturned' });

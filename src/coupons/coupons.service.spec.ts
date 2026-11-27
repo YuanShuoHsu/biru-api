@@ -38,6 +38,7 @@ const items = [
 const baseCoupon: Partial<Coupon> = {
   applicableOrganizationIds: null,
   code: 'CODE',
+  discountCurrency: 'TWD',
   discountType: 'fixed',
   discountValue: '50',
   id: 'coupon',
@@ -54,12 +55,13 @@ const baseCoupon: Partial<Coupon> = {
   validThrough: null,
 };
 
-const applicableOf = (coupon: Partial<Coupon>) => {
+const applicableOf = (coupon: Partial<Coupon>, currency = 'TWD') => {
   const db = {
     query: {
       coupon: {
         findMany: vi.fn().mockResolvedValue([{ ...baseCoupon, ...coupon }]),
       },
+      organization: { findFirst: vi.fn().mockResolvedValue({ currency }) },
     },
   };
   const service = new CouponsService(
@@ -123,6 +125,34 @@ describe('CouponsService.getApplicableCoupon 折扣金額', () => {
       discountOf({ applicableOrganizationIds: ['other-org'] }),
     ).rejects.toMatchObject({ response: { code: 'notApplicableHere' } });
   });
+
+  it.each([
+    ['定額券', { discountType: 'fixed' as const }],
+    [
+      '有最低消費的百分比券',
+      {
+        discountType: 'percentage' as const,
+        discountValue: '10',
+        minSubtotal: '100',
+      },
+    ],
+  ])('幣別與店家不同的%s拒絕', async (_, coupon) => {
+    await expect(applicableOf(coupon, 'JPY')).rejects.toMatchObject({
+      response: { code: 'notApplicableHere' },
+    });
+  });
+
+  it.each([null, '0.00'])(
+    '沒有最低消費（%s）的百分比券不看幣別',
+    async (minSubtotal) => {
+      await expect(
+        applicableOf(
+          { discountType: 'percentage', discountValue: '10', minSubtotal },
+          'JPY',
+        ),
+      ).resolves.toMatchObject({ discount: 22 });
+    },
+  );
 });
 
 describe('CouponsService 自動發券', () => {
@@ -146,12 +176,14 @@ describe('CouponsService 自動發券', () => {
         .mockReturnValueOnce({
           from: () => ({
             innerJoin: () => ({
-              where: () => ({
-                groupBy: () => ({
-                  having: () => {
-                    calls.push('qualified');
-                    return Promise.resolve([{ id: 'o1' }, { id: 'o2' }]);
-                  },
+              innerJoin: () => ({
+                where: () => ({
+                  groupBy: () => ({
+                    having: () => {
+                      calls.push('qualified');
+                      return Promise.resolve([{ id: 'o1' }, { id: 'o2' }]);
+                    },
+                  }),
                 }),
               }),
             }),

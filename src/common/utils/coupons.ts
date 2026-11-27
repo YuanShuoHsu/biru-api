@@ -1,4 +1,4 @@
-import { and, gte, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, eq, gte, isNull, lte, or, sql } from 'drizzle-orm';
 import { coupon, userCoupon } from '../../db/schema/coupons.js';
 import { isForeignKeyViolation, pgConstraint } from './pg-errors.js';
 
@@ -9,6 +9,15 @@ export const applicableToOrganization = (organizationId: string) =>
   or(
     isNull(coupon.applicableOrganizationIds),
     sql`${organizationId} = ANY(${coupon.applicableOrganizationIds})`,
+  );
+
+export const usableInCurrency = (currency: string) =>
+  or(
+    eq(coupon.discountCurrency, currency),
+    and(
+      eq(coupon.discountType, 'percentage'),
+      or(isNull(coupon.minSubtotal), eq(coupon.minSubtotal, '0')),
+    ),
   );
 
 // 尚有額度：totalLimit 扣除已使用與已發出未使用（保留額度）的券
