@@ -437,8 +437,8 @@ export type I18nTranslations = {
             "onlinePaymentNotRequired": string;
             "orderItemNotFound": string;
             "orderItemRefunded": string;
-            "orderNotFound": string;
             "orderNotDelivered": string;
+            "orderNotFound": string;
             "orderQrSecretNeverRotated": string;
             "orderQrSessionNotFound": string;
             "orderReviewLocked": string;

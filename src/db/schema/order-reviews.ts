@@ -44,6 +44,7 @@ export const orderReview = pgTable(
       table.createdAt,
     ),
     index('orderReview_userId_idx').on(table.userId),
+    index('orderReview_repliedBy_idx').on(table.repliedBy),
     check('order_review_rating_check', sql`${table.rating} BETWEEN 1 AND 5`),
   ],
 );

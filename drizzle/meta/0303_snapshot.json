@@ -1,5 +1,5 @@
 {
-  "id": "f21ea6b5-987b-40c6-a7ab-10516a6ef627",
+  "id": "8316feb8-7f40-47f0-a59c-aaa05a7dd00e",
   "prevId": "ce4c05e3-0a06-4c03-884a-6a82799ebb0b",
   "version": "7",
   "dialect": "postgresql",
@@ -8291,6 +8291,21 @@
           "columns": [
             {
               "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "orderReview_repliedBy_idx": {
+          "name": "orderReview_repliedBy_idx",
+          "columns": [
+            {
+              "expression": "replied_by",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

@@ -16,6 +16,7 @@ import { OrdersService } from './orders.service.js';
 const amy = { id: 'amy', role: 'user' };
 const bob = { id: 'bob', role: 'user' };
 const staff = { id: 'staff', role: 'user' };
+const platformAdmin = { id: 'root', role: 'admin' };
 
 describe('OrderReviewsService', () => {
   let client: PGlite;
@@ -162,6 +163,26 @@ describe('OrderReviewsService', () => {
     expect(rows).toEqual([{ user_id: 'amy' }]);
   });
 
+  it.each([
+    ['omitted', undefined],
+    ['empty', []],
+  ])('clears every item like when items are %s', async (_, items) => {
+    await service.upsertReview('biru', 'amy-order', amy, null, {
+      rating: 5,
+      items: [{ orderItemId: 'amy-latte', liked: true }],
+    });
+
+    await expect(
+      service.upsertReview('biru', 'amy-order', amy, null, {
+        rating: 5,
+        items,
+      }),
+    ).resolves.toMatchObject({ items: [] });
+    await expect(
+      service.getReview('biru', 'amy-order', amy, null),
+    ).resolves.toMatchObject({ items: [] });
+  });
+
   it('rejects an order that is not delivered yet', async () => {
     await expect(
       service.upsertReview('biru', 'amy-open', amy, null, { rating: 5 }),
@@ -174,6 +195,7 @@ describe('OrderReviewsService', () => {
   it.each([
     ['another member', bob, null],
     ['a store member', staff, null],
+    ['a platform admin', platformAdmin, null],
     ['a guest without a token', null, null],
     ['a token of another order', null, 'guest-token'],
   ])('rejects feedback from %s', async (_, viewer, token) => {
@@ -204,7 +226,7 @@ describe('OrderReviewsService', () => {
         items: [{ orderItemId: 'latte', liked: true }],
       }),
     ).rejects.toMatchObject({
-      status: 400,
+      status: 404,
       response: { code: 'orderItemNotFound' },
     });
   });
@@ -212,6 +234,12 @@ describe('OrderReviewsService', () => {
   it('answers 404 for an order of another store', async () => {
     await expect(
       service.upsertReview('other', 'amy-order', amy, null, { rating: 5 }),
+    ).rejects.toMatchObject({
+      status: 404,
+      response: { code: 'orderNotFound' },
+    });
+    await expect(
+      service.getReview('other', 'amy-order', amy, null),
     ).rejects.toMatchObject({
       status: 404,
       response: { code: 'orderNotFound' },

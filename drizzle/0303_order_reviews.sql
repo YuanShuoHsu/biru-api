@@ -29,6 +29,7 @@ ALTER TABLE "order_review_item" ADD CONSTRAINT "order_review_item_review_id_orde
 ALTER TABLE "order_review_item" ADD CONSTRAINT "order_review_item_order_item_id_order_item_id_fk" FOREIGN KEY ("order_item_id") REFERENCES "public"."order_item"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "orderReview_organizationId_createdAt_idx" ON "order_review" USING btree ("organization_id","created_at");--> statement-breakpoint
 CREATE INDEX "orderReview_userId_idx" ON "order_review" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "orderReview_repliedBy_idx" ON "order_review" USING btree ("replied_by");--> statement-breakpoint
 CREATE UNIQUE INDEX "orderReviewItem_reviewId_orderItemId_uidx" ON "order_review_item" USING btree ("review_id","order_item_id");--> statement-breakpoint
 CREATE INDEX "orderReviewItem_orderItemId_idx" ON "order_review_item" USING btree ("order_item_id");--> statement-breakpoint
 CREATE TRIGGER "record_deleted_row" BEFORE DELETE ON "public"."order_review" FOR EACH ROW EXECUTE FUNCTION "public"."record_deleted_row"();--> statement-breakpoint

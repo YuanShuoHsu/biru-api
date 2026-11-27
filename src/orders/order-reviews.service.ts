@@ -1,6 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import type { UserSession } from '@thallesp/nestjs-better-auth';
 import { and, eq, notInArray, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
@@ -18,11 +17,9 @@ import type {
 } from './dto/order-review.dto.js';
 import { isValidOrderAccessToken } from './order-access-token.js';
 import { badRequestError, notFoundError } from './order-errors.js';
-import { OrdersService } from './orders.service.js';
+import { type OrderViewer, OrdersService } from './orders.service.js';
 
 export const ORDER_REVIEW_EDIT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
-
-type Viewer = Pick<UserSession['user'], 'id' | 'role'>;
 
 const toResponse = (
   review: typeof orderReview.$inferSelect,
@@ -68,7 +65,7 @@ export class OrderReviewsService {
   async getReview(
     organizationSlug: string,
     orderId: string,
-    viewer: Viewer | null,
+    viewer: OrderViewer | null,
     accessToken: string | null,
   ): Promise<OrderReviewResponseDto | null> {
     const [found] = await this.findOrder(this.db, organizationSlug, orderId);
@@ -80,7 +77,12 @@ export class OrderReviewsService {
 
     const review = await this.db.query.orderReview.findFirst({
       where: eq(orderReview.orderId, orderId),
-      with: { items: { columns: { orderItemId: true, liked: true } } },
+      with: {
+        items: {
+          columns: { orderItemId: true, liked: true },
+          orderBy: orderReviewItem.orderItemId,
+        },
+      },
     });
     return review ? toResponse(review, review.items) : null;
   }
@@ -88,7 +90,7 @@ export class OrderReviewsService {
   async upsertReview(
     organizationSlug: string,
     orderId: string,
-    viewer: Viewer | null,
+    viewer: OrderViewer | null,
     accessToken: string | null,
     { rating, comment, items = [] }: UpsertOrderReviewDto,
   ): Promise<OrderReviewResponseDto> {
@@ -114,7 +116,7 @@ export class OrderReviewsService {
         ).map(({ id }) => id),
       );
       if (items.some(({ orderItemId }) => !orderItemIds.has(orderItemId)))
-        throw badRequestError('orderItemNotFound');
+        throw notFoundError('orderItemNotFound');
 
       const existing = await tx.query.orderReview.findFirst({
         where: eq(orderReview.orderId, orderId),

@@ -253,7 +253,7 @@ const paymentDeadlineOf = (
 
 type PaymentResultOutcome = 'handled' | 'ignored' | 'unmatched';
 
-type OrderViewer = Pick<UserSession['user'], 'id' | 'role'>;
+export type OrderViewer = Pick<UserSession['user'], 'id' | 'role'>;
 
 const toPaymentDate = (value?: string): Date | undefined => {
   if (!value) return undefined;
