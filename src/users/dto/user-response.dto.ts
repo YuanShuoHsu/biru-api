@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+import { languagesEnum, type Language } from '../../db/schema/enums.js';
 import { userRoles, type UserRole } from '../../db/schema/users.js';
 
 class UserResponseDto {
@@ -78,6 +79,13 @@ class UserResponseDto {
     type: String,
   })
   imageUrl: string | null;
+
+  @ApiProperty({
+    description: '語系',
+    enum: languagesEnum.enumValues,
+    example: 'zh-TW',
+  })
+  lang: Language;
 
   @ApiProperty({
     description: '姓',
