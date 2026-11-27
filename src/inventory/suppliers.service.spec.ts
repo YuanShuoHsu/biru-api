@@ -77,6 +77,37 @@ describe('SuppliersService.findOne', () => {
     expect(data.map(({ id }) => id)).toEqual(['a', 'b', 'c']);
   });
 
+  it('依是否開立統一發票篩選與排序供應商', async () => {
+    await db.insert(supplier).values([
+      {
+        id: 'invoiced',
+        name: '開發票',
+        organizationId: ORG,
+        uniformInvoice: true,
+      },
+    ]);
+
+    const { data: filtered } = await service.findAll(ORG, {
+      filterField: 'uniformInvoice',
+      filterOperator: 'is',
+      filterValue: 'true',
+    });
+    expect(filtered.map(({ id }) => id)).toEqual(['invoiced']);
+
+    const { data: notInvoiced } = await service.findAll(ORG, {
+      filterField: 'uniformInvoice',
+      filterOperator: 'is',
+      filterValue: 'false',
+    });
+    expect(notInvoiced.map(({ id }) => id)).toEqual(['supplier']);
+
+    const { data: sorted } = await service.findAll(ORG, {
+      sortBy: 'uniformInvoice',
+      sortDirection: 'desc',
+    });
+    expect(sorted.map(({ id }) => id)).toEqual(['invoiced', 'supplier']);
+  });
+
   it('依目前語系的名稱排序供應商的食材', async () => {
     const { ingredients, name } = await service.findOne('supplier');
 
