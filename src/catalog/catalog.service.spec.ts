@@ -812,6 +812,21 @@ describe('CatalogService', () => {
         expect(await modifierSortOrders('toppings')).toEqual([['pearl', 0]]);
       });
 
+      it('建立時寫入自備杯、杯型與封口', async () => {
+        expect(
+          await service.createModifier('sugar', {
+            displayName: name('自備杯'),
+            customerProvidedCup: true,
+            cupSize: '16oz',
+            cupSeal: 'lid',
+          }),
+        ).toMatchObject({
+          customerProvidedCup: true,
+          cupSize: '16oz',
+          cupSeal: 'lid',
+        });
+      });
+
       it('群組不存在時回找不到', async () => {
         expect(
           await errorCode(
@@ -853,6 +868,20 @@ describe('CatalogService', () => {
           displayName: name('黑糖珍珠'),
           priceAdjustment: null,
         });
+      });
+
+      it('以 null 清除杯型與封口', async () => {
+        await db
+          .update(catalogModifier)
+          .set({ cupSize: '16oz', cupSeal: 'film' })
+          .where(eq(catalogModifier.id, 'pearl'));
+
+        expect(
+          await service.updateModifier('pearl', {
+            cupSize: null,
+            cupSeal: null,
+          }),
+        ).toMatchObject({ cupSize: null, cupSeal: null });
       });
 
       it('選項不存在時回找不到', async () => {
