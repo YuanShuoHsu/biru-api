@@ -989,25 +989,30 @@ export class CouponsService {
           .for('no key update');
         if (!found) return;
 
-        const remainingCapacity = async (c: Coupon) => {
-          if (c.totalLimit === null) return Infinity;
-          const [locked] = await tx
+        const remainingOf = async (c: Coupon, lock: boolean) => {
+          const query = tx
             .select({
               totalLimit: coupon.totalLimit,
               usedCount: coupon.usedCount,
             })
             .from(coupon)
-            .where(eq(coupon.id, c.id))
-            .for('update');
-          if (!locked) return 0;
-          if (locked.totalLimit === null) return Infinity;
+            .where(eq(coupon.id, c.id));
+          const [row] = await (lock ? query.for('update') : query);
+          if (!row) return 0;
+          if (row.totalLimit === null) return Infinity;
           const [{ value: reserved }] = await tx
             .select({ value: count() })
             .from(userCoupon)
             .where(
               and(eq(userCoupon.couponId, c.id), isNull(userCoupon.usedAt)),
             );
-          return Math.max(0, locked.totalLimit - locked.usedCount - reserved);
+          return Math.max(0, row.totalLimit - row.usedCount - reserved);
+        };
+        const remainingCapacity = async (c: Coupon) => {
+          const unlocked = await remainingOf(c, false);
+          return unlocked === 0 || unlocked === Infinity
+            ? unlocked
+            : remainingOf(c, true);
         };
 
         for (const c of autoCoupons.toSorted((a, b) =>
