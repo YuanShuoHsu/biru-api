@@ -159,4 +159,38 @@ describe('OrdersService.erasePersonalData', () => {
   it('leaves an already erased order alone on the next run', async () => {
     expect(await service.erasePersonalData()).toBe(0);
   });
+
+  it('clears the comment and store reply of a guest order review, even one left after the order was erased, and keeps the rating and item likes', async () => {
+    await client.exec(
+      `insert into "order" (id, customer, mode, order_number, order_status, payment_method, seller_id, subtotal, user_id, updated_at) values
+         ('erased-reviewed', '{"name":"王**"}', 'pickup', '11', 'OrderDelivered', 'Cash', 'org', 100, null, now() - interval '31 days');
+       insert into order_item (id, menu_item_id, menu_item_name, order_id, order_quantity, unit_price) values
+         ('erased-reviewed-item', 'latte', 'Latte', 'erased-reviewed', 1, 100);
+       insert into order_review (id, order_id, organization_id, rating, comment, reply, replied_at) values
+         ('review-erased', 'erased-reviewed', 'org', 4, '我是王小明', '謝謝王先生', now()),
+         ('review-recent', 'recent-guest', 'org', 5, '好喝', null, null),
+         ('review-member', 'old-member', 'org', 3, '普通', null, null);
+       insert into order_review_item (id, review_id, order_item_id, liked) values
+         ('review-erased-item', 'review-erased', 'erased-reviewed-item', true);`,
+    );
+
+    expect(await service.erasePersonalData()).toBe(1);
+
+    const { rows: reviews } = await client.query<{
+      id: string;
+      rating: number;
+      comment: string | null;
+      reply: string | null;
+    }>('select id, rating, comment, reply from order_review order by id');
+    expect(reviews).toEqual([
+      { id: 'review-erased', rating: 4, comment: null, reply: null },
+      { id: 'review-member', rating: 3, comment: '普通', reply: null },
+      { id: 'review-recent', rating: 5, comment: '好喝', reply: null },
+    ]);
+    const { rows: likes } = await client.query<{ liked: boolean }>(
+      'select liked from order_review_item',
+    );
+    expect(likes).toEqual([{ liked: true }]);
+    expect(await service.erasePersonalData()).toBe(0);
+  });
 });

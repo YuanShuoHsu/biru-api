@@ -97,6 +97,17 @@ const INVOICE_COLUMNS = {
   createdAt: true,
 } as const;
 
+const ORDER_REVIEW_COLUMNS = {
+  orderId: true,
+  organizationId: true,
+  rating: true,
+  comment: true,
+  reply: true,
+  repliedAt: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
 const POINT_TRANSACTION_COLUMNS = {
   id: true,
   organizationId: true,
@@ -206,6 +217,7 @@ const userData = async (userId: string) => {
 
   const [
     orders,
+    orderReviews,
     pointTransactions,
     coupons,
     waitlistTickets,
@@ -221,6 +233,12 @@ const userData = async (userId: string) => {
         invoices: { columns: INVOICE_COLUMNS },
       },
       orderBy: schema.order.createdAt,
+    }),
+    db.query.orderReview.findMany({
+      where: eq(schema.orderReview.userId, userId),
+      columns: ORDER_REVIEW_COLUMNS,
+      with: { items: { columns: { orderItemId: true, liked: true } } },
+      orderBy: schema.orderReview.createdAt,
     }),
     db.query.pointTransaction.findMany({
       where: eq(schema.pointTransaction.userId, userId),
@@ -295,6 +313,7 @@ const userData = async (userId: string) => {
     accounts,
     sessions,
     orders,
+    orderReviews,
     pointTransactions,
     coupons,
     waitlistTickets,

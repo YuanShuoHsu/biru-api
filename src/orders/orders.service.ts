@@ -37,6 +37,7 @@ import { auditLog } from '../db/schema/audit.js';
 import { ecpayPaymentAttempt } from '../db/schema/ecpay-payment-attempts.js';
 import type { Invoice, InvoicePrintJob } from '../db/schema/invoices.js';
 import { invoice, invoicePrintJob } from '../db/schema/invoices.js';
+import { orderReview } from '../db/schema/order-reviews.js';
 import type { OrderStatus, PaymentMethod } from '../db/schema/orders.js';
 import {
   ORDER_ENDED_STATUSES,
@@ -252,7 +253,7 @@ const paymentDeadlineOf = (
 
 type PaymentResultOutcome = 'handled' | 'ignored' | 'unmatched';
 
-type OrderViewer = Pick<UserSession['user'], 'id' | 'role'>;
+export type OrderViewer = Pick<UserSession['user'], 'id' | 'role'>;
 
 const toPaymentDate = (value?: string): Date | undefined => {
   if (!value) return undefined;
@@ -1818,6 +1819,20 @@ export class OrdersService {
       or(
         sql`${order.customer} - 'name' <> '{}'::jsonb`,
         sql`${order.customer}->>'name' IS DISTINCT FROM ${maskedName}`,
+        exists(
+          this.db
+            .select({ id: orderReview.id })
+            .from(orderReview)
+            .where(
+              and(
+                eq(orderReview.orderId, order.id),
+                or(
+                  isNotNull(orderReview.comment),
+                  isNotNull(orderReview.reply),
+                ),
+              ),
+            ),
+        ),
       ),
       notExists(
         this.db
@@ -1877,6 +1892,11 @@ export class OrdersService {
           })
           .where(inArray(order.id, ids))
           .returning({ id: order.id });
+
+        await tx
+          .update(orderReview)
+          .set({ comment: null, reply: null })
+          .where(inArray(orderReview.orderId, ids));
 
         await tx
           .update(auditLog)
