@@ -130,9 +130,18 @@ describe('CouponsService.getAvailable 每人限用次數', () => {
         id: 'yen-pct',
         isPublic: true,
       },
+      {
+        code: 'YENZERO',
+        discountCurrency: 'JPY',
+        discountType: 'percentage',
+        discountValue: '10',
+        id: 'yen-zero',
+        isPublic: true,
+        minSubtotal: '0',
+      },
     ]);
 
-    expect(await availableIds(null)).toEqual(['anyone', 'yen-pct']);
+    expect(await availableIds(null)).toEqual(['anyone', 'yen-pct', 'yen-zero']);
   });
 
   it('取消或退回的訂單不算用過', async () => {

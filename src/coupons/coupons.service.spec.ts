@@ -142,11 +142,17 @@ describe('CouponsService.getApplicableCoupon 折扣金額', () => {
     });
   });
 
-  it('沒有最低消費的百分比券不看幣別', async () => {
-    await expect(
-      applicableOf({ discountType: 'percentage', discountValue: '10' }, 'JPY'),
-    ).resolves.toMatchObject({ discount: 22 });
-  });
+  it.each([null, '0.00'])(
+    '沒有最低消費（%s）的百分比券不看幣別',
+    async (minSubtotal) => {
+      await expect(
+        applicableOf(
+          { discountType: 'percentage', discountValue: '10', minSubtotal },
+          'JPY',
+        ),
+      ).resolves.toMatchObject({ discount: 22 });
+    },
+  );
 });
 
 describe('CouponsService 自動發券', () => {
