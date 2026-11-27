@@ -981,7 +981,7 @@ export class PointsService {
       });
 
     const target = await this.db.query.user.findFirst({
-      where: sql`lower(${user.email}) = lower(${email.trim()})`,
+      where: eq(user.email, email.trim().toLowerCase()),
     });
     if (!target) throw couponNotFoundError('memberNotFound');
     if (target.id === adjustedBy) throw badRequestError('adjustSelf');

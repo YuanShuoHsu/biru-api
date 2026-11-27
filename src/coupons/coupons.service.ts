@@ -1275,7 +1275,7 @@ export class CouponsService {
     assertGrantable(found);
 
     const target = await this.db.query.user.findFirst({
-      where: sql`lower(${user.email}) = lower(${email.trim()})`,
+      where: eq(user.email, email.trim().toLowerCase()),
     });
     if (!target) throw notFoundError('memberNotFound');
 
