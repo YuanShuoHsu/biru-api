@@ -5,7 +5,7 @@
 ## 語言（Language）
 
 - 與開發者的對話、PR 描述、issue 與留言用繁體中文。
-- commit 與 PR 標題用英文 Conventional Commits、小寫開頭。
+- commit 與 PR 標題用英文 Conventional Commits、小寫開頭，用詞先對照 `git log --format=%s -20`。
 - 程式碼註解用繁體中文；識別字、指令、路徑、套件與 API 名稱維持原文。
 - 本檔的「Behavioral Guidelines」（照抄上游）維持英文原文，不要翻譯。
 
@@ -46,7 +46,7 @@ pnpm vitest run src/payroll/payroll.service.spec.ts
 
 從 `develop` 開分支，所有 PR 都開向 `develop`（GitHub 的預設分支）。絕不開向 `master`：只 merge 進 `master` 的 PR 永遠不會進到 `develop`，之後從 `develop` 開的分支會漏掉它，`master` merge 回來時也會衝突。因為 `develop` 是預設分支，PR 裡的 `Closes #n` 會在 PR merge 進 `develop` 時關閉 issue；只完成 issue 一部分的 PR 用 `Part of #n`。
 
-每個開向 `develop` 或 `master` 的 PR，以及每次 push 到 `develop`，都會在 GitHub Actions（`.github/workflows/ci.yml`）跑 `lint`、`build`、`test`、`test:e2e`，沒有 secret 也沒有資料庫；開 PR 前先在本機跑這四個，外加上面的 `tsc` 型別檢查（CI 不跑）。
+每個開向 `develop` 或 `master` 的 PR，以及每次 push 到 `develop`，都會在 GitHub Actions（`.github/workflows/ci.yml`）跑 `lint`、`build`、`test`、`test:e2e`，沒有 secret 也沒有資料庫；開 PR 前先在本機跑這四個，外加上面的 `tsc` 型別檢查（CI 不跑），並對改到的檔案跑 `pnpm exec prettier --write`（沒有 pre-commit hook，CI 也不檢查格式）。新功能要附單元測試。
 
 ## 架構（Architecture）
 
@@ -331,6 +331,8 @@ Controller 常在 class 層級加 `@AllowAnonymous()`（來自 `@thallesp/nestjs
 
 **一個改動加了超過一兩個註解，本身就是訊號**，代表程式碼表達得不夠。改命名或結構，不要旁白。
 
+**絕不加回被刪掉的註解。** 即使某個註解通過上面的檢驗，只要開發者說過那裡不要註解，或那個註解之前被刪過，之後的改動就不能把它加回來；開發者的決定優先於本規則。有話要說就寫在回覆裡，不要寫在程式碼裡。
+
 改動讓既有註解變得不正確時，在同一個改動修正或刪除它；過時的註解比沒有更糟。不要把識別字寫死在註解裡，改名後就會變成錯誤資訊。
 
 ## 實作方式（Implementation Approach）
@@ -339,9 +341,11 @@ Controller 常在 class 層級加 `@AllowAnonymous()`（來自 `@thallesp/nestjs
 
 依以下順序決定：
 
-1. **已安裝版本的官方文件**：先查 `package.json`／`node_modules` 的版本，絕不憑記憶。Next.js（`node_modules/next/dist/docs/`、next-devtools MCP）、MUI（mui-mcp）、better-auth、Drizzle、NestJS、next-intl、SWR、Zod 等。用文件示範的寫法，不用繞路；絕不用文件標為 deprecated 的 API。
-2. **本 repo 的既有模式**：文件沒定死時，照 codebase 現有的做法。照抄前先確認它沒有你正在修的缺陷；有的話那部分不要抄，並在 PR 點名那份複本，讓它也被修掉。
+1. **已安裝版本的官方文件**：先查 `package.json`／`node_modules` 的版本，絕不憑記憶。Next.js（`node_modules/next/dist/docs/`、next-devtools MCP）、MUI（mui-mcp）、better-auth、Drizzle、NestJS、next-intl、SWR、Zod 等。用文件示範的寫法，不用繞路；絕不用文件標為 deprecated 的 API。已安裝套件的 `.d.ts` 是最終依據；部落格、問答等二手資料不能當依據。
+2. **本 repo 的既有模式**：文件沒定死時，先用 `rg` 找同 repo 解決同一類問題的既有機制（service、helper、DTO、decorator、guard），有就重用，照最相近實作的結構、命名與位置寫。照抄前先確認它沒有你正在修的缺陷；有的話那部分不要抄，並在 PR 點名那份複本，讓它也被修掉。
 3. **最主流的選項**：前兩者都決定不了時。
+
+**勞動法規**：出勤、請假、薪資、加班等涉及勞動法規的計算或規則，PR 要附法條與出處（law.moj.gov.tw 或勞動部公告）；找不到依據就不實作，先向開發者提出。
 
 ## Behavioral Guidelines
 
