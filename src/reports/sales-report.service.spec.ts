@@ -691,7 +691,7 @@ describe('SalesReportService', () => {
       ).toHaveLength(3);
     });
 
-    it('快速搜尋只比對顯示的名稱，不比對 key', async () => {
+    it('快速搜尋只比對顯示的名稱，不比對 key，非品項分組略過', async () => {
       expect(
         (await itemKeys({ quickFilterValue: 'gone' }, 'zh-TW')).keys,
       ).toEqual([]);
@@ -700,7 +700,7 @@ describe('SalesReportService', () => {
       ).toEqual(['gone']);
       expect(
         await groupKeys('paymentMethod', { quickFilterValue: 'Cash' }),
-      ).toEqual([]);
+      ).toEqual(await groupKeys('paymentMethod', {}));
     });
   });
 
