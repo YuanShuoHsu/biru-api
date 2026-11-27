@@ -6,9 +6,13 @@ import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
 import { createPGlite } from '../../test/pglite.js';
-import { catalogItem, catalogSection } from '../db/schema/catalog.js';
+import {
+  catalogItem,
+  catalogItemAddOn,
+  catalogSection,
+} from '../db/schema/catalog.js';
 import * as schema from '../db/schema/index.js';
-import { menu, menuSection } from '../db/schema/menus.js';
+import { menu, menuItem, menuSection, offer } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { ImageStorageService } from '../images/image-storage.service.js';
 
@@ -39,12 +43,13 @@ describe('CatalogService', () => {
       [OTHER_ORG, 'other'],
     ])
       await client.query(
-        `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ($1, 'Biru', $2, now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
+        `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ($1, $2, $2, now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
         [id, slug],
       );
-    await db
-      .insert(menu)
-      .values({ id: 'menu', organizationId: ORG, name: name('菜單') });
+    await db.insert(menu).values([
+      { id: 'menu', organizationId: ORG, name: name('菜單') },
+      { id: 'other-menu', organizationId: OTHER_ORG, name: name('菜單') },
+    ]);
   }, 60_000);
 
   afterAll(async () => {
@@ -53,6 +58,7 @@ describe('CatalogService', () => {
 
   beforeEach(async () => {
     await db.delete(menuSection);
+    await db.delete(menuItem);
     await db.delete(catalogItem);
     await db.delete(catalogSection);
     await db.insert(catalogSection).values([
@@ -299,5 +305,251 @@ describe('CatalogService', () => {
 
     expect(drinks).not.toHaveProperty('image');
     expect(drinks?.imageRef).toMatch(/^image\/png [0-9a-f]{16}$/);
+  });
+
+  describe('catalog items', () => {
+    beforeEach(async () => {
+      await db.insert(catalogItem).values([
+        {
+          id: 'latte',
+          catalogSectionId: 'coffee',
+          name: name('拿鐵'),
+          sortOrder: 0,
+        },
+        {
+          id: 'mocha',
+          catalogSectionId: 'coffee',
+          name: name('摩卡'),
+          sweetness: 'Fixed',
+          fixedSweetnessLevel: 'HalfSugar',
+          sortOrder: 1,
+        },
+        {
+          id: 'tea',
+          catalogSectionId: 'drinks',
+          name: name('紅茶'),
+          sortOrder: 0,
+        },
+      ]);
+    });
+
+    const sortOrdersOf = async (catalogSectionId: string) =>
+      (await service.items(catalogSectionId)).map(({ id, sortOrder }) => [
+        id,
+        sortOrder,
+      ]);
+
+    describe('createItem', () => {
+      it('建立品牌品項，排在該分類最前面，不動其他分類', async () => {
+        const created = await service.createItem('coffee', {
+          name: name('美式'),
+          suggestedPrice: '90.00',
+        });
+
+        expect(created).toMatchObject({
+          ownerOrganizationId: null,
+          catalogSectionId: 'coffee',
+          suggestedPrice: '90.00',
+          sweetness: 'NotApplicable',
+          servingTemperatures: [],
+          discontinued: false,
+          sortOrder: 0,
+        });
+        expect(await sortOrdersOf('coffee')).toEqual([
+          [created.id, 0],
+          ['latte', 1],
+          ['mocha', 2],
+        ]);
+        expect(await sortOrdersOf('drinks')).toEqual([['tea', 0]]);
+      });
+
+      it('推薦溫度不屬於可供應的冷熱時存 null，甜度不可調時不存推薦甜度', async () => {
+        const created = await service.createItem('coffee', {
+          name: name('美式'),
+          servingTemperatures: ['Hot'],
+          recommendedServingTemperatureLevel: 'LessIce',
+          recommendedSweetnessLevel: 'NoSugar',
+        });
+
+        expect(created).toMatchObject({
+          recommendedServingTemperatureLevel: null,
+          recommendedSweetnessLevel: null,
+        });
+      });
+
+      it('品牌品項不能放在獨家分類', async () => {
+        expect(
+          await errorCode(service.createItem('local', { name: name('美式') })),
+        ).toBe('catalogItemSectionOwnerMismatch');
+      });
+
+      it('分類不存在時回找不到', async () => {
+        expect(
+          await errorCode(
+            service.createItem('missing', { name: name('美式') }),
+          ),
+        ).toBe('catalogSectionNotFound');
+      });
+
+      it('甜度固定卻沒有固定甜度時拒絕', async () => {
+        expect(
+          await errorCode(
+            service.createItem('coffee', {
+              name: name('美式'),
+              sweetness: 'Fixed',
+            }),
+          ),
+        ).toBe('fixedSweetnessLevelRequired');
+      });
+
+      it('促銷結束日早於開始日時拒絕', async () => {
+        expect(
+          await errorCode(
+            service.createItem('coffee', {
+              name: name('美式'),
+              priceSpecification: {
+                price: '80.00',
+                validFrom: '2026-12-31',
+                validThrough: '2026-12-01',
+              },
+            }),
+          ),
+        ).toBe('promoDateRangeInvalid');
+      });
+    });
+
+    describe('items', () => {
+      it('依排序列出分類的品項，不回傳圖片本體', async () => {
+        await db
+          .update(catalogItem)
+          .set({ image: 'data:image/png;base64,AAAA' })
+          .where(eq(catalogItem.id, 'latte'));
+
+        const items = await service.items('coffee');
+
+        expect(items.map(({ id }) => id)).toEqual(['latte', 'mocha']);
+        expect(items[0]).not.toHaveProperty('image');
+        expect(items[0].imageRef).toMatch(/^image\/png [0-9a-f]{16}$/);
+      });
+
+      it('分類不存在時回找不到', async () => {
+        expect(await errorCode(service.items('missing'))).toBe(
+          'catalogSectionNotFound',
+        );
+      });
+    });
+
+    describe('updateItem', () => {
+      it('甜度改為可調時清掉固定甜度', async () => {
+        expect(
+          await service.updateItem('mocha', {
+            sweetness: 'Adjustable',
+            recommendedSweetnessLevel: 'LessSugar',
+          }),
+        ).toMatchObject({
+          sweetness: 'Adjustable',
+          fixedSweetnessLevel: null,
+          recommendedSweetnessLevel: 'LessSugar',
+        });
+      });
+
+      it('只改其他欄位時保留現有甜度設定', async () => {
+        expect(
+          await service.updateItem('mocha', {
+            discontinued: true,
+            suggestedPrice: null,
+          }),
+        ).toMatchObject({
+          discontinued: true,
+          suggestedPrice: null,
+          sweetness: 'Fixed',
+          fixedSweetnessLevel: 'HalfSugar',
+        });
+      });
+
+      it('品項不存在時回找不到', async () => {
+        expect(
+          await errorCode(service.updateItem('missing', { name: name('x') })),
+        ).toBe('catalogItemNotFound');
+      });
+    });
+
+    it('reorderItems 只重排該分類的品項', async () => {
+      await service.reorderItems('coffee', ['mocha', 'latte', 'tea']);
+
+      expect(await sortOrdersOf('coffee')).toEqual([
+        ['mocha', 0],
+        ['latte', 1],
+      ]);
+      expect(await sortOrdersOf('drinks')).toEqual([['tea', 0]]);
+    });
+
+    it('item 品項不存在時回找不到', async () => {
+      expect(await errorCode(service.item('missing'))).toBe(
+        'catalogItemNotFound',
+      );
+    });
+
+    describe('deleteItem', () => {
+      it('還有門市上架列時拒絕並列出門市，已下架的上架列也算', async () => {
+        await db.insert(menuItem).values([
+          {
+            id: 'biru-latte',
+            menuId: 'menu',
+            catalogItemId: 'latte',
+            name: name('拿鐵'),
+          },
+          {
+            id: 'other-latte',
+            menuId: 'other-menu',
+            catalogItemId: 'latte',
+            name: name('拿鐵'),
+          },
+        ]);
+        await db.insert(offer).values({
+          id: 'other-latte-offer',
+          menuItemId: 'other-latte',
+          price: '120.00',
+          availability: 'Discontinued',
+        });
+
+        const error = await service.deleteItem('latte').then(
+          () => undefined,
+          (error: { getResponse: () => Record<string, unknown> }) =>
+            error.getResponse(),
+        );
+
+        expect(error).toMatchObject({
+          code: 'catalogItemListed',
+          organizations: [
+            { id: ORG, name: 'biru' },
+            { id: OTHER_ORG, name: 'other' },
+          ],
+        });
+        expect(await service.item('latte')).toMatchObject({ id: 'latte' });
+      });
+
+      it('沒有上架列時刪除，連同以它為加購目標的加購', async () => {
+        await db.insert(catalogItemAddOn).values({
+          id: 'mocha-latte',
+          catalogItemId: 'mocha',
+          addOnCatalogItemId: 'latte',
+        });
+
+        expect(await service.deleteItem('latte')).toMatchObject({
+          id: 'latte',
+        });
+        expect(await errorCode(service.item('latte'))).toBe(
+          'catalogItemNotFound',
+        );
+        expect(await db.select().from(catalogItemAddOn)).toEqual([]);
+      });
+
+      it('品項不存在時回找不到', async () => {
+        expect(await errorCode(service.deleteItem('missing'))).toBe(
+          'catalogItemNotFound',
+        );
+      });
+    });
   });
 });

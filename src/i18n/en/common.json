@@ -142,6 +142,9 @@
     "idempotencyConflict": "The retry payload changed; close and reopen the form."
   },
   "catalog": {
+    "catalogItemListed": "These stores still have a listing of this item: {names}. It can't be deleted yet",
+    "catalogItemNotFound": "Item not found. It may have been deleted",
+    "catalogItemSectionOwnerMismatch": "Brand items can only be placed in brand sections",
     "catalogSectionHasItems": "This section still has items. Move or delete them first",
     "catalogSectionHasSubsections": "This section still has subsections. Move or delete them first",
     "catalogSectionInUse": "Stores still have settings for this section, so it can't be deleted yet",

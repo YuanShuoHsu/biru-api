@@ -17,10 +17,16 @@ import { ReorderDto } from '../menus/dto/reorder.dto.js';
 
 import { CatalogService } from './catalog.service.js';
 import {
+  CatalogItemListResponseDto,
+  CatalogItemResponseDto,
+} from './dto/catalog-item-response.dto.js';
+import {
   CatalogSectionListResponseDto,
   CatalogSectionResponseDto,
 } from './dto/catalog-section-response.dto.js';
+import { CreateCatalogItemDto } from './dto/create-catalog-item.dto.js';
 import { CreateCatalogSectionDto } from './dto/create-catalog-section.dto.js';
+import { UpdateCatalogItemDto } from './dto/update-catalog-item.dto.js';
 import { UpdateCatalogSectionDto } from './dto/update-catalog-section.dto.js';
 
 @ApiTags('catalog')
@@ -93,6 +99,79 @@ export class AdminCatalogController {
     return withImageUrl(
       'catalogSection',
       await this.catalogService.deleteSection(catalogSectionId),
+    );
+  }
+
+  @Post('sections/:catalogSectionId/items')
+  @Audit('catalogItem', { response: true })
+  @ApiOperation({ summary: '在品牌目錄分類建立品項' })
+  async createItem(
+    @Param('catalogSectionId') catalogSectionId: string,
+    @Body() dto: CreateCatalogItemDto,
+  ): Promise<CatalogItemResponseDto> {
+    return withImageUrl(
+      'catalogItem',
+      await this.catalogService.createItem(catalogSectionId, dto),
+    );
+  }
+
+  @Get('sections/:catalogSectionId/items')
+  @ApiOperation({ summary: '取得目錄分類的所有品項' })
+  @ApiOkResponse({ type: CatalogItemListResponseDto })
+  async findAllItems(
+    @Param('catalogSectionId') catalogSectionId: string,
+  ): Promise<CatalogItemListResponseDto> {
+    const data = await this.catalogService.items(catalogSectionId);
+
+    return {
+      data: data.map((row) => withImageRefUrl('catalogItem', row)),
+      total: data.length,
+    };
+  }
+
+  @Patch('sections/:catalogSectionId/items/reorder')
+  @Audit('catalogItem', { body: 'ids' })
+  @ApiOperation({ summary: '重新排序目錄分類內的品項' })
+  reorderItems(
+    @Param('catalogSectionId') catalogSectionId: string,
+    @Body() { ids }: ReorderDto,
+  ): Promise<void> {
+    return this.catalogService.reorderItems(catalogSectionId, ids);
+  }
+
+  @Get('items/:catalogItemId')
+  @ApiOperation({ summary: '取得目錄品項詳情' })
+  async findItem(
+    @Param('catalogItemId') catalogItemId: string,
+  ): Promise<CatalogItemResponseDto> {
+    return withImageUrl(
+      'catalogItem',
+      await this.catalogService.item(catalogItemId),
+    );
+  }
+
+  @Patch('items/:catalogItemId')
+  @Audit('catalogItem', { param: 'catalogItemId' })
+  @ApiOperation({ summary: '更新目錄品項' })
+  async updateItem(
+    @Param('catalogItemId') catalogItemId: string,
+    @Body() dto: UpdateCatalogItemDto,
+  ): Promise<CatalogItemResponseDto> {
+    return withImageUrl(
+      'catalogItem',
+      await this.catalogService.updateItem(catalogItemId, dto),
+    );
+  }
+
+  @Delete('items/:catalogItemId')
+  @Audit('catalogItem', { param: 'catalogItemId' })
+  @ApiOperation({ summary: '刪除目錄品項' })
+  async deleteItem(
+    @Param('catalogItemId') catalogItemId: string,
+  ): Promise<CatalogItemResponseDto> {
+    return withImageUrl(
+      'catalogItem',
+      await this.catalogService.deleteItem(catalogItemId),
     );
   }
 }

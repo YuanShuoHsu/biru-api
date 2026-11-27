@@ -142,6 +142,9 @@
     "idempotencyConflict": "重试内容已变更，请关闭表单重新操作。"
   },
   "catalog": {
+    "catalogItemListed": "以下门店仍有此商品的上架数据：{names}，暂时无法删除",
+    "catalogItemNotFound": "找不到商品，可能已被删除",
+    "catalogItemSectionOwnerMismatch": "品牌商品只能放在品牌分类",
     "catalogSectionHasItems": "此分类下还有商品，请先移动或删除",
     "catalogSectionHasSubsections": "此分类下还有子分类，请先移动或删除",
     "catalogSectionInUse": "仍有门店设置了此分类，暂时无法删除",

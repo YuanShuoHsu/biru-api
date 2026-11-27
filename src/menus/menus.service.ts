@@ -153,7 +153,7 @@ const assertKeepsListing = (
     throw accessForbiddenError();
 };
 
-const assertPromoDateRange = (
+export const assertPromoDateRange = (
   priceSpecification: PriceSpecificationDto | null | undefined,
 ) => {
   const { validFrom, validThrough } = priceSpecification ?? {};
@@ -216,7 +216,7 @@ type DrinkOptions = Pick<
   | 'recommendedSweetnessLevel'
 >;
 
-const DRINK_OPTION_FIELDS = [
+export const DRINK_OPTION_FIELDS = [
   'servingTemperatures',
   'recommendedServingTemperatureLevel',
   'sweetness',
@@ -231,7 +231,7 @@ const literalDefault = <T>(value: T | SQL | undefined): T => {
   return value;
 };
 
-const NEW_MENU_ITEM_DRINK_OPTIONS: DrinkOptions = {
+export const NEW_MENU_ITEM_DRINK_OPTIONS: DrinkOptions = {
   servingTemperatures: literalDefault(menuItem.servingTemperatures.default),
   recommendedServingTemperatureLevel: null,
   sweetness: literalDefault(menuItem.sweetness.default),
@@ -239,7 +239,7 @@ const NEW_MENU_ITEM_DRINK_OPTIONS: DrinkOptions = {
   recommendedSweetnessLevel: null,
 };
 
-const resolveDrinkOptions = (
+export const resolveDrinkOptions = (
   current: DrinkOptions,
   data: UpdateMenuItemDto,
 ): Omit<DrinkOptions, 'servingTemperatures' | 'sweetness'> => {

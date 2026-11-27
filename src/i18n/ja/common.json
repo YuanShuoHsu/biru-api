@@ -142,6 +142,9 @@
     "idempotencyConflict": "再送内容が変更されています。フォームを開き直してください。"
   },
   "catalog": {
+    "catalogItemListed": "次の店舗にまだこの商品の掲載データがあります：{names}。現在は削除できません",
+    "catalogItemNotFound": "商品が見つかりません。削除された可能性があります",
+    "catalogItemSectionOwnerMismatch": "ブランド商品はブランドのカテゴリにのみ配置できます",
     "catalogSectionHasItems": "このカテゴリにはまだ商品があります。先に移動または削除してください",
     "catalogSectionHasSubsections": "このカテゴリにはまだサブカテゴリがあります。先に移動または削除してください",
     "catalogSectionInUse": "店舗にこのカテゴリの設定が残っているため、まだ削除できません",
