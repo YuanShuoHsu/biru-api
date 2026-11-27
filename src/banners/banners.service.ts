@@ -73,6 +73,7 @@ const assertSchedule = (
 
 const BANNER_SORT_NULLS: Partial<Record<string, NullsAs>> = {
   alt: 'last',
+  url: 'last',
   startsAt: 'last',
   endsAt: 'last',
 };
@@ -116,6 +117,7 @@ export class BannersService {
     } = query;
 
     const bannerFieldMap: Record<string, Column | SQL> = {
+      url: banner.url,
       isActive: sql`${banner.isActive}::text`,
       startsAt: banner.startsAt,
       endsAt: banner.endsAt,
@@ -165,6 +167,7 @@ export class BannersService {
         quickFilterValue,
         textConditions: (value) => [
           buildLocalizedTextFilterCondition(banner.alt, 'contains', value),
+          ilike(banner.url, `%${escapeLike(value)}%`),
           ilike(localTimeText(banner.startsAt), `%${escapeLike(value)}%`),
           ilike(localTimeText(banner.endsAt), `%${escapeLike(value)}%`),
           ilike(localTimeText(banner.createdAt), `%${escapeLike(value)}%`),
