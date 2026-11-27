@@ -5,7 +5,7 @@
 ## 語言（Language）
 
 - 與開發者的對話、PR 描述、issue 與留言用繁體中文。
-- commit 與 PR 標題用英文 Conventional Commits、小寫開頭。
+- commit 與 PR 標題用英文 Conventional Commits、小寫開頭，用詞先對照 `git log --format=%s -20`。
 - 程式碼註解用繁體中文；識別字、指令、路徑、套件與 API 名稱維持原文。
 - 本檔的「Behavioral Guidelines」（照抄上游）維持英文原文，不要翻譯。
 
@@ -339,9 +339,11 @@ Controller 常在 class 層級加 `@AllowAnonymous()`（來自 `@thallesp/nestjs
 
 依以下順序決定：
 
-1. **已安裝版本的官方文件**：先查 `package.json`／`node_modules` 的版本，絕不憑記憶。Next.js（`node_modules/next/dist/docs/`、next-devtools MCP）、MUI（mui-mcp）、better-auth、Drizzle、NestJS、next-intl、SWR、Zod 等。用文件示範的寫法，不用繞路；絕不用文件標為 deprecated 的 API。
-2. **本 repo 的既有模式**：文件沒定死時，照 codebase 現有的做法。照抄前先確認它沒有你正在修的缺陷；有的話那部分不要抄，並在 PR 點名那份複本，讓它也被修掉。
+1. **已安裝版本的官方文件**：先查 `package.json`／`node_modules` 的版本，絕不憑記憶。Next.js（`node_modules/next/dist/docs/`、next-devtools MCP）、MUI（mui-mcp）、better-auth、Drizzle、NestJS、next-intl、SWR、Zod 等。用文件示範的寫法，不用繞路；絕不用文件標為 deprecated 的 API。已安裝套件的 `.d.ts` 是最終依據；部落格、問答等二手資料不能當依據。
+2. **本 repo 的既有模式**：文件沒定死時，先用 `rg` 找同 repo 解決同一類問題的既有機制（service、helper、DTO、decorator、guard），有就重用，照最相近實作的結構、命名與位置寫。照抄前先確認它沒有你正在修的缺陷；有的話那部分不要抄，並在 PR 點名那份複本，讓它也被修掉。
 3. **最主流的選項**：前兩者都決定不了時。
+
+**勞動法規**：出勤、請假、薪資、加班等涉及勞動法規的計算或規則，PR 要附法條與出處（law.moj.gov.tw 或勞動部公告）；找不到依據就不實作，先向開發者提出。
 
 ## Behavioral Guidelines
 
