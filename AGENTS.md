@@ -46,7 +46,7 @@ pnpm vitest run src/payroll/payroll.service.spec.ts
 
 從 `develop` 開分支，所有 PR 都開向 `develop`（GitHub 的預設分支）。絕不開向 `master`：只 merge 進 `master` 的 PR 永遠不會進到 `develop`，之後從 `develop` 開的分支會漏掉它，`master` merge 回來時也會衝突。因為 `develop` 是預設分支，PR 裡的 `Closes #n` 會在 PR merge 進 `develop` 時關閉 issue；只完成 issue 一部分的 PR 用 `Part of #n`。
 
-每個開向 `develop` 或 `master` 的 PR，以及每次 push 到 `develop`，都會在 GitHub Actions（`.github/workflows/ci.yml`）跑 `lint`、`build`、`test`、`test:e2e`，沒有 secret 也沒有資料庫；開 PR 前先在本機跑這四個，外加上面的 `tsc` 型別檢查（CI 不跑）。
+每個開向 `develop` 或 `master` 的 PR，以及每次 push 到 `develop`，都會在 GitHub Actions（`.github/workflows/ci.yml`）跑 `lint`、`build`、`test`、`test:e2e`，沒有 secret 也沒有資料庫；開 PR 前先在本機跑這四個，外加上面的 `tsc` 型別檢查（CI 不跑），並對改到的檔案跑 `pnpm exec prettier --write`（沒有 pre-commit hook，CI 也不檢查格式）。新功能要附單元測試。
 
 ## 架構（Architecture）
 
