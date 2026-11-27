@@ -691,6 +691,26 @@ describe('SalesReportService', () => {
       ).toHaveLength(3);
     });
 
+    it('只依該分組顯示的欄位排序，其餘欄位的排序略過', async () => {
+      expect(
+        (await itemKeys({ sortBy: 'key', sortDirection: 'desc' })).keys,
+      ).toEqual(['latte', 'cake', 'gone', 'oat']);
+      expect(
+        (await itemKeys({ sortBy: 'refundedQuantity', sortDirection: 'desc' }))
+          .keys,
+      ).toEqual(['latte', 'oat', 'cake', 'gone']);
+      expect(
+        await groupKeys('day', { sortBy: 'key', sortDirection: 'desc' }),
+      ).toEqual(['2026-10-02', '2026-10-01', '2026-09-30']);
+      expect(
+        await groupKeys('day', { sortBy: 'net', sortDirection: 'desc' }),
+      ).toEqual(['2026-10-01', '2026-09-30', '2026-10-02']);
+      for (const sortBy of ['name', 'quantity', 'refundedQuantity'] as const)
+        expect(
+          await groupKeys('paymentMethod', { sortBy, sortDirection: 'asc' }),
+        ).toEqual(['Credit', 'Cash']);
+    });
+
     it('快速搜尋只比對顯示的名稱，不比對 key，非品項分組略過', async () => {
       expect(
         (await itemKeys({ quickFilterValue: 'gone' }, 'zh-TW')).keys,

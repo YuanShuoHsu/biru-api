@@ -122,29 +122,38 @@ export class SalesReportService {
     const keyType = isItemGroup ? undefined : KEY_FILTER_TYPES[groupBy];
     const keyIf = (type: (typeof KEY_FILTER_TYPES)[OrderSalesReportGroupBy]) =>
       keyType === type ? ['key'] : [];
+    const fields = {
+      stringFields: isItemGroup ? ['name'] : [],
+      dateFields: keyIf('dateFields'),
+      enumFields: keyIf('enumFields'),
+      numberFields: [
+        ...SALES_REPORT_NUMBER_FILTER_FIELDS,
+        ...(isItemGroup ? SALES_REPORT_ITEM_NUMBER_FILTER_FIELDS : []),
+        ...keyIf('numberFields'),
+      ],
+    };
+    const sortBy = Object.values(fields).some((list) =>
+      list.some((field) => field === query.sortBy),
+    )
+      ? query.sortBy
+      : undefined;
     const page = pageReportRows(
       rows,
-      isItemGroup
-        ? query
-        : {
-            ...query,
-            quickFilterEnums: undefined,
-            quickFilterValue: undefined,
-          },
+      {
+        ...query,
+        sortBy,
+        ...(!isItemGroup && {
+          quickFilterEnums: undefined,
+          quickFilterValue: undefined,
+        }),
+      },
       {
         values: ({ key, name, ...amounts }) => ({
           ...amounts,
           key: groupBy === 'hour' ? Number(key) : key,
           name: localize(name, lang),
         }),
-        stringFields: isItemGroup ? ['name'] : [],
-        dateFields: keyIf('dateFields'),
-        enumFields: keyIf('enumFields'),
-        numberFields: [
-          ...SALES_REPORT_NUMBER_FILTER_FIELDS,
-          ...(isItemGroup ? SALES_REPORT_ITEM_NUMBER_FILTER_FIELDS : []),
-          ...keyIf('numberFields'),
-        ],
+        ...fields,
         textFields: ['name'],
       },
     );
