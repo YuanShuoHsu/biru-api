@@ -65,6 +65,7 @@ import {
 } from '../images/image-url.js';
 import { bindRecipeByMenuItemName } from '../inventory/recipe-menu-item-binding.js';
 import { keepAutoSoldOut } from '../inventory/menu-stock.service.js';
+import { dailyLimitChanges } from '../inventory/offer-daily-limit.js';
 import { RecipesService } from '../inventory/recipes.service.js';
 import type { OrderTicketPrinterOptionDto } from '../orders/dto/order-ticket.dto.js';
 
@@ -669,7 +670,17 @@ export class MenusService {
 
       const [createdOffer] = await tx
         .insert(offer)
-        .values({ id: uuidv4(), menuItemId: created.id, ...offerData })
+        .values({
+          id: uuidv4(),
+          menuItemId: created.id,
+          ...offerData,
+          ...(await dailyLimitChanges(
+            tx,
+            organizationId,
+            undefined,
+            offerData,
+          )),
+        })
         .returning();
 
       return { ...created, offer: createdOffer, recipe: boundRecipe };
@@ -1053,6 +1064,12 @@ export class MenusService {
           .set({
             ...offerData,
             ...keepAutoSoldOut(offerData.availability, offer),
+            ...(await dailyLimitChanges(
+              tx,
+              params.organizationId,
+              existingOffer.id,
+              offerData,
+            )),
             updatedAt: new Date(),
           })
           .where(eq(offer.id, existingOffer.id))
@@ -1061,7 +1078,17 @@ export class MenusService {
       } else {
         const [createdOffer] = await tx
           .insert(offer)
-          .values({ id: uuidv4(), menuItemId: params.where.id, ...offerData })
+          .values({
+            id: uuidv4(),
+            menuItemId: params.where.id,
+            ...offerData,
+            ...(await dailyLimitChanges(
+              tx,
+              params.organizationId,
+              undefined,
+              offerData,
+            )),
+          })
           .returning();
         resultOffer = createdOffer;
       }
@@ -1117,7 +1144,12 @@ export class MenusService {
     assertPromoDateRange(data.priceSpecification);
     const [created] = await this.db
       .insert(offer)
-      .values({ id: uuidv4(), menuItemId, ...data })
+      .values({
+        id: uuidv4(),
+        menuItemId,
+        ...data,
+        ...(await dailyLimitChanges(this.db, organizationId, undefined, data)),
+      })
       .returning();
 
     return {
@@ -1148,15 +1180,23 @@ export class MenusService {
     data: UpdateOfferDto;
   }): Promise<OfferWithCurrency> {
     assertPromoDateRange(params.data.priceSpecification);
-    const [updated] = await this.db
-      .update(offer)
-      .set({
-        ...params.data,
-        ...keepAutoSoldOut(params.data.availability, offer),
-        updatedAt: new Date(),
-      })
-      .where(eq(offer.id, params.where.id))
-      .returning();
+    const [updated] = await this.db.transaction(async (tx) =>
+      tx
+        .update(offer)
+        .set({
+          ...params.data,
+          ...keepAutoSoldOut(params.data.availability, offer),
+          ...(await dailyLimitChanges(
+            tx,
+            params.organizationId,
+            params.where.id,
+            params.data,
+          )),
+          updatedAt: new Date(),
+        })
+        .where(eq(offer.id, params.where.id))
+        .returning(),
+    );
     if (!updated) throw notFoundError('offerNotFound');
 
     return {
@@ -1174,7 +1214,7 @@ export class MenusService {
     data: UpdateOfferAvailabilityDto;
     canUpdateMenu: boolean;
   }): Promise<OfferWithCurrency> {
-    const { inventoryLevel, ...availability } = params.data;
+    const { dailyLimit, inventoryLevel, ...availability } = params.data;
 
     const updated = await this.db.transaction(async (tx) => {
       let nextInventoryLevel: QuantitativeValue | null | undefined;
@@ -1182,6 +1222,7 @@ export class MenusService {
         const [current] = await tx
           .select({
             availability: offer.availability,
+            dailyLimit: offer.dailyLimit,
             inventoryLevel: offer.inventoryLevel,
           })
           .from(offer)
@@ -1190,6 +1231,8 @@ export class MenusService {
         if (!current) throw notFoundError('offerNotFound');
         if (!params.canUpdateMenu) {
           assertKeepsListing(current.availability, availability.availability);
+          if (dailyLimit !== undefined && dailyLimit !== current.dailyLimit)
+            throw accessForbiddenError();
           if (current.availability === 'Discontinued' && inventoryLevel)
             throw accessForbiddenError();
         }
@@ -1217,6 +1260,15 @@ export class MenusService {
           ...(nextInventoryLevel !== undefined && {
             inventoryLevel: nextInventoryLevel,
           }),
+          ...(await dailyLimitChanges(
+            tx,
+            params.organizationId,
+            params.where.id,
+            {
+              dailyLimit,
+              inventoryLevel: nextInventoryLevel,
+            },
+          )),
           updatedAt: new Date(),
         })
         .where(eq(offer.id, params.where.id))

@@ -12,11 +12,20 @@ import {
 import { languagesEnum, type Language } from '../../db/schema/enums.js';
 
 export const COUPON_STRING_FILTER_FIELDS = ['code'] as const;
-export const COUPON_ENUM_FILTER_FIELDS = ['scope', 'isActive'] as const;
-export const COUPON_DATE_FILTER_FIELDS = ['validFrom', 'createdAt'] as const;
+export const COUPON_ENUM_FILTER_FIELDS = [
+  'scope',
+  'discountType',
+  'isActive',
+] as const;
+export const COUPON_DATE_FILTER_FIELDS = [
+  'validFrom',
+  'validThrough',
+  'createdAt',
+] as const;
 export const COUPON_NUMBER_FILTER_FIELDS = [
   'discountValue',
   'minSubtotal',
+  'totalLimit',
   'usedCount',
   'perUserLimit',
   'pointsCost',
@@ -44,10 +53,12 @@ const COUPON_SORT_FIELDS = [
   'menuItemIds',
   'discountValue',
   'minSubtotal',
+  'totalLimit',
   'usedCount',
   'perUserLimit',
   'pointsCost',
   'validFrom',
+  'validThrough',
   'distribution',
   'isActive',
   'createdAt',

@@ -47,6 +47,9 @@ export class OfferResponseDto {
   @ApiPropertyOptional({ type: QuantitativeValueDto })
   inventoryLevel: QuantitativeValueDto | null;
 
+  @ApiPropertyOptional({ description: '每日限量；null 代表非每日限量' })
+  dailyLimit: number | null;
+
   @ApiPropertyOptional({ type: PriceSpecificationDto })
   priceSpecification: PriceSpecificationDto | null;
 

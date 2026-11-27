@@ -141,7 +141,10 @@ describe('OrdersService.createOrder from a shared cart', () => {
       orderQr,
       {} as never,
       eventEmitter,
-      { refresh: () => Promise.resolve() } as never,
+      {
+        refresh: () => Promise.resolve(),
+        resetDailyLimits: () => Promise.resolve(0),
+      } as never,
       {} as never,
       { expectedPoints: () => Promise.resolve(new Map()) } as never,
     );

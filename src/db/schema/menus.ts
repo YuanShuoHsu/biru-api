@@ -9,6 +9,7 @@ import {
   AnyPgColumn,
   boolean,
   check,
+  date,
   index,
   integer,
   jsonb,
@@ -220,6 +221,8 @@ export const offer = pgTable(
     availableHours: text('available_hours'),
     deliveryLeadTimeMinutes: integer('delivery_lead_time_minutes'),
     inventoryLevel: jsonb('inventory_level').$type<QuantitativeValue>(),
+    dailyLimit: integer('daily_limit'),
+    dailyLimitResetOn: date('daily_limit_reset_on'),
     priceSpecification: jsonb(
       'price_specification',
     ).$type<PriceSpecification>(),

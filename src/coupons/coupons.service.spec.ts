@@ -164,6 +164,14 @@ describe('CouponsService 自動發券', () => {
               return Promise.resolve([{ value: 1 }]);
             },
           }),
+        })
+        .mockReturnValueOnce({
+          from: () => ({
+            where: () => {
+              calls.push('capacity');
+              return Promise.resolve([{ totalLimit: null, usedCount: 0 }]);
+            },
+          }),
         }),
     };
     const db = {
@@ -189,7 +197,12 @@ describe('CouponsService 自動發券', () => {
 
     await service['issueEligibleCoupons'](ORG_ID, 'user');
 
-    expect(calls).toEqual(['lock:no key update', 'qualified', 'issued']);
+    expect(calls).toEqual([
+      'lock:no key update',
+      'qualified',
+      'issued',
+      'capacity',
+    ]);
     expect(insertValues).toHaveBeenCalledWith([
       expect.objectContaining({ couponId: 'coupon', source: 'spend' }),
     ]);

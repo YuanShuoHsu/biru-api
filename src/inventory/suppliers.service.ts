@@ -37,6 +37,7 @@ import {
   UpdateSupplierDto,
 } from './dto/create-supplier.dto.js';
 import {
+  SUPPLIER_BOOLEAN_FILTER_FIELDS,
   SUPPLIER_DATE_FILTER_FIELDS,
   SUPPLIER_STRING_FILTER_FIELDS,
   SupplierPaginationQueryDto,
@@ -80,6 +81,7 @@ export class SuppliersService {
       telephone: supplier.telephone,
       url: supplier.url,
       note: supplier.note,
+      uniformInvoice: supplier.uniformInvoice,
       createdAt: supplier.createdAt,
       updatedAt: supplier.updatedAt,
     };
@@ -105,6 +107,11 @@ export class SuppliersService {
             fieldMap,
             SUPPLIER_STRING_FILTER_FIELDS,
             SUPPLIER_DATE_FILTER_FIELDS,
+            [],
+            [],
+            [],
+            [],
+            SUPPLIER_BOOLEAN_FILTER_FIELDS,
           )
         : undefined,
       buildQuickFilterCondition({

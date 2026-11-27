@@ -613,6 +613,8 @@ export class OrdersService {
         )
       : null;
 
+    await this.menuStockService.resetDailyLimits(org.id);
+
     const orderItemsData = await this.orderPricingService.resolveOrderItems(
       org.id,
       sharedCartOrder?.items ?? dto.items ?? [],
@@ -1580,6 +1582,24 @@ export class OrdersService {
     const chargeFee = succeeded
       ? toChargeFee(body.PaymentTypeChargeFee)
       : undefined;
+
+    if (succeeded) {
+      const [paid] = await this.db
+        .select({ sellerId: order.sellerId })
+        .from(order)
+        .where(
+          eq(order.id, this.attemptOrderId(this.db, body.MerchantTradeNo)),
+        );
+      if (paid?.sellerId)
+        await this.menuStockService
+          .resetDailyLimits(paid.sellerId)
+          .catch((error: unknown) =>
+            this.logger.error(
+              `Failed to reset daily limits of organization ${paid.sellerId}`,
+              error,
+            ),
+          );
+    }
 
     const transitioned = await this.db.transaction(async (tx) => {
       if (chargeFee !== undefined)

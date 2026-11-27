@@ -139,6 +139,7 @@ export const AUDIT_IGNORED_COLUMNS: Partial<Record<AuditLabelScope, string[]>> =
   {
     cashDevice: ['lastSeenAt'],
     cashDeviceEvent: ['createdBy', 'deviceId', 'occurredAt'],
+    offer: ['dailyLimitResetOn'],
     order: ['heldOfferStock'],
     orderQrSecret: ['previousSecret', 'secret'],
     printer: ['digestHa1', 'lastSeenAt', 'pollGapsMs'],

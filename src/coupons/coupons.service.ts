@@ -191,9 +191,11 @@ const couponDiscount = (
 
 const COUPON_SORT_NULLS: Partial<Record<string, NullsAs>> = {
   minSubtotal: 'last',
+  totalLimit: 'highest',
   perUserLimit: 'highest',
   pointsCost: 'last',
   validFrom: 'lowest',
+  validThrough: 'highest',
 };
 
 const COUPON_RECIPIENT_SORT_NULLS: Partial<Record<string, NullsAs>> = {
@@ -396,12 +398,15 @@ export class CouponsService {
     const couponFieldMap: Record<string, Column | SQL> = {
       code: coupon.code,
       scope: sql`${coupon.scope}::text`,
+      discountType: sql`${coupon.discountType}::text`,
       discountValue: coupon.discountValue,
       minSubtotal: coupon.minSubtotal,
+      totalLimit: coupon.totalLimit,
       usedCount: coupon.usedCount,
       perUserLimit: coupon.perUserLimit,
       pointsCost: coupon.pointsCost,
       validFrom: coupon.validFrom,
+      validThrough: coupon.validThrough,
       isActive: sql`${coupon.isActive}::text`,
       createdAt: coupon.createdAt,
     };
@@ -989,103 +994,143 @@ export class CouponsService {
           .for('no key update');
         if (!found) return;
 
-        await Promise.all(
-          autoCoupons.map(async (c) => {
-            if (c.issueTrigger === 'signup') {
-              if (found.createdAt < (c.validFrom ?? c.createdAt)) return;
+        const remainingOf = async (c: Coupon, lock: boolean) => {
+          const query = tx
+            .select({
+              totalLimit: coupon.totalLimit,
+              usedCount: coupon.usedCount,
+            })
+            .from(coupon)
+            .where(eq(coupon.id, c.id));
+          const [row] = await (lock ? query.for('update') : query);
+          if (!row) return 0;
+          if (row.totalLimit === null) return Infinity;
+          const [{ value: reserved }] = await tx
+            .select({ value: count() })
+            .from(userCoupon)
+            .where(
+              and(eq(userCoupon.couponId, c.id), isNull(userCoupon.usedAt)),
+            );
+          return Math.max(0, row.totalLimit - row.usedCount - reserved);
+        };
+        const remainingCapacity = async (c: Coupon) => {
+          const unlocked = await remainingOf(c, false);
+          return unlocked === 0 || unlocked === Infinity
+            ? unlocked
+            : remainingOf(c, true);
+        };
 
-              await tx
-                .insert(userCoupon)
-                .values({
-                  id: randomUUID(),
-                  couponId: c.id,
-                  source: 'signup',
-                  userId,
-                })
-                .onConflictDoNothing();
-            }
+        for (const c of autoCoupons.toSorted((a, b) =>
+          a.id < b.id ? -1 : 1,
+        )) {
+          if (c.issueTrigger === 'signup') {
+            if (found.createdAt < (c.validFrom ?? c.createdAt)) continue;
 
-            if (c.issueTrigger === 'birthday') {
-              const taiwanNow = toPlatformTime(now);
-              if (
-                !found.birthDate ||
-                found.birthDate.getUTCMonth() !== taiwanNow.getUTCMonth()
+            const [issued] = await tx
+              .select({ id: userCoupon.id })
+              .from(userCoupon)
+              .where(
+                and(
+                  eq(userCoupon.couponId, c.id),
+                  eq(userCoupon.userId, userId),
+                  eq(userCoupon.source, 'signup'),
+                ),
               )
-                return;
+              .limit(1);
+            if (issued || (await remainingCapacity(c)) < 1) continue;
 
-              const startOfYear = new Date(
-                Date.UTC(taiwanNow.getUTCFullYear(), 0, 1) -
-                  PLATFORM_UTC_OFFSET_MS,
+            await tx
+              .insert(userCoupon)
+              .values({
+                id: randomUUID(),
+                couponId: c.id,
+                source: 'signup',
+                userId,
+              })
+              .onConflictDoNothing();
+          }
+
+          if (c.issueTrigger === 'birthday') {
+            const taiwanNow = toPlatformTime(now);
+            if (
+              !found.birthDate ||
+              found.birthDate.getUTCMonth() !== taiwanNow.getUTCMonth()
+            )
+              continue;
+
+            const startOfYear = new Date(
+              Date.UTC(taiwanNow.getUTCFullYear(), 0, 1) -
+                PLATFORM_UTC_OFFSET_MS,
+            );
+            const [{ value: issuedThisYear }] = await tx
+              .select({ value: count() })
+              .from(userCoupon)
+              .where(
+                and(
+                  eq(userCoupon.couponId, c.id),
+                  eq(userCoupon.userId, userId),
+                  eq(userCoupon.source, 'birthday'),
+                  gte(userCoupon.createdAt, startOfYear),
+                ),
               );
-              const [{ value: issuedThisYear }] = await tx
+            if (issuedThisYear > 0 || (await remainingCapacity(c)) < 1)
+              continue;
+
+            await tx.insert(userCoupon).values({
+              id: randomUUID(),
+              couponId: c.id,
+              source: 'birthday',
+              userId,
+            });
+          }
+
+          if (c.issueTrigger === 'spend') {
+            const [qualified, [{ value: issued }]] = await Promise.all([
+              tx
+                .select({ id: order.id })
+                .from(order)
+                .innerJoin(orderItem, eq(orderItem.orderId, order.id))
+                .where(
+                  and(
+                    ...(c.applicableOrganizationIds
+                      ? [inArray(order.sellerId, c.applicableOrganizationIds)]
+                      : []),
+                    eq(order.userId, userId),
+                    gte(order.paymentDate, c.validFrom ?? c.createdAt),
+                    notInArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
+                  ),
+                )
+                .groupBy(order.id, order.discount)
+                .having(
+                  sql`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0) - COALESCE(${order.discount}, 0) >= ${Number(c.issueMinSpend)}`,
+                ),
+              tx
                 .select({ value: count() })
                 .from(userCoupon)
                 .where(
                   and(
                     eq(userCoupon.couponId, c.id),
                     eq(userCoupon.userId, userId),
-                    eq(userCoupon.source, 'birthday'),
-                    gte(userCoupon.createdAt, startOfYear),
+                    eq(userCoupon.source, 'spend'),
                   ),
-                );
-              if (issuedThisYear > 0) return;
+                ),
+            ]);
 
-              await tx.insert(userCoupon).values({
-                id: randomUUID(),
-                couponId: c.id,
-                source: 'birthday',
-                userId,
-              });
+            const deficit = qualified.length - issued;
+            const issuable =
+              deficit > 0 ? Math.min(deficit, await remainingCapacity(c)) : 0;
+            if (issuable > 0) {
+              await tx.insert(userCoupon).values(
+                Array.from({ length: issuable }, () => ({
+                  id: randomUUID(),
+                  couponId: c.id,
+                  source: 'spend' as const,
+                  userId,
+                })),
+              );
             }
-
-            if (c.issueTrigger === 'spend') {
-              const [qualified, [{ value: issued }]] = await Promise.all([
-                tx
-                  .select({ id: order.id })
-                  .from(order)
-                  .innerJoin(orderItem, eq(orderItem.orderId, order.id))
-                  .where(
-                    and(
-                      ...(c.applicableOrganizationIds
-                        ? [inArray(order.sellerId, c.applicableOrganizationIds)]
-                        : []),
-                      eq(order.userId, userId),
-                      gte(order.paymentDate, c.validFrom ?? c.createdAt),
-                      notInArray(order.orderStatus, [
-                        ...ORDER_TERMINAL_STATUSES,
-                      ]),
-                    ),
-                  )
-                  .groupBy(order.id, order.discount)
-                  .having(
-                    sql`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0) - COALESCE(${order.discount}, 0) >= ${Number(c.issueMinSpend)}`,
-                  ),
-                tx
-                  .select({ value: count() })
-                  .from(userCoupon)
-                  .where(
-                    and(
-                      eq(userCoupon.couponId, c.id),
-                      eq(userCoupon.userId, userId),
-                      eq(userCoupon.source, 'spend'),
-                    ),
-                  ),
-              ]);
-
-              const deficit = qualified.length - issued;
-              if (deficit > 0) {
-                await tx.insert(userCoupon).values(
-                  Array.from({ length: deficit }, () => ({
-                    id: randomUUID(),
-                    couponId: c.id,
-                    source: 'spend' as const,
-                    userId,
-                  })),
-                );
-              }
-            }
-          }),
-        );
+          }
+        }
       });
     } catch (error) {
       if (!isCouponDeleted(error)) throw error;
@@ -1168,6 +1213,13 @@ export class CouponsService {
         eq(coupon.isClaimable, true),
         notPointsRedeem(),
         withinValidity(),
+        userId
+          ? or(
+              withinCapacity(),
+              // RQB 會改寫 sql fragment 內的 Column，跨表欄位須寫死別名
+              sql`EXISTS (SELECT 1 FROM ${userCoupon} AS "uc" WHERE "uc"."coupon_id" = ${coupon.id} AND "uc"."user_id" = ${userId} AND "uc"."source" = 'claimed')`,
+            )
+          : withinCapacity(),
       ),
       orderBy: [desc(coupon.createdAt)],
     });
@@ -1805,10 +1857,29 @@ export class CouponsService {
     db: Pick<DrizzleDB, 'select' | 'update'>,
     applied: { code: string; orderId: string },
   ): Promise<void> {
-    const [found] = await db
-      .select({ id: coupon.id })
-      .from(coupon)
-      .where(sql`lower(${coupon.code}) = lower(${applied.code})`);
+    const [held] = await db
+      .update(userCoupon)
+      .set({ orderId: null, updatedAt: new Date(), usedAt: null })
+      .where(eq(userCoupon.orderId, applied.orderId))
+      .returning({ couponId: userCoupon.couponId });
+
+    const [found] = held
+      ? [{ id: held.couponId }]
+      : await db
+          .select({ id: coupon.id })
+          .from(coupon)
+          .where(
+            and(
+              sql`lower(${coupon.code}) = lower(${applied.code})`,
+              lte(
+                coupon.createdAt,
+                db
+                  .select({ createdAt: order.createdAt })
+                  .from(order)
+                  .where(eq(order.id, applied.orderId)),
+              ),
+            ),
+          );
 
     if (found)
       await db
@@ -1818,10 +1889,5 @@ export class CouponsService {
           usedCount: sql`GREATEST(${coupon.usedCount} - 1, 0)`,
         })
         .where(eq(coupon.id, found.id));
-
-    await db
-      .update(userCoupon)
-      .set({ orderId: null, updatedAt: new Date(), usedAt: null })
-      .where(eq(userCoupon.orderId, applied.orderId));
   }
 }
