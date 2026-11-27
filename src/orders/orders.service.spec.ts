@@ -167,6 +167,7 @@ const createService = ({
     redeem: vi.fn(),
   };
   const orderPricingService = {
+    assertMemberEligibleQuantities: vi.fn(),
     resolveOrderItems: vi.fn().mockResolvedValue(resolvedItems),
   };
   const eventEmitter = new EventEmitter2();
@@ -797,6 +798,29 @@ describe('OrdersService.createOrder', () => {
       ]);
       expect(couponsService.redeem).toHaveBeenCalledOnce();
       expect(inserted.has(invoice)).toBe(true);
+    });
+
+    it('會員下單時在交易內以今日已買重新檢查限購，未登入不檢查', async () => {
+      const { orderPricingService, service, tx } = createService();
+
+      await service.createOrder(
+        'slug',
+        dtoOf(),
+        'user',
+        null,
+        sessionOf('counter'),
+      );
+      await service.createOrder(
+        'slug',
+        dtoOf(),
+        null,
+        null,
+        sessionOf('counter'),
+      );
+
+      expect(
+        orderPricingService.assertMemberEligibleQuantities,
+      ).toHaveBeenCalledExactlyOnceWith(tx, ORG_ID, resolvedItems, 'user');
     });
 
     it('全額折抵直接成立且不開發票', async () => {

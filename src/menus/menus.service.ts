@@ -1223,7 +1223,8 @@ export class MenusService {
     data: UpdateOfferAvailabilityDto;
     canUpdateMenu: boolean;
   }): Promise<OfferWithCurrency> {
-    const { dailyLimit, inventoryLevel, ...availability } = params.data;
+    const { dailyLimit, eligibleQuantity, inventoryLevel, ...availability } =
+      params.data;
 
     const updated = await this.db.transaction(async (tx) => {
       let nextInventoryLevel: QuantitativeValue | null | undefined;
@@ -1232,6 +1233,7 @@ export class MenusService {
           .select({
             availability: offer.availability,
             dailyLimit: offer.dailyLimit,
+            eligibleQuantity: offer.eligibleQuantity,
             inventoryLevel: offer.inventoryLevel,
           })
           .from(offer)
@@ -1241,6 +1243,12 @@ export class MenusService {
         if (!params.canUpdateMenu) {
           assertKeepsListing(current.availability, availability.availability);
           if (dailyLimit !== undefined && dailyLimit !== current.dailyLimit)
+            throw accessForbiddenError();
+          if (
+            eligibleQuantity !== undefined &&
+            (eligibleQuantity?.maxValue ?? null) !==
+              (current.eligibleQuantity?.maxValue ?? null)
+          )
             throw accessForbiddenError();
           if (current.availability === 'Discontinued' && inventoryLevel)
             throw accessForbiddenError();
@@ -1269,12 +1277,14 @@ export class MenusService {
           ...(nextInventoryLevel !== undefined && {
             inventoryLevel: nextInventoryLevel,
           }),
+          ...(eligibleQuantity !== undefined && { eligibleQuantity }),
           ...(await dailyLimitChanges(
             tx,
             params.organizationId,
             params.where.id,
             {
               dailyLimit,
+              eligibleQuantity,
               inventoryLevel: nextInventoryLevel,
             },
           )),

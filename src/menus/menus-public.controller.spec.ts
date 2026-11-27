@@ -52,6 +52,6 @@ describe('PublicMenusController GET organizations/:organizationId/order-menu', (
       .set(headers)
       .expect(200);
 
-    expect(findOrderMenu).toHaveBeenCalledWith('org-1', expected);
+    expect(findOrderMenu).toHaveBeenCalledWith('org-1', expected, null);
   });
 });

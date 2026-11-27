@@ -27,6 +27,7 @@ import type { RecipesService } from '../inventory/recipes.service.js';
 
 import type { CreateMenuItemModifierGroupDto } from './dto/create-menu-item-modifier-group.dto.js';
 import type { CreateMenuItemDto } from './dto/create-menu-item.dto.js';
+import type { UpdateOfferDto } from './dto/update-offer.dto.js';
 import { MenusService } from './menus.service.js';
 
 const ORG = 'org';
@@ -976,6 +977,64 @@ describe('MenusService localized text filters and sorting', () => {
         dailyLimitResetOn: null,
         inventoryLevel: { value: 2 },
       });
+    });
+
+    it('限購只能設在有每日限量的品項，且不能大於每日限量', async () => {
+      await setOffer('InStock');
+      const update = (data: UpdateOfferDto) =>
+        service.updateOffer({
+          where: { id: 'americano-offer' },
+          organizationId: ORG,
+          data,
+        });
+      const rejected = {
+        response: { code: 'eligibleQuantityExceedsDailyLimit' },
+      };
+
+      await expect(
+        update({ eligibleQuantity: { maxValue: 2 } }),
+      ).rejects.toMatchObject(rejected);
+      await expect(
+        update({ dailyLimit: 5, eligibleQuantity: { maxValue: 6 } }),
+      ).rejects.toMatchObject(rejected);
+      await expect(
+        update({ dailyLimit: 5, eligibleQuantity: { maxValue: 2 } }),
+      ).resolves.toMatchObject({
+        dailyLimit: 5,
+        eligibleQuantity: { maxValue: 2 },
+      });
+      await expect(update({ dailyLimit: 1 })).rejects.toMatchObject(rejected);
+      await expect(update({ dailyLimit: null })).rejects.toMatchObject(
+        rejected,
+      );
+      await expect(
+        update({ dailyLimit: null, eligibleQuantity: null }),
+      ).resolves.toMatchObject({ dailyLimit: null, eligibleQuantity: null });
+    });
+
+    it('沒有 menu:update 時不能改限購，送出與目前相同的值則通過', async () => {
+      await setOffer('InStock');
+      await db
+        .update(offer)
+        .set({ dailyLimit: 5, eligibleQuantity: { maxValue: 2 } })
+        .where(eq(offer.id, 'americano-offer'));
+      const updateEligibleQuantity = (maxValue: number) =>
+        service.updateOfferAvailability({
+          where: { id: 'americano-offer' },
+          organizationId: ORG,
+          data: { availability: 'InStock', eligibleQuantity: { maxValue } },
+          canUpdateMenu: false,
+        });
+
+      await expect(updateEligibleQuantity(3)).rejects.toMatchObject(forbidden);
+      await expect(updateEligibleQuantity(2)).resolves.toMatchObject({
+        eligibleQuantity: { maxValue: 2 },
+      });
+
+      await db
+        .update(offer)
+        .set({ dailyLimit: null, eligibleQuantity: null })
+        .where(eq(offer.id, 'americano-offer'));
     });
 
     it('有 menu:update 時可以下架與重新上架', async () => {

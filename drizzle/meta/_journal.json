@@ -2143,6 +2143,13 @@
       "when": 1795785780243,
       "tag": "0305_order_coupon_id",
       "breakpoints": true
+    },
+    {
+      "idx": 306,
+      "version": "7",
+      "when": 1795808165725,
+      "tag": "0306_offer_eligible_quantity",
+      "breakpoints": true
     }
   ]
 }

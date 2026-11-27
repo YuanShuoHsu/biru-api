@@ -19,6 +19,7 @@ import {
 import { orderModeEnum, type OrderMode } from '../../db/schema/orders.js';
 
 import {
+  EligibleQuantityDto,
   PriceSpecificationDto,
   QuantitativeValueDto,
 } from './create-offer.dto.js';
@@ -57,6 +58,19 @@ class OrderMenuOfferResponseDto {
 
   @ApiPropertyOptional({ description: '每日限量；null 代表非每日限量' })
   dailyLimit: number | null;
+
+  @ApiPropertyOptional({
+    type: EligibleQuantityDto,
+    description: '限購；null 代表不限購',
+  })
+  eligibleQuantity: EligibleQuantityDto | null;
+
+  @ApiPropertyOptional({
+    description:
+      '登入會員今天在這間門市已買的份數（不含已取消與全額退款）；未登入或不限購時為 null',
+    type: Number,
+  })
+  purchasedToday: number | null;
 
   @ApiPropertyOptional({ type: PriceSpecificationDto })
   priceSpecification: PriceSpecificationDto | null;

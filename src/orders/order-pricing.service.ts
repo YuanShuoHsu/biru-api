@@ -50,6 +50,12 @@ import type {
   CreateOrderItemDto,
 } from './dto/create-order.dto.js';
 import type { FrequentItemDto } from './dto/frequent-items.dto.js';
+import {
+  assertEligibleQuantities,
+  purchasedToday,
+  servingsByMenuItemId,
+  type EligibleQuantityLimit,
+} from './eligible-quantity.js';
 import { badRequestError, notFoundError } from './order-errors.js';
 import { itemLeadTimeMinutes } from './prep-estimate.js';
 
@@ -343,6 +349,7 @@ export class OrderPricingService {
     items: CreateOrderItemDto[],
     mode: OrderMode,
     availableAt: Date | null = null,
+    userId: string | null = null,
   ): Promise<ResolvedOrderItem[]> {
     const [catalog, packaging] = await Promise.all([
       this.loadCatalog(organizationId, items),
@@ -526,7 +533,7 @@ export class OrderPricingService {
       };
     };
 
-    return items.map((cartItem) => {
+    const resolved = items.map((cartItem) => {
       const item = getMenuItem(cartItem.menuItemId);
       const servingTemperatureLevel = resolveServingTemperatureLevel(
         item,
@@ -582,6 +589,64 @@ export class OrderPricingService {
         sweetnessLevel,
       };
     });
+
+    const limits = new Map<string, EligibleQuantityLimit>();
+    for (const [menuItemId, { eligibleQuantity }] of offerMap)
+      if (eligibleQuantity)
+        limits.set(menuItemId, {
+          maxValue: eligibleQuantity.maxValue,
+          name: this.localName(menuItemMap.get(menuItemId)?.name),
+        });
+    if (limits.size)
+      assertEligibleQuantities(
+        limits,
+        servingsByMenuItemId(resolved),
+        userId
+          ? await purchasedToday(this.db, organizationId, userId, [
+              ...limits.keys(),
+            ])
+          : undefined,
+      );
+
+    return resolved;
+  }
+
+  async assertMemberEligibleQuantities(
+    tx: Pick<DrizzleDB, 'execute' | 'select'>,
+    organizationId: string,
+    items: ResolvedOrderItem[],
+    userId: string,
+  ): Promise<void> {
+    const servings = servingsByMenuItemId(items);
+    const offers = await tx
+      .select({
+        eligibleQuantity: offer.eligibleQuantity,
+        menuItemId: offer.menuItemId,
+        name: menuItem.name,
+      })
+      .from(offer)
+      .innerJoin(menuItem, eq(menuItem.id, offer.menuItemId))
+      .where(inArray(offer.menuItemId, [...servings.keys()]))
+      .orderBy(asc(offer.createdAt), asc(offer.id));
+
+    const limits = new Map<string, EligibleQuantityLimit>();
+    const seen = new Set<string>();
+    for (const { eligibleQuantity, menuItemId, name } of offers) {
+      if (!menuItemId || seen.has(menuItemId)) continue;
+      seen.add(menuItemId);
+      if (eligibleQuantity)
+        limits.set(menuItemId, {
+          maxValue: eligibleQuantity.maxValue,
+          name: this.localName(name),
+        });
+    }
+    if (!limits.size) return;
+
+    assertEligibleQuantities(
+      limits,
+      servings,
+      await purchasedToday(tx, organizationId, userId, [...limits.keys()]),
+    );
   }
 
   async reconcileCustomizations(

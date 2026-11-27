@@ -43,8 +43,16 @@ const createService = (
   modifiers: object[] = [],
   menuItemAddOns: object[] = [],
   findTakeawayPackaging = vi.fn().mockResolvedValue(undefined),
+  {
+    eligibleQuantityOf = {},
+    execute = vi.fn(),
+  }: {
+    eligibleQuantityOf?: Record<string, { maxValue: number }>;
+    execute?: ReturnType<typeof vi.fn>;
+  } = {},
 ) => {
   const db = {
+    execute,
     query: {
       menuSection: { findMany: vi.fn().mockResolvedValue(menuSections) },
       menu: {
@@ -64,6 +72,7 @@ const createService = (
         findMany: vi.fn().mockResolvedValue(
           menuItems.map(({ id }: { id?: string }) => ({
             availability: 'InStock',
+            eligibleQuantity: (id && eligibleQuantityOf[id]) ?? null,
             menuItemId: id,
             price: '100.00',
             priceSpecification,
@@ -78,8 +87,13 @@ const createService = (
 
 beforeEach(() => {
   vi.spyOn(I18nContext, 'current').mockReturnValue({
-    t: (key: string, options?: { args?: { name?: string } }) =>
-      options?.args?.name ? `${key}:${options.args.name}` : key,
+    t: (
+      key: string,
+      options?: { args?: { name?: string; remaining?: number } },
+    ) =>
+      [key, options?.args?.name, options?.args?.remaining]
+        .filter((part) => part !== undefined)
+        .join(':'),
   } as unknown as I18nContext);
 });
 
@@ -810,6 +824,74 @@ describe('OrderPricingService.resolveOrderItems', () => {
       );
 
       expect(item.addOns[0]).not.toHaveProperty('cupSeal');
+    });
+  });
+
+  describe('限購以單筆合計，登入會員另加今日已買', () => {
+    const cart = [
+      cartItemOf({ quantity: 2 }),
+      cartItemOf({
+        addOns: [{ menuItemId: latte.id, modifiers: {} }],
+        menuItemId: cookie.id,
+        quantity: 1,
+      }),
+    ];
+    const serviceWith = (
+      maxValue: number,
+      execute = vi.fn().mockResolvedValue({ rows: [] }),
+    ) =>
+      createService(
+        [latte, cookie],
+        [],
+        null,
+        [],
+        [],
+        [
+          {
+            addOnMenuItemId: latte.id,
+            addOnMenuSectionId: null,
+            menuItemId: cookie.id,
+          },
+        ],
+        undefined,
+        { eligibleQuantityOf: { [latte.id]: { maxValue } }, execute },
+      );
+
+    it('不同品項列與作為加購品的份數合計超過上限就擋下，未登入不查已買', async () => {
+      const execute = vi.fn();
+
+      await expect(
+        serviceWith(2, execute).resolveOrderItems('org', cart, 'counter'),
+      ).rejects.toThrow('common.orders.eligibleQuantityExceeded:拿鐵');
+      await expect(
+        serviceWith(3, execute).resolveOrderItems('org', cart, 'counter'),
+      ).resolves.toHaveLength(2);
+      expect(execute).not.toHaveBeenCalled();
+    });
+
+    it('登入會員加上今日已買的份數比對，錯誤帶出還可買的份數', async () => {
+      const execute = vi
+        .fn()
+        .mockResolvedValue({ rows: [{ menuItemId: latte.id, quantity: 2 }] });
+
+      await expect(
+        serviceWith(4, execute).resolveOrderItems(
+          'org',
+          cart,
+          'counter',
+          null,
+          'member',
+        ),
+      ).rejects.toThrow('common.orders.memberEligibleQuantityExceeded:拿鐵:2');
+      await expect(
+        serviceWith(5, execute).resolveOrderItems(
+          'org',
+          cart,
+          'counter',
+          null,
+          'member',
+        ),
+      ).resolves.toHaveLength(2);
     });
   });
 });

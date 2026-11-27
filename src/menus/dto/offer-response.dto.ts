@@ -6,6 +6,7 @@ import {
 } from '../../db/schema/menus.js';
 
 import {
+  EligibleQuantityDto,
   PriceSpecificationDto,
   QuantitativeValueDto,
 } from './create-offer.dto.js';
@@ -49,6 +50,12 @@ export class OfferResponseDto {
 
   @ApiPropertyOptional({ description: '每日限量；null 代表非每日限量' })
   dailyLimit: number | null;
+
+  @ApiPropertyOptional({
+    type: EligibleQuantityDto,
+    description: '限購；null 代表不限購',
+  })
+  eligibleQuantity: EligibleQuantityDto | null;
 
   @ApiPropertyOptional({ type: PriceSpecificationDto })
   priceSpecification: PriceSpecificationDto | null;
