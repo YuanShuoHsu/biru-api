@@ -7,6 +7,7 @@ type GridValue = string | number | null | undefined;
 interface ReportGridFields<Row> {
   values: (row: Row) => Record<string, GridValue>;
   stringFields: readonly string[];
+  dateFields?: readonly string[];
   enumFields?: readonly string[];
   numberFields: readonly string[];
   textFields: readonly string[];
@@ -21,6 +22,7 @@ export const pageReportRows = <Row>(
   {
     values,
     stringFields,
+    dateFields = [],
     enumFields = [],
     numberFields,
     textFields,
@@ -32,7 +34,7 @@ export const pageReportRows = <Row>(
     {
       defaultSort: (first, second) => first.index - second.index,
       stringFields,
-      dateFields: [],
+      dateFields,
       enumFields,
       numberFields,
       textFields,

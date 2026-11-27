@@ -34,8 +34,8 @@ import {
 import {
   type ItemSalesReportGroupBy,
   type OrderSalesReportGroupBy,
+  SALES_REPORT_ITEM_NUMBER_FILTER_FIELDS,
   SALES_REPORT_NUMBER_FILTER_FIELDS,
-  SALES_REPORT_STRING_FILTER_FIELDS,
   type SalesReportPageQueryDto,
   type SalesReportQueryDto,
   type SalesReportResponseDto,
@@ -64,6 +64,13 @@ const groupKeyOf = (groupBy: OrderSalesReportGroupBy, at: SQL | Column) =>
     paymentMethod: sql<string>`${order.paymentMethod}::text`,
     mode: sql<string>`${order.mode}::text`,
   })[groupBy];
+
+const KEY_FILTER_TYPES = {
+  day: 'dateFields',
+  hour: 'numberFields',
+  paymentMethod: 'enumFields',
+  mode: 'enumFields',
+} as const satisfies Record<OrderSalesReportGroupBy, string>;
 
 @Injectable()
 export class SalesReportService {
@@ -111,16 +118,45 @@ export class SalesReportService {
     );
 
     const lang = toLanguage(I18nContext.current()?.lang);
-    const page = pageReportRows(rows, query, {
-      values: ({ key, name, ...amounts }) => ({
-        ...amounts,
-        key: groupBy === 'hour' ? Number(key) : key,
-        name: localize(name, lang),
-      }),
-      stringFields: SALES_REPORT_STRING_FILTER_FIELDS,
-      numberFields: SALES_REPORT_NUMBER_FILTER_FIELDS,
-      textFields: SALES_REPORT_STRING_FILTER_FIELDS,
-    });
+    const isItemGroup = isItemGroupBy(groupBy);
+    const keyType = isItemGroup ? undefined : KEY_FILTER_TYPES[groupBy];
+    const keyIf = (type: (typeof KEY_FILTER_TYPES)[OrderSalesReportGroupBy]) =>
+      keyType === type ? ['key'] : [];
+    const fields = {
+      stringFields: isItemGroup ? ['name'] : [],
+      dateFields: keyIf('dateFields'),
+      enumFields: keyIf('enumFields'),
+      numberFields: [
+        ...SALES_REPORT_NUMBER_FILTER_FIELDS,
+        ...(isItemGroup ? SALES_REPORT_ITEM_NUMBER_FILTER_FIELDS : []),
+        ...keyIf('numberFields'),
+      ],
+    };
+    const sortBy = Object.values(fields).some((list) =>
+      list.some((field) => field === query.sortBy),
+    )
+      ? query.sortBy
+      : undefined;
+    const page = pageReportRows(
+      rows,
+      {
+        ...query,
+        sortBy,
+        ...(!isItemGroup && {
+          quickFilterEnums: undefined,
+          quickFilterValue: undefined,
+        }),
+      },
+      {
+        values: ({ key, name, ...amounts }) => ({
+          ...amounts,
+          key: groupBy === 'hour' ? Number(key) : key,
+          name: localize(name, lang),
+        }),
+        ...fields,
+        textFields: ['name'],
+      },
+    );
 
     return { groupBy, ...page, totals };
   }
