@@ -884,6 +884,21 @@ describe('CatalogService', () => {
         ).toMatchObject({ cupSize: null, cupSeal: null });
       });
 
+      it('只更新送出的杯子欄位，其他欄位不變', async () => {
+        await db
+          .update(catalogModifier)
+          .set({ customerProvidedCup: true, cupSeal: 'lid' })
+          .where(eq(catalogModifier.id, 'pearl'));
+
+        expect(
+          await service.updateModifier('pearl', { cupSize: '16oz' }),
+        ).toMatchObject({
+          customerProvidedCup: true,
+          cupSize: '16oz',
+          cupSeal: 'lid',
+        });
+      });
+
       it('選項不存在時回找不到', async () => {
         expect(
           await errorCode(

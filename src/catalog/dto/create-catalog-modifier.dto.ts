@@ -15,7 +15,10 @@ export class CreateCatalogModifierDto extends PickType(CreateModifierDto, [
   'image',
   'priceAdjustment',
 ]) {
-  @ApiPropertyOptional({ description: '客人自備杯；省略代表否' })
+  @ApiPropertyOptional({
+    description:
+      '客人自備杯：每杯扣自備杯折扣（最低 0），收杯前這杯不排工作單；省略代表否',
+  })
   @ValidateIf((_, value) => value !== undefined)
   @IsBoolean()
   customerProvidedCup?: boolean;
