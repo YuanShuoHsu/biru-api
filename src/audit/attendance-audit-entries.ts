@@ -117,6 +117,27 @@ export const attendanceResourceName = (resource: SQL, resourceId: SQL) => sql`
     )}
   END`;
 
+const isChangeSql = (value: SQL) =>
+  sql`CASE WHEN jsonb_typeof(${value}) = 'object' THEN ${value} ?& ARRAY['before', 'after'] AND ${value} - 'before' - 'after' = '{}'::jsonb ELSE false END`;
+
+const latestSql = (before: SQL, after: SQL) =>
+  sql`COALESCE(NULLIF(${after}, 'null'::jsonb), ${before})`;
+
+export const attendanceChangeName = (changes: SQL) => {
+  const before = sql`(${changes} -> 'before')`;
+  const after = sql`(${changes} -> 'after')`;
+  const name = sql`(${changes} -> 'name')`;
+  return sql`(
+    SELECT source.name #>> '{}' FROM (SELECT CASE
+      WHEN ${isChangeSql(changes)} AND jsonb_typeof(${before}) = 'object' AND jsonb_typeof(${after}) = 'object' THEN
+        CASE WHEN ${before} -> 'name' IS DISTINCT FROM ${after} -> 'name' THEN ${latestSql(sql`${before} -> 'name'`, sql`${after} -> 'name'`)} END
+      WHEN ${isChangeSql(name)} THEN ${latestSql(sql`${name} -> 'before'`, sql`${name} -> 'after'`)}
+      ELSE ${name}
+    END AS name) source
+    WHERE jsonb_typeof(source.name) = 'string'
+  )`;
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 

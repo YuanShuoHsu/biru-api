@@ -238,7 +238,9 @@ describe('AuditService.listForOrganization search', () => {
        insert into attendance_audit (id, organization_id, actor_id, action, resource_id, changes, created_at) values
          ('att-employee', 'org', 'owner', 'employee.update', 'employee-wang', '{}', '2026-10-28 08:00:00+00'),
          ('att-shift', 'org', 'manager', 'shift.create', 'shift-1', '{"employeeId": "employee-wang"}', '2026-10-28 08:00:00+00'),
-         ('att-leave-type', 'org', 'manager', 'leaveType.update', 'leave-type-1', '{"paidPercent": {"before": 50, "after": 100}}', '2026-10-28 08:00:00+00');`,
+         ('att-leave-type', 'org', 'manager', 'leaveType.update', 'leave-type-1', '{"paidPercent": {"before": 50, "after": 100}}', '2026-10-28 08:00:00+00'),
+         ('att-leave-type-rename', 'org', 'owner', 'leaveType.update', 'leave-type-1', '{"name": {"before": "Gift Leave", "after": "Anniversary Leave"}}', '2026-10-28 08:00:00+00'),
+         ('att-earning-type-delete', 'org', 'owner', 'payroll.earningType.delete', 'earning-type-1', '{"name": "Night Bonus", "category": "taxable"}', '2026-10-28 08:00:00+00');`,
     );
   }, 60_000);
 
@@ -270,7 +272,17 @@ describe('AuditService.listForOrganization search', () => {
   it('finds attendance entries by the current name of their resource', async () => {
     expect(await ids('owner', { quickFilterValue: 'birthday' })).toEqual([
       'att-leave-type',
+      'att-leave-type-rename',
     ]);
+  });
+
+  it('finds attendance entries by the name their changes show', async () => {
+    expect(await ids('owner', { quickFilterValue: 'night bonus' })).toEqual([
+      'att-earning-type-delete',
+    ]);
+    expect(
+      await ids('owner', { quickFilterValue: 'anniversary leave' }),
+    ).toEqual(['att-leave-type-rename']);
   });
 
   it('keeps entries the member cannot read out of the search but finds the ones they can', async () => {
@@ -294,7 +306,7 @@ describe('AuditService.listForOrganization search', () => {
   it('still labels attendance entries with the target employee name', async () => {
     const { data, total } = await service.listForOrganization('org', 'owner');
 
-    expect(total).toBe(6);
+    expect(total).toBe(8);
     expect(
       Object.fromEntries(
         data.map(({ id, resourceLabel }) => [id, resourceLabel]),
@@ -306,6 +318,8 @@ describe('AuditService.listForOrganization search', () => {
       'att-employee': 'Wang Xiaoming',
       'att-shift': 'Wang Xiaoming',
       'att-leave-type': 'Birthday Leave',
+      'att-leave-type-rename': 'Anniversary Leave',
+      'att-earning-type-delete': 'Night Bonus',
     });
   });
 });
