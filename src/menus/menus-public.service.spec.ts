@@ -1,5 +1,4 @@
 import type { PGlite } from '@electric-sql/pglite';
-import { inArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
@@ -15,7 +14,6 @@ import {
   modifierGroup,
   offer,
 } from '../db/schema/menus.js';
-import { order, orderItem } from '../db/schema/orders.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { withImageUrl } from '../images/image-url.js';
 import type { MenuStockService } from '../inventory/menu-stock.service.js';
@@ -286,67 +284,5 @@ describe('PublicMenusService.findOrderMenu', () => {
       'm-b',
       'm-c',
     ]);
-  });
-
-  it('限購品項帶出登入會員今日已買的份數，未登入與不限購為 null', async () => {
-    const db = drizzle(client, { schema });
-    await client.query(
-      `insert into "user" (id, name, email, first_name) values ('me', 'me', 'me@example.com', 'me')`,
-    );
-    await db.insert(offer).values([
-      {
-        id: 'latte-offer',
-        dailyLimit: 10,
-        eligibleQuantity: { maxValue: 3 },
-        menuItemId: 'latte',
-        price: '100',
-      },
-      { id: 'oolong-offer', menuItemId: 'oolong', price: '80' },
-    ]);
-    await db.insert(order).values({
-      id: 'my-order',
-      customer: { name: 'me' },
-      mode: 'pickup',
-      orderNumber: '1',
-      orderStatus: 'OrderProcessing',
-      paymentMethod: 'Credit',
-      sellerId: ORG,
-      subtotal: '200',
-      userId: 'me',
-    });
-    await db.insert(orderItem).values({
-      id: 'my-latte',
-      menuItemId: 'latte',
-      menuItemName: '拿鐵',
-      orderId: 'my-order',
-      orderQuantity: 2,
-      unitPrice: '100',
-    });
-    const offersOf = async (userId: string | null) => {
-      const items = (
-        await service.findOrderMenu(ORG, 'zh-TW', userId)
-      )?.sections.flatMap(({ menuItems }) => menuItems);
-      const latte = items?.find(({ id }) => id === 'latte');
-      const oolong = items?.find(({ id }) => id === 'oolong');
-      return {
-        addOnLatte: oolong?.addOns[0].menuItems[0].offers[0],
-        latte: latte?.offers[0],
-        oolong: oolong?.offers[0],
-      };
-    };
-
-    await expect(offersOf('me')).resolves.toMatchObject({
-      addOnLatte: { eligibleQuantity: { maxValue: 3 }, purchasedToday: 2 },
-      latte: { eligibleQuantity: { maxValue: 3 }, purchasedToday: 2 },
-      oolong: { eligibleQuantity: null, purchasedToday: null },
-    });
-    await expect(offersOf(null)).resolves.toMatchObject({
-      latte: { purchasedToday: null },
-    });
-
-    await db.delete(order);
-    await db
-      .delete(offer)
-      .where(inArray(offer.id, ['latte-offer', 'oolong-offer']));
   });
 });

@@ -212,7 +212,7 @@ Migration 在 `drizzle/`，用 Drizzle Kit 套用。根目錄的 `drizzle.config
 
 有 `daily_limit` 的 `offer` 是每日限量品項：它的 `inventory_level.value` 保持為今天剩下的數量，並在每個營業日開始時重設為 `daily_limit`；營業日是提早四小時的台灣日期（`businessDay`，`src/inventory/offer-daily-limit.ts`），所以 04:00 開始新的一天。`daily_limit_reset_on` 是它上次重設的營業日；`MenuStockService.resetDailyLimits` 會重設所有落後的 offer，再更新售完狀態。04:00 的 cron 對每間門市執行它，點餐菜單讀取、下單與付款結果也會先對自己的門市執行它，所以 cron 漏跑或停用都不影響。它們在訂單的 transaction 之前執行它，絕不在 transaction 之內：它會鎖住該門市所有到期的 offer，這會破壞訂單持有的 offer 以 id 遞增順序上鎖的規則。設定新的 `daily_limit` 時，今天剩下的數量設為上限減去今天訂單保留的數量（`held_offer_stock`），最低為 0，且只有 `menu: ['update']` 能變更它；清除它則保留送來的剩餘數量。取消之前營業日的訂單，不會把它保留的份數還給每日限量的 offer。
 
-`offer.eligible_quantity.maxValue` 是限購，只能設在有 `daily_limit` 的 offer 上且不大於它（清除 `daily_limit` 前要先清除它），只有 `menu: ['update']` 能變更。`OrderPricingService.resolveOrderItems` 把同一品項在一筆訂單內的份數（含作為加購品的份數）合計比對；帶會員時改比對加上 `purchasedToday`（`src/orders/eligible-quantity.ts`：同門市、同營業日、不含 `OrderCancelled` 與 `OrderReturned` 的訂單）的份數。下單時會員的檢查要在鎖住 `organization` 列之後、於訂單的 transaction 內重做（`assertMemberEligibleQuantities`），否則同一會員同時下的兩張單都會通過。共享購物車的加入只檢查單筆合計，累計算在送出的會員身上。
+`offer.eligible_quantity.maxValue` 是限購，只能設在有 `daily_limit` 的 offer 上且不大於它（清除 `daily_limit` 前要先清除它），只有 `menu: ['update']` 能變更。`OrderPricingService.resolveOrderItems` 把同一品項在一筆訂單內的份數（含作為加購品的份數）合計比對；帶會員時改比對加上 `purchasedToday`（`src/orders/eligible-quantity.ts`：同門市、同營業日、不含 `OrderCancelled`、`OrderProblem` 與 `OrderReturned` 的訂單；前台從 `GET /api/users/me/purchased-today` 取得）的份數。下單時會員的檢查要在鎖住 `organization` 列之後、於訂單的 transaction 內重做（`assertMemberEligibleQuantities`），否則同一會員同時下的兩張單都會通過。共享購物車的加入只檢查單筆合計，累計算在送出的會員身上。
 
 `inventory_transaction.created_by` 是記錄盤點（包括與食材一起儲存的期初庫存與盤點）、批次、耗損或進貨單的使用者（`session.user.id`，從 controller 往下傳）；訂單消耗與還原則留空。新的、由員工發起並寫入異動的路徑必須傳入它：產品耗損沒有 `@Audit`，所以這個欄位是誰做的唯一紀錄。
 

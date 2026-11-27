@@ -31,7 +31,6 @@ import {
   SALES_WINDOW_DAYS,
   getSalesWindowStart,
 } from '../orders/menu-item-sales.service.js';
-import { purchasedToday } from '../orders/eligible-quantity.js';
 
 import type { OrderMenuResponseDto } from './dto/order-menu-response.dto.js';
 
@@ -128,7 +127,6 @@ export class PublicMenusService {
   async findOrderMenu(
     organizationId: string,
     lang: Language,
-    userId: string | null = null,
   ): Promise<OrderMenuResponseDto | null> {
     await this.menuStockService.resetDailyLimits(organizationId);
 
@@ -223,34 +221,6 @@ export class PublicMenusService {
 
     const priceCurrency = orderMenu.organization.currency;
 
-    const limitedMenuItemIds = orderMenu.menuSections
-      .flatMap(({ menuItems }) =>
-        menuItems.flatMap(({ addOns, offers }) => [
-          ...offers,
-          ...addOns.flatMap(({ addOnMenuItem, addOnMenuSection }) => [
-            ...(addOnMenuItem?.offers ?? []),
-            ...(addOnMenuSection?.menuItems.flatMap((item) => item.offers) ??
-              []),
-          ]),
-        ]),
-      )
-      .flatMap(({ eligibleQuantity, menuItemId }) =>
-        eligibleQuantity && menuItemId ? [menuItemId] : [],
-      );
-    const purchased = userId
-      ? await purchasedToday(this.db, organizationId, userId, [
-          ...new Set(limitedMenuItemIds),
-        ])
-      : null;
-    const offerOf = (row: Offer) => ({
-      ...row,
-      priceCurrency,
-      purchasedToday:
-        purchased && row.eligibleQuantity && row.menuItemId
-          ? (purchased.get(row.menuItemId) ?? 0)
-          : null,
-    });
-
     const addOnModifierGroupsByItemId = new Map(
       [...addOnRowsByItemId].map(([itemId, rows]) => [
         itemId,
@@ -267,7 +237,7 @@ export class PublicMenusService {
           .filter((entry) => !isDiscontinued(entry))
           .map(({ addOns, modifierGroups, offers, ...item }) => ({
             ...withImageRefUrl('menuItem', item),
-            offers: offers.map(offerOf),
+            offers: offers.map((row) => ({ ...row, priceCurrency })),
             name: localize(item.name, lang) || '',
             description: localize(item.description, lang),
             sold: salesByMenuItemId.get(item.id) || 0,
@@ -301,7 +271,7 @@ export class PublicMenusService {
                     sweetness,
                     fixedSweetnessLevel,
                     recommendedSweetnessLevel,
-                    offers: offers.map(offerOf),
+                    offers: offers.map((row) => ({ ...row, priceCurrency })),
                     modifierGroups: addOnModifierGroupsByItemId.get(id) || [],
                   }),
                 ),

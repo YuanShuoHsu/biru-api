@@ -48,7 +48,11 @@ export const purchasedToday = async (
         eq(order.sellerId, organizationId),
         eq(order.userId, userId),
         gte(order.createdAt, businessDayStart(Date.now())),
-        notInArray(order.orderStatus, ['OrderCancelled', 'OrderReturned']),
+        notInArray(order.orderStatus, [
+          'OrderCancelled',
+          'OrderProblem',
+          'OrderReturned',
+        ]),
         inArray(sql`entry.menu_item_id`, menuItemIds),
       )}
       GROUP BY entry.menu_item_id

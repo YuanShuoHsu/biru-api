@@ -19,6 +19,7 @@ import {
   OrderPricingService,
   type ResolvedOrderItem,
 } from './order-pricing.service.js';
+import { PurchasedTodayService } from './purchased-today.service.js';
 
 const latteAddOn: OrderItemAddOnSnapshot = {
   menuItemId: 'latte',
@@ -111,6 +112,7 @@ describe('限購的會員今日已買', () => {
     await placeOrder('latte', 1, { orderStatus: 'OrderPaymentDue' });
     await placeOrder('latte', 5, { orderStatus: 'OrderCancelled' });
     await placeOrder('latte', 5, { orderStatus: 'OrderReturned' });
+    await placeOrder('latte', 5, { orderStatus: 'OrderProblem' });
     await placeOrder('latte', 5, { userId: 'someone' });
     await placeOrder('latte', 5, { sellerId: 'other' });
     await placeOrder('latte', 5, {
@@ -122,7 +124,7 @@ describe('限購的會員今日已買', () => {
     await client.close();
   });
 
-  it('只算自己在這間門市今天成立的訂單，加購品照品項數量計，不含取消與全額退款', async () => {
+  it('只算自己在這間門市今天成立的訂單，加購品照品項數量計，不含取消、付款失敗與全額退款', async () => {
     await expect(
       purchasedToday(db as unknown as DrizzleDB, 'org', 'me', [
         'latte',
@@ -183,5 +185,14 @@ describe('限購的會員今日已買', () => {
         'me',
       ),
     ).resolves.toBeUndefined();
+  });
+
+  it('會員查詢今天在門市已買的份數，只列限購品項', async () => {
+    const service = new PurchasedTodayService(db as unknown as DrizzleDB);
+
+    await expect(service.findForUser('me', 'org')).resolves.toEqual([
+      { menuItemId: 'latte', quantity: 4 },
+    ]);
+    await expect(service.findForUser('newcomer', 'org')).resolves.toEqual([]);
   });
 });

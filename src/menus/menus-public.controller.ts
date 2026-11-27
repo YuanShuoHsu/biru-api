@@ -5,11 +5,7 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import {
-  AllowAnonymous,
-  Session,
-  type UserSession,
-} from '@thallesp/nestjs-better-auth';
+import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 import { I18nLang } from 'nestjs-i18n';
 
@@ -37,12 +33,10 @@ export class PublicMenusController {
   findOrderMenu(
     @Param('organizationId') organizationId: string,
     @I18nLang() lang: string,
-    @Session() session: UserSession | null,
   ): Promise<OrderMenuResponseDto | null> {
     return this.publicMenusService.findOrderMenu(
       organizationId,
       toLanguage(lang),
-      session?.user.id || null,
     );
   }
 }

@@ -56,21 +56,19 @@ class OrderMenuOfferResponseDto {
   @ApiPropertyOptional({ type: QuantitativeValueDto })
   inventoryLevel: QuantitativeValueDto | null;
 
-  @ApiPropertyOptional({ description: '每日限量；null 代表非每日限量' })
+  @ApiPropertyOptional({
+    description: '每日限量；null 代表非每日限量',
+    nullable: true,
+    type: Number,
+  })
   dailyLimit: number | null;
 
   @ApiPropertyOptional({
     type: EligibleQuantityDto,
     description: '限購；null 代表不限購',
+    nullable: true,
   })
   eligibleQuantity: EligibleQuantityDto | null;
-
-  @ApiPropertyOptional({
-    description:
-      '登入會員今天在這間門市已買的份數（不含已取消與全額退款）；未登入或不限購時為 null',
-    type: Number,
-  })
-  purchasedToday: number | null;
 
   @ApiPropertyOptional({ type: PriceSpecificationDto })
   priceSpecification: PriceSpecificationDto | null;
