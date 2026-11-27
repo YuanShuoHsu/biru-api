@@ -35,6 +35,17 @@ describe('BannerPaginationQueryDto', () => {
     });
   });
 
+  it('accepts filtering and sorting by link', async () => {
+    expect(
+      await invalidProperties({
+        filterField: 'url',
+        filterOperator: 'contains',
+        filterValue: '/order',
+        sortBy: 'url',
+      }),
+    ).toEqual([]);
+  });
+
   it.each([
     [{ limit: 'abc' }, 'limit'],
     [{ limit: '0' }, 'limit'],
@@ -42,7 +53,7 @@ describe('BannerPaginationQueryDto', () => {
     [{ offset: '-1' }, 'offset'],
     [{ filterOperator: 'like' }, 'filterOperator'],
     [{ sortDirection: 'up' }, 'sortDirection'],
-    [{ filterField: 'url' }, 'filterField'],
+    [{ filterField: 'image' }, 'filterField'],
     [{ sortBy: 'sortOrder' }, 'sortBy'],
   ])('rejects %j', async (query, property) => {
     expect(await invalidProperties(query)).toEqual([property]);

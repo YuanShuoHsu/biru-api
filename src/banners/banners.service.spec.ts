@@ -197,6 +197,42 @@ describe('BannersService', () => {
     ]);
   });
 
+  it('快速搜尋、篩選與排序比對點擊連結，沒有連結的排在最後', async () => {
+    await client.exec(`
+      insert into banner (id, image, url, sort_order) values
+        ('menu', 'menu', '/order', 0),
+        ('news', 'news', 'https://example.com/news', 1),
+        ('none', 'none', null, 2)
+    `);
+    const ids = async (query: Parameters<BannersService['findAll']>[0]) =>
+      (await service.findAll(query)).data.map(({ id }) => id);
+
+    expect(await ids({ quickFilterValue: '/ORDER' })).toEqual(['menu']);
+    expect(
+      await ids({
+        filterField: 'url',
+        filterOperator: 'contains',
+        filterValue: 'example',
+      }),
+    ).toEqual(['news']);
+    expect(
+      await ids({ filterField: 'url', filterOperator: 'isEmpty' }),
+    ).toEqual(['none']);
+    expect(
+      await ids({ filterField: 'url', filterOperator: 'isNotEmpty' }),
+    ).toEqual(['menu', 'news']);
+    expect(await ids({ sortBy: 'url', sortDirection: 'asc' })).toEqual([
+      'menu',
+      'news',
+      'none',
+    ]);
+    expect(await ids({ sortBy: 'url', sortDirection: 'desc' })).toEqual([
+      'news',
+      'menu',
+      'none',
+    ]);
+  });
+
   it('快速搜尋、篩選與排序以替代文字比對，快速搜尋也比對上下架時間', async () => {
     await client.exec(`
       insert into banner (id, image, alt, starts_at, ends_at, sort_order) values
