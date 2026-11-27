@@ -124,7 +124,13 @@ export class SalesReportService {
       keyType === type ? ['key'] : [];
     const page = pageReportRows(
       rows,
-      isItemGroup ? query : { ...query, quickFilterValue: undefined },
+      isItemGroup
+        ? query
+        : {
+            ...query,
+            quickFilterEnums: undefined,
+            quickFilterValue: undefined,
+          },
       {
         values: ({ key, name, ...amounts }) => ({
           ...amounts,
