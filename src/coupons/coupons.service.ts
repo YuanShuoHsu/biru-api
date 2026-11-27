@@ -1805,10 +1805,29 @@ export class CouponsService {
     db: Pick<DrizzleDB, 'select' | 'update'>,
     applied: { code: string; orderId: string },
   ): Promise<void> {
-    const [found] = await db
-      .select({ id: coupon.id })
-      .from(coupon)
-      .where(sql`lower(${coupon.code}) = lower(${applied.code})`);
+    const [held] = await db
+      .update(userCoupon)
+      .set({ orderId: null, updatedAt: new Date(), usedAt: null })
+      .where(eq(userCoupon.orderId, applied.orderId))
+      .returning({ couponId: userCoupon.couponId });
+
+    const [found] = held
+      ? [{ id: held.couponId }]
+      : await db
+          .select({ id: coupon.id })
+          .from(coupon)
+          .where(
+            and(
+              sql`lower(${coupon.code}) = lower(${applied.code})`,
+              lte(
+                coupon.createdAt,
+                db
+                  .select({ createdAt: order.createdAt })
+                  .from(order)
+                  .where(eq(order.id, applied.orderId)),
+              ),
+            ),
+          );
 
     if (found)
       await db
@@ -1818,10 +1837,5 @@ export class CouponsService {
           usedCount: sql`GREATEST(${coupon.usedCount} - 1, 0)`,
         })
         .where(eq(coupon.id, found.id));
-
-    await db
-      .update(userCoupon)
-      .set({ orderId: null, updatedAt: new Date(), usedAt: null })
-      .where(eq(userCoupon.orderId, applied.orderId));
   }
 }
