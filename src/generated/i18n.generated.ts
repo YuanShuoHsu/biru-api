@@ -50,6 +50,7 @@ export type I18nTranslations = {
         "TWO_FACTOR_NOT_ENABLED": string;
         "UNAUTHORIZED": string;
         "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL": string;
+        "USER_CAN_ONLY_HAVE_ONE_ROLE": string;
         "USER_HAS_EMPLOYMENT_RECORDS": string;
         "USER_IS_ALREADY_A_MEMBER_OF_THIS_ORGANIZATION": string;
         "USER_IS_ALREADY_INVITED_TO_THIS_ORGANIZATION": string;
@@ -63,6 +64,7 @@ export type I18nTranslations = {
         "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_ORGANIZATION": string;
         "YOU_ARE_NOT_THE_RECIPIENT_OF_THE_INVITATION": string;
         "YOU_CANNOT_BAN_YOURSELF": string;
+        "YOU_CANNOT_CHANGE_YOUR_OWN_ROLE": string;
         "YOU_CANNOT_IMPERSONATE_ADMINS": string;
         "YOU_CANNOT_LEAVE_THE_ORGANIZATION_AS_THE_ONLY_OWNER": string;
         "YOU_CANNOT_LEAVE_THE_ORGANIZATION_WITHOUT_AN_OWNER": string;

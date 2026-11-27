@@ -3,6 +3,7 @@
 import { Logger } from '@nestjs/common';
 
 import {
+  APIError,
   createAuthMiddleware,
   getSessionFromCtx,
   isAPIError,
@@ -80,6 +81,17 @@ type Body = Record<string, unknown>;
 const asString = (value: unknown) =>
   typeof value === 'string' ? value : undefined;
 
+const asCoercedId = (value: unknown): string | undefined =>
+  typeof value === 'string'
+    ? value
+    : typeof value === 'number' ||
+        typeof value === 'boolean' ||
+        typeof value === 'bigint'
+      ? String(value)
+      : Array.isArray(value)
+        ? value.map(asCoercedId).join(',')
+        : undefined;
+
 const asRow = (value: unknown): AuditRow | undefined =>
   typeof value === 'object' && value !== null ? (value as AuditRow) : undefined;
 
@@ -91,7 +103,7 @@ const toTarget =
     return value ? { resource, id: value } : undefined;
   };
 
-const userTarget = toTarget('user');
+const userTarget = (id: unknown) => toTarget('user')(asCoercedId(id));
 const invitationTarget = toTarget('invitation');
 
 const BEFORE_TARGETS: Record<string, (body: Body) => Target | undefined> = {
@@ -168,7 +180,7 @@ const toEvents = (
         : [];
     }
     case '/admin/set-user-password': {
-      const id = asString(body.userId);
+      const id = asCoercedId(body.userId);
 
       return id
         ? [
@@ -226,7 +238,12 @@ const toEvents = (
         ? [
             {
               target: { resource: 'team', id },
-              changes: { member: { before: body.userId ?? null, after: null } },
+              changes: {
+                member: {
+                  before: asCoercedId(body.userId) ?? null,
+                  after: null,
+                },
+              },
             },
           ]
         : [];
@@ -353,15 +370,39 @@ export const writeAuditEvent = async (
   });
 };
 
-const MEMBER_MANAGEMENT_PATHS = new Set([
-  '/organization/remove-member',
-  '/organization/update-member-role',
-  '/organization/remove-team-member',
-]);
+const MANAGED_MEMBERS: Record<
+  string,
+  (body: Body) => { memberIdOrEmail?: string; userId?: string }
+> = {
+  '/organization/remove-member': ({ memberIdOrEmail }) => ({
+    memberIdOrEmail: asString(memberIdOrEmail),
+  }),
+  '/organization/update-member-role': ({ memberId }) => ({
+    memberIdOrEmail: asString(memberId),
+  }),
+  '/organization/remove-team-member': ({ userId }) => ({
+    userId: asCoercedId(userId),
+  }),
+};
 
 const SELF_DELETE_PATHS = new Set(['/delete-user', '/delete-user/callback']);
 
 const PLATFORM_ROLE_PATHS = new Set(['/admin/set-role', '/admin/update-user']);
+
+const REQUESTED_ROLES: Record<string, (body: Body) => unknown> = {
+  '/admin/create-user': ({ role, data }) => role ?? asRow(data)?.role,
+  '/admin/set-role': ({ role }) => role,
+  '/admin/update-user': ({ data }) => asRow(data)?.role,
+};
+
+const requestsManyRoles = (requested: unknown) => {
+  const roles = Array.isArray(requested) ? requested : [requested];
+
+  return (
+    roles.length > 1 ||
+    roles.some((role) => typeof role === 'string' && role.includes(','))
+  );
+};
 
 const REVOKE_SESSION_PATHS = new Set([
   '/admin/revoke-user-session',
@@ -384,7 +425,7 @@ const countRevokedSessions = async (
     return row ? { userId: row.userId, count: 1 } : undefined;
   }
 
-  const userId = asString(body.userId);
+  const userId = asCoercedId(body.userId);
   if (!userId) return undefined;
 
   const rows = await authDb().query.session.findMany({
@@ -431,7 +472,7 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
         const userId = isSelfDelete
           ? session?.user.id
           : session?.user.role === 'admin'
-            ? asString(asRow(ctx.body)?.userId)
+            ? asCoercedId(asRow(ctx.body)?.userId)
             : undefined;
 
         if (userId) {
@@ -444,6 +485,30 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
         }
       }
 
+      if (requestsManyRoles(REQUESTED_ROLES[ctx.path]?.(asRow(ctx.body) ?? {})))
+        throw new APIError('BAD_REQUEST', {
+          message: 'A user can only have one role',
+          code: 'USER_CAN_ONLY_HAVE_ONE_ROLE',
+        });
+
+      if (PLATFORM_ROLE_PATHS.has(ctx.path)) {
+        const body = asRow(ctx.body) ?? {};
+        if (
+          ctx.path === '/admin/set-role' ||
+          'role' in (asRow(body.data) ?? {})
+        ) {
+          const session = await getSessionFromCtx(ctx);
+          if (
+            session?.user.role === 'admin' &&
+            session.user.id === asCoercedId(body.userId)
+          )
+            throw new APIError('BAD_REQUEST', {
+              message: 'You cannot change your own role',
+              code: 'YOU_CANNOT_CHANGE_YOUR_OWN_ROLE',
+            });
+        }
+      }
+
       if (ctx.path === '/organization/delete') {
         const organizationId = asString(asRow(ctx.body)?.organizationId);
         if (organizationId)
@@ -453,18 +518,15 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
           };
       }
 
-      if (MEMBER_MANAGEMENT_PATHS.has(ctx.path)) {
+      const managedMember = MANAGED_MEMBERS[ctx.path];
+      if (managedMember) {
         const session = await getSessionFromCtx(ctx);
         const body = asRow(ctx.body) ?? {};
         if (session)
           await assertMayManageMember(
             session.user,
-            {
-              memberIdOrEmail:
-                asString(body.memberIdOrEmail) ?? asString(body.memberId),
-              userId: asString(body.userId),
-            },
-            asString(body.organizationId) ??
+            managedMember(body),
+            asString(body.organizationId) ||
               asString(asRow(session.session)?.activeOrganizationId),
           );
       }
@@ -498,6 +560,7 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
         const session = await getSessionFromCtx(ctx);
         if (session)
           await assertOrganizationOpen(
+            ctx.path,
             asRow(ctx.body) ?? {},
             asString(asRow(session.session)?.activeOrganizationId),
           );
@@ -574,7 +637,7 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
         logger.error('Failed to erase deleted account copies', error);
       }
 
-    const roleTargetId = asString(asRow(ctx.body)?.userId);
+    const roleTargetId = asCoercedId(asRow(ctx.body)?.userId);
     const removedMembers =
       PLATFORM_ROLE_PATHS.has(ctx.path) &&
       roleTargetId &&
