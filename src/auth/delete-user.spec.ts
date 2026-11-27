@@ -68,12 +68,13 @@ describe('delete user', () => {
 
   it('刪除帳號的確認連結 1 小時後失效，和信上寫的期限一致', async () => {
     const email = 'ann@example.com';
-    await request('/sign-up/email', {
+    const signUp = await request('/sign-up/email', {
       email,
       firstName: 'Ann',
       name: 'Ann',
       password: PASSWORD,
     });
+    expect(signUp.status).toBe(200);
     await client.query(
       `update "user" set email_verified = true where email = $1`,
       [email],
