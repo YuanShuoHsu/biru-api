@@ -2136,6 +2136,13 @@
       "when": 1795763134404,
       "tag": "0304_offer_daily_limit",
       "breakpoints": true
+    },
+    {
+      "idx": 305,
+      "version": "7",
+      "when": 1795785780243,
+      "tag": "0305_order_coupon_id",
+      "breakpoints": true
     }
   ]
 }

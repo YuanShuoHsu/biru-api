@@ -91,7 +91,7 @@ const createService = ({
   txDuplicate,
 }: {
   applied?: {
-    coupon: { code: string };
+    coupon: { code: string; id: string };
     discount: number;
     itemDiscounts: number[];
   } | null;
@@ -763,7 +763,7 @@ describe('OrdersService.createOrder', () => {
     it('折扣寫入訂單並核銷優惠券', async () => {
       const { couponsService, inserted, service } = createService({
         applied: {
-          coupon: { code: 'SAVE30' },
+          coupon: { code: 'SAVE30', id: 'save30' },
           discount: 30,
           itemDiscounts: [30, 0],
         },
@@ -784,6 +784,7 @@ describe('OrdersService.createOrder', () => {
         'user',
       );
       expect(inserted.get(order)).toMatchObject({
+        couponId: 'save30',
         discount: '30.00',
         discountCode: 'SAVE30',
         discountCurrency: 'TWD',
@@ -801,7 +802,7 @@ describe('OrdersService.createOrder', () => {
     it('全額折抵直接成立且不開發票', async () => {
       const { inserted, service } = createService({
         applied: {
-          coupon: { code: 'FREE' },
+          coupon: { code: 'FREE', id: 'free' },
           discount: 156,
           itemDiscounts: [120, 36],
         },
@@ -935,7 +936,7 @@ describe('OrdersService.estimatePoints', () => {
   it('部分品項優惠碼以折扣後金額估點', async () => {
     const { couponsService, pointsService, service } = createService({
       applied: {
-        coupon: { code: 'LATTE' },
+        coupon: { code: 'LATTE', id: 'latte' },
         discount: 36,
         itemDiscounts: [0, 36],
       },

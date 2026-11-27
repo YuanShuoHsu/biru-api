@@ -1175,7 +1175,7 @@ export class CouponsService {
           ? or(
               isNull(coupon.perUserLimit),
               // RQB 會改寫 sql fragment 內的 Column，跨表欄位須寫死別名
-              sql`(SELECT COUNT(*) FROM ${order} AS "o" WHERE "o"."user_id" = ${userId} AND lower("o"."discount_code") = lower(${coupon.code}) AND "o"."order_status" NOT IN (${sql.join(
+              sql`(SELECT COUNT(*) FROM ${order} AS "o" WHERE "o"."user_id" = ${userId} AND ("o"."coupon_id" = ${coupon.id} OR ("o"."coupon_id" IS NULL AND lower("o"."discount_code") = lower(${coupon.code}) AND "o"."created_at" >= ${coupon.createdAt})) AND "o"."order_status" NOT IN (${sql.join(
                 ORDER_TERMINAL_STATUSES.map((status) => sql`${status}`),
                 sql`, `,
               )}) AND (${coupon.applicableOrganizationIds} IS NULL OR "o"."seller_id" = ANY(${coupon.applicableOrganizationIds}))) < ${coupon.perUserLimit}`,
@@ -1765,7 +1765,14 @@ export class CouponsService {
             ? [inArray(order.sellerId, found.applicableOrganizationIds)]
             : []),
           eq(order.userId, userId),
-          sql`lower(${order.discountCode}) = lower(${found.code})`,
+          or(
+            eq(order.couponId, found.id),
+            and(
+              isNull(order.couponId),
+              sql`lower(${order.discountCode}) = lower(${found.code})`,
+              gte(order.createdAt, found.createdAt),
+            ),
+          ),
           notInArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
         ),
       );
@@ -1863,23 +1870,25 @@ export class CouponsService {
       .where(eq(userCoupon.orderId, applied.orderId))
       .returning({ couponId: userCoupon.couponId });
 
-    const [found] = held
-      ? [{ id: held.couponId }]
-      : await db
-          .select({ id: coupon.id })
-          .from(coupon)
-          .where(
-            and(
-              sql`lower(${coupon.code}) = lower(${applied.code})`,
-              lte(
-                coupon.createdAt,
-                db
-                  .select({ createdAt: order.createdAt })
-                  .from(order)
-                  .where(eq(order.id, applied.orderId)),
-              ),
-            ),
-          );
+    const [found] = await db
+      .select({ id: coupon.id })
+      .from(order)
+      .innerJoin(
+        coupon,
+        or(
+          eq(coupon.id, order.couponId),
+          and(
+            isNull(order.couponId),
+            held
+              ? eq(coupon.id, held.couponId)
+              : and(
+                  sql`lower(${coupon.code}) = lower(${applied.code})`,
+                  lte(coupon.createdAt, order.createdAt),
+                ),
+          ),
+        ),
+      )
+      .where(eq(order.id, applied.orderId));
 
     if (found)
       await db

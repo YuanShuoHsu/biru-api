@@ -6,6 +6,7 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 import { createPGlite } from '../../test/pglite.js';
 import { coupon, userCoupon } from '../db/schema/coupons.js';
 import * as schema from '../db/schema/index.js';
+import { order } from '../db/schema/orders.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import type { OrderPricingService } from '../orders/order-pricing.service.js';
 
@@ -118,5 +119,28 @@ describe('CouponsService.restore', () => {
     await restore();
 
     expect(await usedCountOf('reused')).toBe(1);
+  });
+
+  const placeWith = (couponId: string) =>
+    db.update(order).set({ couponId }).where(eq(order.id, 'o1'));
+
+  it('輸入代碼使用的券下單後改碼，仍還原原券', async () => {
+    await addCoupon('typed', 'RENAMED', '2026-05-01 00:00');
+    await placeWith('typed');
+
+    await restore();
+
+    expect(await usedCountOf('typed')).toBe(0);
+  });
+
+  it('較早建立的券事後改成同碼，不會被誤減', async () => {
+    await addCoupon('typed', 'RENAMED', '2026-05-01 00:00');
+    await addCoupon('earlier', 'SPRING', '2026-04-01 00:00');
+    await placeWith('typed');
+
+    await restore();
+
+    expect(await usedCountOf('typed')).toBe(0);
+    expect(await usedCountOf('earlier')).toBe(1);
   });
 });

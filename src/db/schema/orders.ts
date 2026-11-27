@@ -1,5 +1,6 @@
 import { relations, sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   index,
   integer,
   jsonb,
@@ -12,6 +13,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 import { timestamps } from './columns.helpers.js';
+import { coupon } from './coupons.js';
 import {
   cupSealEnum,
   servingTemperatureLevelEnum,
@@ -110,6 +112,9 @@ export const order = pgTable(
     customer: jsonb('customer').$type<OrderCustomerSnapshot>().notNull(),
     discount: numeric('discount', { precision: 10, scale: 2 }),
     discountCode: text('discount_code'),
+    couponId: text('coupon_id').references((): AnyPgColumn => coupon.id, {
+      onDelete: 'set null',
+    }),
     discountCurrency: text('discount_currency').default('TWD'),
     mode: orderModeEnum('mode').notNull(),
     orderDate: timestamp('order_date').defaultNow().notNull(),
@@ -156,6 +161,7 @@ export const order = pgTable(
     index('order_orderNumber_idx').on(table.orderNumber),
     index('order_confirmationNumber_idx').on(table.confirmationNumber),
     index('order_userId_createdAt_idx').on(table.userId, table.createdAt),
+    index('order_couponId_userId_idx').on(table.couponId, table.userId),
     index('order_sellerId_salesAt_idx').on(
       table.sellerId,
       sql`COALESCE(${table.paymentDate}, ${table.orderDate})`,
