@@ -10,9 +10,11 @@ export const SUPPLIER_STRING_FILTER_FIELDS = [
   'url',
   'note',
 ] as const;
+export const SUPPLIER_BOOLEAN_FILTER_FIELDS = ['uniformInvoice'] as const;
 export const SUPPLIER_DATE_FILTER_FIELDS = ['createdAt', 'updatedAt'] as const;
 const SUPPLIER_ALL_FILTER_FIELDS = [
   ...SUPPLIER_STRING_FILTER_FIELDS,
+  ...SUPPLIER_BOOLEAN_FILTER_FIELDS,
   ...SUPPLIER_DATE_FILTER_FIELDS,
 ] as const;
 
