@@ -39,6 +39,7 @@ describe('shared cart participant cookie', () => {
   });
 
   it('names the cookie per store with cookie-safe characters', () => {
+    vi.stubEnv('COOKIE_PREFIX', '');
     expect(sharedCartParticipantCookie('aB3')).toBe(
       'biru_shared_cart_participant_v2_YUIz',
     );

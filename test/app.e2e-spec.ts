@@ -9,6 +9,7 @@ import request from 'supertest';
 import { App } from 'supertest/types.js';
 
 import { AppModule } from '../src/app.module.js';
+import { siteCookieName } from '../src/common/utils/cookies.js';
 import { db } from '../src/db/index.js';
 import {
   issueOrderQrSession,
@@ -108,7 +109,7 @@ describe('App (e2e)', () => {
       ([] as string[]).concat(response.headers['set-cookie'] ?? []);
     const participantSetCookie = (response: request.Response) =>
       setCookies(response).find((cookie) =>
-        cookie.startsWith('biru_shared_cart_participant_v2_'),
+        cookie.startsWith(siteCookieName('biru_shared_cart_participant_v2_')),
       );
     const participantCookie = (response: request.Response) =>
       participantSetCookie(response)?.split(';')[0];

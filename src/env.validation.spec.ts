@@ -45,6 +45,8 @@ const FULL = {
   ...S3,
   ...VAPID,
   ECPAY_CREDIT_CHECK_CODE: '59997889',
+  CRON_ENABLED: 'true',
+  COOKIE_PREFIX: 'biru-stage',
   TRUSTED_PROXIES: '10.0.0.0/8',
   CLIENT_IP_HEADER: 'CF-Connecting-IP',
   CLIENT_IP_FORWARD_SECRET: 'x'.repeat(32),
@@ -148,6 +150,8 @@ describe('envSchema', () => {
     ['PORT', '0'],
     ['PORT', '03001'],
     ['CLIENT_IP_FORWARD_SECRET', 'x'.repeat(31)],
+    ['CRON_ENABLED', 'yes'],
+    ['COOKIE_PREFIX', 'biru.stage'],
   ])('fails when %s is %j', (name, value) => {
     expect(failing({ ...FULL, [name]: value })).toEqual([name]);
   });
@@ -160,6 +164,12 @@ describe('envSchema', () => {
       failing({ ...FULL, CLIENT_IP_FORWARD_SECRET: ` ${'x'.repeat(31)} ` }),
     ).toEqual(['CLIENT_IP_FORWARD_SECRET']);
     expect(failing({ ...FULL, CLIENT_IP_FORWARD_SECRET: '  ' })).toEqual([]);
+  });
+
+  it('treats an empty CRON_ENABLED or COOKIE_PREFIX as unset', () => {
+    expect(failing({ ...FULL, CRON_ENABLED: '', COOKIE_PREFIX: '' })).toEqual(
+      [],
+    );
   });
 });
 

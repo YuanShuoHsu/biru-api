@@ -1,7 +1,7 @@
 import type { Response } from 'express';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { clearSiteCookie, setSiteCookie } from './cookies.js';
+import { clearSiteCookie, setSiteCookie, siteCookieName } from './cookies.js';
 
 const mockResponse = () => {
   const cookie = vi.fn();
@@ -23,6 +23,14 @@ const hostOnly = (secure: boolean) => ({
 describe('site cookies', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
+  });
+
+  it('prefixes the name with COOKIE_PREFIX only when it is set', () => {
+    vi.stubEnv('COOKIE_PREFIX', '');
+    expect(siteCookieName('name')).toBe('name');
+
+    vi.stubEnv('COOKIE_PREFIX', 'biru-stage');
+    expect(siteCookieName('name')).toBe('biru-stage.name');
   });
 
   it('keeps cookies host-only outside production', () => {
