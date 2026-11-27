@@ -156,6 +156,7 @@
   },
   "checklists": {
     "checklistActionNoteRequired": "範囲外の数値は、対応内容を入力してから保存してください。",
+    "checklistBusinessDateChanged": "営業日が切り替わりました。最新のチェックリストを読み込んだので、もう一度入力してください。",
     "checklistItemInvalidRange": "数値項目の下限は上限を超えられません。",
     "checklistItemNotFound": "更新するチェック項目が見つかりません。削除された可能性があります。再読み込みしてからもう一度お試しください。",
     "checklistItemValueRequired": "チェック項目はチェックを、数値項目は数値を入力してください。",

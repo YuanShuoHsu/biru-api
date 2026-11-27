@@ -15,7 +15,11 @@ import {
 import { organization } from '../db/schema/organizations.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import { badRequestError, notFoundError } from './checklist-errors.js';
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+} from './checklist-errors.js';
 import { ChecklistTemplatesService } from './checklist-templates.service.js';
 import type {
   ChecklistRunDto,
@@ -103,6 +107,8 @@ export class ChecklistRunsService {
     user: { id: string; name: string },
   ): Promise<ChecklistRunDto> {
     const businessDate = platformDateString(new Date());
+    if (dto.businessDate !== undefined && dto.businessDate !== businessDate)
+      throw conflictError('checklistBusinessDateChanged');
 
     const run = await this.db.transaction(async (tx) => {
       const org = await tx.query.organization.findFirst({

@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { I18nContext } from 'nestjs-i18n';
 
@@ -6,6 +10,7 @@ import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 export const checklistErrorCodes = [
   'checklistActionNoteRequired',
+  'checklistBusinessDateChanged',
   'checklistItemInvalidRange',
   'checklistItemNotFound',
   'checklistItemValueRequired',
@@ -23,6 +28,9 @@ const errorBody = (code: ChecklistErrorCode) => ({
 
 export const badRequestError = (code: ChecklistErrorCode) =>
   new BadRequestException({ error: 'Bad Request', ...errorBody(code) });
+
+export const conflictError = (code: ChecklistErrorCode) =>
+  new ConflictException({ error: 'Conflict', ...errorBody(code) });
 
 export const notFoundError = (code: ChecklistErrorCode) =>
   new NotFoundException({ error: 'Not Found', ...errorBody(code) });

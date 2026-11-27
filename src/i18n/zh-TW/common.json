@@ -156,6 +156,7 @@
   },
   "checklists": {
     "checklistActionNoteRequired": "數值超出範圍時，請填寫處置說明後再儲存。",
+    "checklistBusinessDateChanged": "營業日已更新，已重新載入今天的檢查表，請再填寫一次。",
     "checklistItemInvalidRange": "數值項目的下限不能大於上限。",
     "checklistItemNotFound": "找不到要更新的檢查項目，可能已被刪除。請重新整理後再試。",
     "checklistItemValueRequired": "勾選項目請填寫是否勾選，數值項目請填寫數值。",

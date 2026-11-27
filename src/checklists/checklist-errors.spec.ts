@@ -1,6 +1,10 @@
 import { readFileSync } from 'node:fs';
 
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { I18nContext } from 'nestjs-i18n';
 
 import { languagesEnum } from '../db/schema/enums.js';
@@ -8,6 +12,7 @@ import { languagesEnum } from '../db/schema/enums.js';
 import {
   badRequestError,
   checklistErrorCodes,
+  conflictError,
   notFoundError,
 } from './checklist-errors.js';
 
@@ -50,6 +55,12 @@ describe('checklist errors', () => {
       badRequestError,
       BadRequestException,
       'Bad Request',
+    ],
+    [
+      'checklistBusinessDateChanged',
+      conflictError,
+      ConflictException,
+      'Conflict',
     ],
   ] as const)(
     '%s 回應帶代碼與目前語系的訊息',
