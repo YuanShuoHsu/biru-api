@@ -217,6 +217,11 @@ export type I18nTranslations = {
             "catalogItemListed": string;
             "catalogItemNotFound": string;
             "catalogItemSectionOwnerMismatch": string;
+            "catalogModifierGroupInUse": string;
+            "catalogModifierGroupLinked": string;
+            "catalogModifierGroupNotFound": string;
+            "catalogModifierInUse": string;
+            "catalogModifierNotFound": string;
             "catalogSectionHasItems": string;
             "catalogSectionHasSubsections": string;
             "catalogSectionInUse": string;

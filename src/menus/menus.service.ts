@@ -162,6 +162,15 @@ export const assertPromoDateRange = (
     throw badRequestError('promoDateRangeInvalid');
 };
 
+export const validateSelectionCounts = (
+  minSelectionCount: number,
+  maxSelectionCount: number | null,
+): void => {
+  if (maxSelectionCount !== null && maxSelectionCount < minSelectionCount) {
+    throw badRequestError('selectionCountInvalid');
+  }
+};
+
 const MENU_ITEM_SORT_NULLS: Partial<Record<string, NullsAs>> = {
   description: 'last',
   recipe: 'last',
@@ -1650,25 +1659,13 @@ export class MenusService {
 
   // ── ModifierGroup ─────────────────────────────────────────────────
 
-  private validateSelectionCounts(
-    minSelectionCount: number,
-    maxSelectionCount: number | null,
-  ): void {
-    if (maxSelectionCount !== null && maxSelectionCount < minSelectionCount) {
-      throw badRequestError('selectionCountInvalid');
-    }
-  }
-
   async createModifierGroup(
     menuId: string,
     data: CreateModifierGroupDto,
   ): Promise<ModifierGroup> {
     const { minSelectionCount, maxSelectionCount } = data;
 
-    this.validateSelectionCounts(
-      minSelectionCount || 0,
-      maxSelectionCount || null,
-    );
+    validateSelectionCounts(minSelectionCount || 0, maxSelectionCount || null);
 
     return this.db.transaction(async (tx) => {
       await tx
@@ -1838,7 +1835,7 @@ export class MenusService {
       const existing = await this.modifierGroup({ id: params.where.id });
 
       if (existing) {
-        this.validateSelectionCounts(
+        validateSelectionCounts(
           minSelectionCount ?? existing.minSelectionCount,
           maxSelectionCount === undefined
             ? existing.maxSelectionCount

@@ -1,0 +1,29 @@
+import { ApiProperty, PickType } from '@nestjs/swagger';
+
+import { ModifierResponseDto } from '../../menus/dto/modifier-response.dto.js';
+
+export class CatalogModifierResponseDto extends PickType(ModifierResponseDto, [
+  'id',
+  'displayName',
+  'imageUrl',
+  'sortOrder',
+  'createdAt',
+  'updatedAt',
+]) {
+  @ApiProperty()
+  catalogModifierGroupId: string;
+
+  @ApiProperty({
+    description: '建議加價；null 代表不影響價格',
+    nullable: true,
+    type: String,
+    example: '10.00',
+  })
+  priceAdjustment: string | null;
+}
+
+export class CatalogModifierListResponseDto {
+  @ApiProperty({ type: [CatalogModifierResponseDto] })
+  data: CatalogModifierResponseDto[];
+  @ApiProperty() total: number;
+}
