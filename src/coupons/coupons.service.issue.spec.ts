@@ -187,6 +187,49 @@ describe('CouponsService 註冊禮、生日券與滿額券發放', () => {
     ).resolves.toEqual([{ couponId: 'spend', source: 'spend', userId: 'may' }]);
   });
 
+  it('註冊禮的總量已被領完或用完時不再發放', async () => {
+    await db
+      .update(coupon)
+      .set({ totalLimit: 2, usedCount: 1 })
+      .where(eq(coupon.id, 'signup'));
+    await signUp('first', '2026-03-01T00:00:00Z');
+    await signUp('second', '2026-03-02T00:00:00Z');
+
+    await service.issueSignupCoupons('first');
+    await service.issueSignupCoupons('second');
+
+    await expect(wallet()).resolves.toEqual([
+      { couponId: 'signup', source: 'signup', userId: 'first' },
+    ]);
+  });
+
+  it('滿額券的缺額只補到總量剩下的名額', async () => {
+    await client.exec(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address)
+         values ('org', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
+    );
+    await db.insert(coupon).values({
+      code: 'SPEND',
+      createdAt: new Date('2026-03-01T00:00:00Z'),
+      discountType: 'fixed',
+      discountValue: '30',
+      id: 'spend',
+      issueMinSpend: '200',
+      issueTrigger: 'spend',
+      totalLimit: 3,
+      usedCount: 1,
+    });
+    await paidOrder('a', '2026-03-05T00:00:00Z');
+    await paidOrder('b', '2026-03-06T00:00:00Z');
+    await paidOrder('c', '2026-03-07T00:00:00Z');
+
+    await service['issueEligibleCoupons']('org', 'may');
+
+    await expect(
+      wallet().then((rows) => rows.filter((row) => row.source === 'spend')),
+    ).resolves.toHaveLength(2);
+  });
+
   it('註冊禮只發啟用中的註冊券，重複呼叫不會多發', async () => {
     await service.issueSignupCoupons('none');
     await service.issueSignupCoupons('none');
@@ -205,6 +248,44 @@ describe('CouponsService 註冊禮、生日券與滿額券發放', () => {
     await expect(wallet()).resolves.toEqual([
       { couponId: 'birthday', source: 'birthday', userId: 'may' },
     ]);
+  });
+
+  it('生日券的總量已用完時不發券', async () => {
+    await db
+      .update(coupon)
+      .set({ totalLimit: 1, usedCount: 1 })
+      .where(eq(coupon.id, 'birthday'));
+
+    await expect(
+      service.issueBirthdayCoupons(new Date('2026-05-20T04:00:00Z')),
+    ).resolves.toBe(1);
+
+    await expect(wallet()).resolves.toEqual([]);
+  });
+
+  it('滿額券沒有剩下名額時不補發', async () => {
+    await client.exec(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address)
+         values ('org', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
+    );
+    await db.insert(coupon).values({
+      code: 'SPEND',
+      createdAt: new Date('2026-03-01T00:00:00Z'),
+      discountType: 'fixed',
+      discountValue: '30',
+      id: 'spend',
+      issueMinSpend: '200',
+      issueTrigger: 'spend',
+      totalLimit: 1,
+      usedCount: 1,
+    });
+    await paidOrder('a', '2026-03-05T00:00:00Z');
+
+    await service['issueEligibleCoupons']('org', 'may');
+
+    await expect(
+      wallet().then((rows) => rows.filter((row) => row.source === 'spend')),
+    ).resolves.toEqual([]);
   });
 
   it('沒有啟用中的生日券時不發券', async () => {

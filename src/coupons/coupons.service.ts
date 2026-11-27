@@ -989,103 +989,143 @@ export class CouponsService {
           .for('no key update');
         if (!found) return;
 
-        await Promise.all(
-          autoCoupons.map(async (c) => {
-            if (c.issueTrigger === 'signup') {
-              if (found.createdAt < (c.validFrom ?? c.createdAt)) return;
+        const remainingOf = async (c: Coupon, lock: boolean) => {
+          const query = tx
+            .select({
+              totalLimit: coupon.totalLimit,
+              usedCount: coupon.usedCount,
+            })
+            .from(coupon)
+            .where(eq(coupon.id, c.id));
+          const [row] = await (lock ? query.for('update') : query);
+          if (!row) return 0;
+          if (row.totalLimit === null) return Infinity;
+          const [{ value: reserved }] = await tx
+            .select({ value: count() })
+            .from(userCoupon)
+            .where(
+              and(eq(userCoupon.couponId, c.id), isNull(userCoupon.usedAt)),
+            );
+          return Math.max(0, row.totalLimit - row.usedCount - reserved);
+        };
+        const remainingCapacity = async (c: Coupon) => {
+          const unlocked = await remainingOf(c, false);
+          return unlocked === 0 || unlocked === Infinity
+            ? unlocked
+            : remainingOf(c, true);
+        };
 
-              await tx
-                .insert(userCoupon)
-                .values({
-                  id: randomUUID(),
-                  couponId: c.id,
-                  source: 'signup',
-                  userId,
-                })
-                .onConflictDoNothing();
-            }
+        for (const c of autoCoupons.toSorted((a, b) =>
+          a.id < b.id ? -1 : 1,
+        )) {
+          if (c.issueTrigger === 'signup') {
+            if (found.createdAt < (c.validFrom ?? c.createdAt)) continue;
 
-            if (c.issueTrigger === 'birthday') {
-              const taiwanNow = toPlatformTime(now);
-              if (
-                !found.birthDate ||
-                found.birthDate.getUTCMonth() !== taiwanNow.getUTCMonth()
+            const [issued] = await tx
+              .select({ id: userCoupon.id })
+              .from(userCoupon)
+              .where(
+                and(
+                  eq(userCoupon.couponId, c.id),
+                  eq(userCoupon.userId, userId),
+                  eq(userCoupon.source, 'signup'),
+                ),
               )
-                return;
+              .limit(1);
+            if (issued || (await remainingCapacity(c)) < 1) continue;
 
-              const startOfYear = new Date(
-                Date.UTC(taiwanNow.getUTCFullYear(), 0, 1) -
-                  PLATFORM_UTC_OFFSET_MS,
+            await tx
+              .insert(userCoupon)
+              .values({
+                id: randomUUID(),
+                couponId: c.id,
+                source: 'signup',
+                userId,
+              })
+              .onConflictDoNothing();
+          }
+
+          if (c.issueTrigger === 'birthday') {
+            const taiwanNow = toPlatformTime(now);
+            if (
+              !found.birthDate ||
+              found.birthDate.getUTCMonth() !== taiwanNow.getUTCMonth()
+            )
+              continue;
+
+            const startOfYear = new Date(
+              Date.UTC(taiwanNow.getUTCFullYear(), 0, 1) -
+                PLATFORM_UTC_OFFSET_MS,
+            );
+            const [{ value: issuedThisYear }] = await tx
+              .select({ value: count() })
+              .from(userCoupon)
+              .where(
+                and(
+                  eq(userCoupon.couponId, c.id),
+                  eq(userCoupon.userId, userId),
+                  eq(userCoupon.source, 'birthday'),
+                  gte(userCoupon.createdAt, startOfYear),
+                ),
               );
-              const [{ value: issuedThisYear }] = await tx
+            if (issuedThisYear > 0 || (await remainingCapacity(c)) < 1)
+              continue;
+
+            await tx.insert(userCoupon).values({
+              id: randomUUID(),
+              couponId: c.id,
+              source: 'birthday',
+              userId,
+            });
+          }
+
+          if (c.issueTrigger === 'spend') {
+            const [qualified, [{ value: issued }]] = await Promise.all([
+              tx
+                .select({ id: order.id })
+                .from(order)
+                .innerJoin(orderItem, eq(orderItem.orderId, order.id))
+                .where(
+                  and(
+                    ...(c.applicableOrganizationIds
+                      ? [inArray(order.sellerId, c.applicableOrganizationIds)]
+                      : []),
+                    eq(order.userId, userId),
+                    gte(order.paymentDate, c.validFrom ?? c.createdAt),
+                    notInArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
+                  ),
+                )
+                .groupBy(order.id, order.discount)
+                .having(
+                  sql`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0) - COALESCE(${order.discount}, 0) >= ${Number(c.issueMinSpend)}`,
+                ),
+              tx
                 .select({ value: count() })
                 .from(userCoupon)
                 .where(
                   and(
                     eq(userCoupon.couponId, c.id),
                     eq(userCoupon.userId, userId),
-                    eq(userCoupon.source, 'birthday'),
-                    gte(userCoupon.createdAt, startOfYear),
+                    eq(userCoupon.source, 'spend'),
                   ),
-                );
-              if (issuedThisYear > 0) return;
+                ),
+            ]);
 
-              await tx.insert(userCoupon).values({
-                id: randomUUID(),
-                couponId: c.id,
-                source: 'birthday',
-                userId,
-              });
+            const deficit = qualified.length - issued;
+            const issuable =
+              deficit > 0 ? Math.min(deficit, await remainingCapacity(c)) : 0;
+            if (issuable > 0) {
+              await tx.insert(userCoupon).values(
+                Array.from({ length: issuable }, () => ({
+                  id: randomUUID(),
+                  couponId: c.id,
+                  source: 'spend' as const,
+                  userId,
+                })),
+              );
             }
-
-            if (c.issueTrigger === 'spend') {
-              const [qualified, [{ value: issued }]] = await Promise.all([
-                tx
-                  .select({ id: order.id })
-                  .from(order)
-                  .innerJoin(orderItem, eq(orderItem.orderId, order.id))
-                  .where(
-                    and(
-                      ...(c.applicableOrganizationIds
-                        ? [inArray(order.sellerId, c.applicableOrganizationIds)]
-                        : []),
-                      eq(order.userId, userId),
-                      gte(order.paymentDate, c.validFrom ?? c.createdAt),
-                      notInArray(order.orderStatus, [
-                        ...ORDER_TERMINAL_STATUSES,
-                      ]),
-                    ),
-                  )
-                  .groupBy(order.id, order.discount)
-                  .having(
-                    sql`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0) - COALESCE(${order.discount}, 0) >= ${Number(c.issueMinSpend)}`,
-                  ),
-                tx
-                  .select({ value: count() })
-                  .from(userCoupon)
-                  .where(
-                    and(
-                      eq(userCoupon.couponId, c.id),
-                      eq(userCoupon.userId, userId),
-                      eq(userCoupon.source, 'spend'),
-                    ),
-                  ),
-              ]);
-
-              const deficit = qualified.length - issued;
-              if (deficit > 0) {
-                await tx.insert(userCoupon).values(
-                  Array.from({ length: deficit }, () => ({
-                    id: randomUUID(),
-                    couponId: c.id,
-                    source: 'spend' as const,
-                    userId,
-                  })),
-                );
-              }
-            }
-          }),
-        );
+          }
+        }
       });
     } catch (error) {
       if (!isCouponDeleted(error)) throw error;
