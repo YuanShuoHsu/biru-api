@@ -338,7 +338,10 @@ export class SalesReportService {
 
     return rows.map((row) => ({
       ...row,
-      name: row.key === UNCATEGORIZED_KEY ? this.uncategorizedName() : row.name,
+      name:
+        groupBy === 'category' && row.key === UNCATEGORIZED_KEY
+          ? this.uncategorizedName()
+          : row.name,
       net: roundMoney(row.revenue - row.refunded),
     }));
   }
