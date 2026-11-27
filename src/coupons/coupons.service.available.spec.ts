@@ -103,6 +103,16 @@ describe('CouponsService.getAvailable 每人限用次數', () => {
     ]);
   });
 
+  it('依訂單實際用的券計算，不受改碼或碼被重用影響', async () => {
+    await addOrder('o1', 'RENAMED');
+    await addOrder('o2', 'ONCE');
+    await client.query(
+      `update "order" set coupon_id = case id when 'o1' then 'scoped' else 'twice' end`,
+    );
+
+    expect(await availableIds('a')).toEqual(['anyone', 'once', 'twice']);
+  });
+
   it('幣別與店家不同的定額券與有最低消費的券不列出', async () => {
     await db.insert(coupon).values([
       {

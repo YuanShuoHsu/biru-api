@@ -105,7 +105,7 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
   changes are still in the store's own audit log); a store without a row is `unclassified`
 - `menus.ts` — `menu`, `menuSection`, `menuItem`, `offer`, `menuItemAddOn`, `modifierGroup`, `modifier`, `menuItemModifierGroup`
 - `catalog.ts` — `catalogSection`, `catalogItem`, `catalogItemAddOn`, `catalogModifierGroup`, `catalogModifier`, `catalogItemModifierGroup` (the brand catalog, `docs/menu-catalog.md`)
-- `orders.ts` — `order`, `orderItem`
+- `orders.ts` — `order` (`coupon_id`: the coupon the order used, whatever its code is changed to later; match a coupon by it, not by `discount_code`), `orderItem`
 - `coupons.ts` — `coupon`, `userCoupon`
 - `points.ts` — `pointTransaction`, `pointSetting` (the single brand-wide row of point rules), `pointAllocation` (one row per
   reduction of a lot's `remainingPoints`: the lot, its issuing store and the consuming transaction)

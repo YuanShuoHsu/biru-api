@@ -711,6 +711,7 @@ export class OrdersService {
             sharedCartId: sharedCartOrder?.sharedCartId ?? null,
             tableNumber: isDineIn ? dto.tableNumber : null,
             ...(applied && {
+              couponId: applied.coupon.id,
               discount: applied.discount.toFixed(2),
               discountCode: applied.coupon.code,
               discountCurrency: org.currency,
