@@ -9,6 +9,7 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import type { OrderPricingService } from '../orders/order-pricing.service.js';
 
 import { CouponsService } from './coupons.service.js';
+import type { CouponPaginationQueryDto } from './dto/coupon-pagination-query.dto.js';
 
 describe('CouponsService 分頁同值排序', () => {
   const createdAt = new Date('2026-11-01T00:00:00Z');
@@ -284,4 +285,106 @@ describe('CouponsService 空值排序', () => {
       expect(data.map(({ id }) => id)).toEqual(ids);
     },
   );
+});
+
+describe('CouponsService 依到期日、總量與折扣類型篩選排序', () => {
+  let client: PGlite;
+  let service: CouponsService;
+
+  beforeAll(async () => {
+    client = createPGlite();
+    const db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    service = new CouponsService(
+      db as unknown as DrizzleDB,
+      {} as OrderPricingService,
+    );
+
+    await db.insert(coupon).values(
+      [
+        {
+          discountType: 'percentage' as const,
+          id: 'open',
+          totalLimit: null,
+          validThrough: null,
+        },
+        {
+          discountType: 'fixed' as const,
+          id: 'soon',
+          totalLimit: 10,
+          validThrough: new Date('2026-11-10T00:00:00Z'),
+        },
+        {
+          discountType: 'fixed' as const,
+          id: 'later',
+          totalLimit: 100,
+          validThrough: new Date('2026-12-31T00:00:00Z'),
+        },
+      ].map((row) => ({ ...row, code: `CODE-${row.id}`, discountValue: '10' })),
+    );
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  const ids = async (query: CouponPaginationQueryDto) =>
+    (await service.findAll(query)).data.map(({ id }) => id);
+
+  it.each([
+    ['asc', ['soon', 'later', 'open']],
+    ['desc', ['open', 'later', 'soon']],
+  ] as const)(
+    '券列表依到期時間排序時沒有到期時間視為最晚（%s）',
+    async (sortDirection, expected) => {
+      await expect(
+        ids({ sortBy: 'validThrough', sortDirection }),
+      ).resolves.toEqual(expected);
+    },
+  );
+
+  it.each([
+    ['asc', ['soon', 'later', 'open']],
+    ['desc', ['open', 'later', 'soon']],
+  ] as const)(
+    '券列表依總量排序時不限總量視為最大（%s）',
+    async (sortDirection, expected) => {
+      await expect(
+        ids({ sortBy: 'totalLimit', sortDirection }),
+      ).resolves.toEqual(expected);
+    },
+  );
+
+  it('券列表依到期時間篩選，沒有到期時間的不算到期', async () => {
+    await expect(
+      ids({
+        filterField: 'validThrough',
+        filterOperator: 'before',
+        filterValue: '2026-12-01',
+      }),
+    ).resolves.toEqual(['soon']);
+    await expect(
+      ids({ filterField: 'validThrough', filterOperator: 'isEmpty' }),
+    ).resolves.toEqual(['open']);
+  });
+
+  it('券列表依總量篩選', async () => {
+    await expect(
+      ids({
+        filterField: 'totalLimit',
+        filterOperator: '>=',
+        filterValue: '50',
+      }),
+    ).resolves.toEqual(['later']);
+  });
+
+  it('券列表依折扣類型篩選', async () => {
+    await expect(
+      ids({
+        filterField: 'discountType',
+        filterOperator: 'is',
+        filterValue: 'percentage',
+      }),
+    ).resolves.toEqual(['open']);
+  });
 });
