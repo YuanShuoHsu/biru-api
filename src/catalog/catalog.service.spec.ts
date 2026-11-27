@@ -9,10 +9,20 @@ import { createPGlite } from '../../test/pglite.js';
 import {
   catalogItem,
   catalogItemAddOn,
+  catalogItemModifierGroup,
+  catalogModifier,
+  catalogModifierGroup,
   catalogSection,
 } from '../db/schema/catalog.js';
 import * as schema from '../db/schema/index.js';
-import { menu, menuItem, menuSection, offer } from '../db/schema/menus.js';
+import {
+  menu,
+  menuItem,
+  menuSection,
+  modifier,
+  modifierGroup,
+  offer,
+} from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { ImageStorageService } from '../images/image-storage.service.js';
 
@@ -548,6 +558,397 @@ describe('CatalogService', () => {
       it('品項不存在時回找不到', async () => {
         expect(await errorCode(service.deleteItem('missing'))).toBe(
           'catalogItemNotFound',
+        );
+      });
+    });
+  });
+
+  describe('catalog modifier groups', () => {
+    beforeEach(async () => {
+      await db.delete(modifierGroup);
+      await db.delete(catalogModifierGroup);
+      await db.insert(catalogModifierGroup).values([
+        {
+          id: 'sugar',
+          displayName: name('甜度'),
+          minSelectionCount: 1,
+          maxSelectionCount: 1,
+          sortOrder: 0,
+        },
+        { id: 'toppings', displayName: name('加料'), sortOrder: 1 },
+        {
+          id: 'local-group',
+          ownerOrganizationId: ORG,
+          displayName: name('本店加料'),
+          sortOrder: 0,
+        },
+      ]);
+      await db.insert(catalogModifier).values([
+        {
+          id: 'half',
+          catalogModifierGroupId: 'sugar',
+          displayName: name('半糖'),
+          sortOrder: 0,
+        },
+        {
+          id: 'none',
+          catalogModifierGroupId: 'sugar',
+          displayName: name('無糖'),
+          sortOrder: 1,
+        },
+        {
+          id: 'pearl',
+          catalogModifierGroupId: 'toppings',
+          displayName: name('珍珠'),
+          priceAdjustment: '10.00',
+          sortOrder: 0,
+        },
+      ]);
+    });
+
+    const groupSortOrders = async () =>
+      (await service.modifierGroups()).map(({ id, sortOrder }) => [
+        id,
+        sortOrder,
+      ]);
+
+    const modifierSortOrders = async (catalogModifierGroupId: string) =>
+      (await service.modifiers(catalogModifierGroupId)).map(
+        ({ id, sortOrder }) => [id, sortOrder],
+      );
+
+    const overrideModifier = async (
+      catalogModifierId: string,
+      menuId: string,
+    ) => {
+      await db
+        .insert(modifierGroup)
+        .values({ id: `${menuId}-group`, menuId, displayName: name('甜度') })
+        .onConflictDoNothing();
+      await db.insert(modifier).values({
+        id: `${menuId}-${catalogModifierId}`,
+        modifierGroupId: `${menuId}-group`,
+        menuId,
+        catalogModifierId,
+        displayName: name('選項'),
+      });
+    };
+
+    const errorResponse = (promise: Promise<unknown>) =>
+      promise.then(
+        () => undefined,
+        (error: { getResponse: () => Record<string, unknown> }) =>
+          error.getResponse(),
+      );
+
+    describe('createModifierGroup', () => {
+      it('建立品牌群組，排在品牌群組最前面，不動獨家群組', async () => {
+        const created = await service.createModifierGroup({
+          displayName: name('冰塊'),
+          minSelectionCount: 1,
+          maxSelectionCount: 1,
+        });
+
+        expect(created).toMatchObject({
+          ownerOrganizationId: null,
+          minSelectionCount: 1,
+          maxSelectionCount: 1,
+          sortOrder: 0,
+        });
+        expect(await groupSortOrders()).toEqual([
+          [created.id, 0],
+          ['sugar', 1],
+          ['toppings', 2],
+          ['local-group', 0],
+        ]);
+      });
+
+      it('最多選擇數量少於最少選擇數量時拒絕', async () => {
+        expect(
+          await errorCode(
+            service.createModifierGroup({
+              displayName: name('冰塊'),
+              minSelectionCount: 2,
+              maxSelectionCount: 1,
+            }),
+          ),
+        ).toBe('selectionCountInvalid');
+      });
+    });
+
+    describe('updateModifierGroup', () => {
+      it('只改最多選擇數量時以現有的最少選擇數量檢查', async () => {
+        await db
+          .update(catalogModifierGroup)
+          .set({ minSelectionCount: 2, maxSelectionCount: null })
+          .where(eq(catalogModifierGroup.id, 'toppings'));
+
+        expect(
+          await errorCode(
+            service.updateModifierGroup('toppings', { maxSelectionCount: 1 }),
+          ),
+        ).toBe('selectionCountInvalid');
+        expect(
+          await service.updateModifierGroup('toppings', {
+            maxSelectionCount: 3,
+          }),
+        ).toMatchObject({ minSelectionCount: 2, maxSelectionCount: 3 });
+      });
+
+      it('最多選擇數量可設為 null（不限）', async () => {
+        expect(
+          await service.updateModifierGroup('sugar', {
+            maxSelectionCount: null,
+          }),
+        ).toMatchObject({ minSelectionCount: 1, maxSelectionCount: null });
+      });
+
+      it('群組不存在時回找不到', async () => {
+        expect(
+          await errorCode(
+            service.updateModifierGroup('missing', { displayName: name('x') }),
+          ),
+        ).toBe('catalogModifierGroupNotFound');
+      });
+    });
+
+    it('reorderModifierGroups 只重排品牌群組', async () => {
+      await service.reorderModifierGroups(['local-group', 'toppings', 'sugar']);
+
+      expect(await groupSortOrders()).toEqual([
+        ['toppings', 0],
+        ['sugar', 1],
+        ['local-group', 0],
+      ]);
+    });
+
+    it('modifierGroup 群組不存在時回找不到', async () => {
+      expect(await errorCode(service.modifierGroup('missing'))).toBe(
+        'catalogModifierGroupNotFound',
+      );
+    });
+
+    describe('deleteModifierGroup', () => {
+      it('還有品項連結時拒絕並列出品項', async () => {
+        await db.insert(catalogItem).values({
+          id: 'latte',
+          catalogSectionId: 'coffee',
+          name: name('拿鐵'),
+        });
+        await db.insert(catalogItemModifierGroup).values({
+          id: 'latte-sugar',
+          catalogItemId: 'latte',
+          catalogModifierGroupId: 'sugar',
+        });
+
+        expect(
+          await errorResponse(service.deleteModifierGroup('sugar')),
+        ).toMatchObject({
+          code: 'catalogModifierGroupLinked',
+          catalogItems: [{ id: 'latte', name: '拿鐵' }],
+        });
+        expect(await service.modifierGroup('sugar')).toMatchObject({
+          id: 'sugar',
+        });
+      });
+
+      it('底下選項還有門市覆寫列時拒絕並列出門市', async () => {
+        await overrideModifier('half', 'menu');
+        await overrideModifier('none', 'other-menu');
+
+        expect(
+          await errorResponse(service.deleteModifierGroup('sugar')),
+        ).toMatchObject({
+          code: 'catalogModifierGroupInUse',
+          organizations: [
+            { id: ORG, name: 'biru' },
+            { id: OTHER_ORG, name: 'other' },
+          ],
+        });
+        expect(await modifierSortOrders('sugar')).toHaveLength(2);
+      });
+
+      it('覆寫列掛在別的群組的選項上時不擋這個群組的刪除', async () => {
+        await overrideModifier('pearl', 'menu');
+
+        expect(await service.deleteModifierGroup('sugar')).toMatchObject({
+          id: 'sugar',
+        });
+      });
+
+      it('沒有連結與覆寫列時連同底下選項刪除', async () => {
+        expect(await service.deleteModifierGroup('sugar')).toMatchObject({
+          id: 'sugar',
+        });
+        expect(
+          (await db.select().from(catalogModifier)).map(({ id }) => id),
+        ).toEqual(['pearl']);
+      });
+
+      it('群組不存在時回找不到', async () => {
+        expect(await errorCode(service.deleteModifierGroup('missing'))).toBe(
+          'catalogModifierGroupNotFound',
+        );
+      });
+    });
+
+    describe('createModifier', () => {
+      it('建立選項，排在群組最前面，不動其他群組', async () => {
+        const created = await service.createModifier('sugar', {
+          displayName: name('全糖'),
+          priceAdjustment: '5.00',
+        });
+
+        expect(created).toMatchObject({
+          catalogModifierGroupId: 'sugar',
+          priceAdjustment: '5.00',
+          sortOrder: 0,
+        });
+        expect(await modifierSortOrders('sugar')).toEqual([
+          [created.id, 0],
+          ['half', 1],
+          ['none', 2],
+        ]);
+        expect(await modifierSortOrders('toppings')).toEqual([['pearl', 0]]);
+      });
+
+      it('建立時寫入自備杯、杯型與封口', async () => {
+        expect(
+          await service.createModifier('sugar', {
+            displayName: name('自備杯'),
+            customerProvidedCup: true,
+            cupSize: '16oz',
+            cupSeal: 'lid',
+          }),
+        ).toMatchObject({
+          customerProvidedCup: true,
+          cupSize: '16oz',
+          cupSeal: 'lid',
+        });
+      });
+
+      it('群組不存在時回找不到', async () => {
+        expect(
+          await errorCode(
+            service.createModifier('missing', { displayName: name('全糖') }),
+          ),
+        ).toBe('catalogModifierGroupNotFound');
+      });
+    });
+
+    describe('modifiers', () => {
+      it('依排序列出群組的選項，不回傳圖片本體', async () => {
+        await db
+          .update(catalogModifier)
+          .set({ image: 'data:image/png;base64,AAAA' })
+          .where(eq(catalogModifier.id, 'half'));
+
+        const modifiers = await service.modifiers('sugar');
+
+        expect(modifiers.map(({ id }) => id)).toEqual(['half', 'none']);
+        expect(modifiers[0]).not.toHaveProperty('image');
+        expect(modifiers[0].imageRef).toMatch(/^image\/png [0-9a-f]{16}$/);
+      });
+
+      it('群組不存在時回找不到', async () => {
+        expect(await errorCode(service.modifiers('missing'))).toBe(
+          'catalogModifierGroupNotFound',
+        );
+      });
+    });
+
+    describe('updateModifier', () => {
+      it('更新名稱與建議加價', async () => {
+        expect(
+          await service.updateModifier('pearl', {
+            displayName: name('黑糖珍珠'),
+            priceAdjustment: null,
+          }),
+        ).toMatchObject({
+          displayName: name('黑糖珍珠'),
+          priceAdjustment: null,
+        });
+      });
+
+      it('以 null 清除杯型與封口', async () => {
+        await db
+          .update(catalogModifier)
+          .set({ cupSize: '16oz', cupSeal: 'film' })
+          .where(eq(catalogModifier.id, 'pearl'));
+
+        expect(
+          await service.updateModifier('pearl', {
+            cupSize: null,
+            cupSeal: null,
+          }),
+        ).toMatchObject({ cupSize: null, cupSeal: null });
+      });
+
+      it('只更新送出的杯子欄位，其他欄位不變', async () => {
+        await db
+          .update(catalogModifier)
+          .set({ customerProvidedCup: true, cupSeal: 'lid' })
+          .where(eq(catalogModifier.id, 'pearl'));
+
+        expect(
+          await service.updateModifier('pearl', { cupSize: '16oz' }),
+        ).toMatchObject({
+          customerProvidedCup: true,
+          cupSize: '16oz',
+          cupSeal: 'lid',
+        });
+      });
+
+      it('選項不存在時回找不到', async () => {
+        expect(
+          await errorCode(
+            service.updateModifier('missing', { displayName: name('x') }),
+          ),
+        ).toBe('catalogModifierNotFound');
+      });
+    });
+
+    it('reorderModifiers 只重排該群組的選項', async () => {
+      await service.reorderModifiers('sugar', ['none', 'half', 'pearl']);
+
+      expect(await modifierSortOrders('sugar')).toEqual([
+        ['none', 0],
+        ['half', 1],
+      ]);
+      expect(await modifierSortOrders('toppings')).toEqual([['pearl', 0]]);
+    });
+
+    it('modifier 選項不存在時回找不到', async () => {
+      expect(await errorCode(service.modifier('missing'))).toBe(
+        'catalogModifierNotFound',
+      );
+    });
+
+    describe('deleteModifier', () => {
+      it('還有門市覆寫列時拒絕並列出門市', async () => {
+        await overrideModifier('half', 'menu');
+
+        expect(
+          await errorResponse(service.deleteModifier('half')),
+        ).toMatchObject({
+          code: 'catalogModifierInUse',
+          organizations: [{ id: ORG, name: 'biru' }],
+        });
+        expect(await service.modifier('half')).toMatchObject({ id: 'half' });
+      });
+
+      it('沒有覆寫列時刪除並回傳該列', async () => {
+        await overrideModifier('none', 'menu');
+
+        expect(await service.deleteModifier('half')).toMatchObject({
+          id: 'half',
+        });
+        expect(await modifierSortOrders('sugar')).toEqual([['none', 1]]);
+      });
+
+      it('選項不存在時回找不到', async () => {
+        expect(await errorCode(service.deleteModifier('missing'))).toBe(
+          'catalogModifierNotFound',
         );
       });
     });
