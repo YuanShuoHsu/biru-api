@@ -95,7 +95,7 @@
 
 **`catalog_modifier_group`**：`id`、`owner_organization_id`（cascade）、`display_name`、`min_selection_count`、`max_selection_count`、`sort_order`，欄位定義照抄 `menus.ts:270-273`。
 
-**`catalog_modifier`**：`id`、`catalog_modifier_group_id`（not null，cascade）、`display_name`、`image`、`price_adjustment`（建議加價，null 代表不加價）、`sort_order`。
+**`catalog_modifier`**：`id`、`catalog_modifier_group_id`（not null，cascade）、`display_name`、`image`、`price_adjustment`（建議加價，null 代表不加價）、`customer_provided_cup`（boolean not null default false）、`cup_size`（`cup_size`，可空）、`cup_seal`（`cup_seal`，可空）、`sort_order`。
 供應狀態、售完與點餐模式不在這裡，屬於門市覆寫。
 
 **`catalog_item_modifier_group`**：`id`、`catalog_item_id`（cascade）、`catalog_modifier_group_id`（cascade）、`sort_order`，唯一 `(catalog_item_id, catalog_modifier_group_id)`，比照 `menus.ts:325-328`。
@@ -140,7 +140,7 @@
 
 | 刪除的目錄列             | 規則                                                                                                                                                                                                                                                                                                                                              |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `catalog_item`           | 還有門市上架中（`availability` 不是 `Discontinued`）就拒絕並列出門市；PR 5a 以前只要有任何上架列就拒絕。PR 5a 起才在同一交易內刪除已下架的上架列與 offer，再刪目錄品項，這些上架列的食譜會失去綁定（見問題 19）。被其他品項當加購目標的 `catalog_item_add_on` 列隨品項連帶刪除，與品項同一批次進 `deleted_record`；以分類為加購目標的列在 3c 決定 |
+| `catalog_item`           | 還有門市上架中（`availability` 不是 `Discontinued`）就拒絕並列出門市；PR 5a 以前只要有任何上架列就拒絕。PR 5a 起才在同一交易內刪除已下架的上架列與 offer，再刪目錄品項，這些上架列的食譜會失去綁定（見問題 19）。被其他品項當加購目標的 `catalog_item_add_on` 列隨品項連帶刪除，與品項同一批次進 `deleted_record`；以分類為加購目標的列在 3d 決定 |
 | `catalog_modifier`       | PR 5a 以前只要有任何覆寫列就拒絕（這些列還是舊點餐菜單與計價讀的選項，`order-pricing.service.ts:165-170`）；PR 5a 起有覆寫列掛著食譜才拒絕並列出門市，否則先刪覆寫列再刪目錄選項                                                                                                                                                                  |
 | `catalog_section`        | 還有品項或子分類就拒絕；PR 5c 以前有門市的分類設定列也拒絕，PR 5c 起先刪設定列                                                                                                                                                                                                                                                                    |
 | `catalog_modifier_group` | 底下選項依 `catalog_modifier` 的規則逐一檢查；還有品項連結（`catalog_item_modifier_group`）就拒絕並列出品項，不靠 cascade 默默拿掉品項的客製群組                                                                                                                                                                                                  |

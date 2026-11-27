@@ -768,9 +768,15 @@ describe('CatalogService', () => {
         expect(await modifierSortOrders('sugar')).toHaveLength(2);
       });
 
-      it('沒有連結與覆寫列時連同底下選項刪除', async () => {
+      it('覆寫列掛在別的群組的選項上時不擋這個群組的刪除', async () => {
         await overrideModifier('pearl', 'menu');
 
+        expect(await service.deleteModifierGroup('sugar')).toMatchObject({
+          id: 'sugar',
+        });
+      });
+
+      it('沒有連結與覆寫列時連同底下選項刪除', async () => {
         expect(await service.deleteModifierGroup('sugar')).toMatchObject({
           id: 'sugar',
         });

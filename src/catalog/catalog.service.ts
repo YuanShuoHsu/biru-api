@@ -20,7 +20,13 @@ import {
   type CatalogModifierGroup,
   type CatalogSection,
 } from '../db/schema/catalog.js';
-import { menu, menuItem, menuSection, modifier } from '../db/schema/menus.js';
+import {
+  menu,
+  menuItem,
+  menuSection,
+  modifier,
+  modifierGroup,
+} from '../db/schema/menus.js';
 import { organization } from '../db/schema/organizations.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import { ImageStorageService } from '../images/image-storage.service.js';
@@ -56,7 +62,7 @@ const assertBrandSection = (
     throw badRequestError('catalogItemSectionOwnerMismatch');
 };
 
-const assertNotListed = (
+const assertNoReferences = (
   code: CatalogErrorCode,
   key: string,
   rows: { id: string; name: string }[],
@@ -79,7 +85,11 @@ const organizationsOverriding = (tx: Transaction, where: SQL) =>
   tx
     .selectDistinct({ id: organization.id, name: organization.name })
     .from(modifier)
-    .innerJoin(menu, eq(menu.id, modifier.menuId))
+    .leftJoin(modifierGroup, eq(modifierGroup.id, modifier.modifierGroupId))
+    .innerJoin(
+      menu,
+      eq(menu.id, sql`coalesce(${modifier.menuId}, ${modifierGroup.menuId})`),
+    )
     .innerJoin(organization, eq(organization.id, menu.organizationId))
     .where(where)
     .orderBy(asc(organization.name), asc(organization.id));
@@ -369,7 +379,7 @@ export class CatalogService {
         .innerJoin(organization, eq(organization.id, menu.organizationId))
         .where(eq(menuItem.catalogItemId, id))
         .orderBy(asc(organization.name), asc(organization.id));
-      assertNotListed('catalogItemListed', 'organizations', organizations);
+      assertNoReferences('catalogItemListed', 'organizations', organizations);
 
       const [deleted] = await tx
         .delete(catalogItem)
@@ -474,9 +484,15 @@ export class CatalogService {
         .where(eq(catalogModifierGroup.id, id))
         .for('update');
       if (!current) throw notFoundError('catalogModifierGroupNotFound');
+      await tx
+        .select({ id: catalogModifier.id })
+        .from(catalogModifier)
+        .where(eq(catalogModifier.catalogModifierGroupId, id))
+        .orderBy(asc(catalogModifier.id))
+        .for('update');
 
       const lang = toLanguage(I18nContext.current()?.lang);
-      assertNotListed(
+      assertNoReferences(
         'catalogModifierGroupLinked',
         'catalogItems',
         await tx
@@ -492,7 +508,7 @@ export class CatalogService {
           .where(eq(catalogItemModifierGroup.catalogModifierGroupId, id))
           .orderBy(asc(catalogItem.sortOrder), asc(catalogItem.id)),
       );
-      assertNotListed(
+      assertNoReferences(
         'catalogModifierGroupInUse',
         'organizations',
         await organizationsOverriding(
@@ -610,7 +626,7 @@ export class CatalogService {
         .for('update');
       if (!current) throw notFoundError('catalogModifierNotFound');
 
-      assertNotListed(
+      assertNoReferences(
         'catalogModifierInUse',
         'organizations',
         await organizationsOverriding(tx, eq(modifier.catalogModifierId, id)),
