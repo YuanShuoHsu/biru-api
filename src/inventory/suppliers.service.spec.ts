@@ -94,6 +94,13 @@ describe('SuppliersService.findOne', () => {
     });
     expect(filtered.map(({ id }) => id)).toEqual(['invoiced']);
 
+    const { data: notInvoiced } = await service.findAll(ORG, {
+      filterField: 'uniformInvoice',
+      filterOperator: 'is',
+      filterValue: 'false',
+    });
+    expect(notInvoiced.map(({ id }) => id)).toEqual(['supplier']);
+
     const { data: sorted } = await service.findAll(ORG, {
       sortBy: 'uniformInvoice',
       sortDirection: 'desc',
