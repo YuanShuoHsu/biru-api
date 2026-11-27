@@ -320,6 +320,7 @@
     "notReprintable": "Only orders being prepared or ready for pickup can have their ticket reprinted",
     "orderedAt": "Ordered {time}",
     "otherPrinters": "Also at: {printers}",
+    "participant": "Ordered by: {nickname}",
     "pickupTime": "Pickup {time}",
     "printJobResolved": "This ticket has already been confirmed. Please refresh and try again",
     "printerBusy": "New tickets were sent to this printer while it was being removed. Please try again",

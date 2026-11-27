@@ -392,6 +392,7 @@ export type I18nTranslations = {
             "notReprintable": string;
             "orderedAt": string;
             "otherPrinters": string;
+            "participant": string;
             "pickupTime": string;
             "printJobResolved": string;
             "printerBusy": string;
