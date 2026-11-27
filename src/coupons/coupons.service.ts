@@ -1213,6 +1213,13 @@ export class CouponsService {
         eq(coupon.isClaimable, true),
         notPointsRedeem(),
         withinValidity(),
+        userId
+          ? or(
+              withinCapacity(),
+              // RQB 會改寫 sql fragment 內的 Column，跨表欄位須寫死別名
+              sql`EXISTS (SELECT 1 FROM ${userCoupon} AS "uc" WHERE "uc"."coupon_id" = ${coupon.id} AND "uc"."user_id" = ${userId} AND "uc"."source" = 'claimed')`,
+            )
+          : withinCapacity(),
       ),
       orderBy: [desc(coupon.createdAt)],
     });
