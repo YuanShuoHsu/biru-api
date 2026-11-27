@@ -35,7 +35,6 @@ import {
   type ItemSalesReportGroupBy,
   type OrderSalesReportGroupBy,
   SALES_REPORT_NUMBER_FILTER_FIELDS,
-  SALES_REPORT_STRING_FILTER_FIELDS,
   type SalesReportPageQueryDto,
   type SalesReportQueryDto,
   type SalesReportResponseDto,
@@ -64,6 +63,15 @@ const groupKeyOf = (groupBy: OrderSalesReportGroupBy, at: SQL | Column) =>
     paymentMethod: sql<string>`${order.paymentMethod}::text`,
     mode: sql<string>`${order.mode}::text`,
   })[groupBy];
+
+const KEY_FILTER_TYPES = {
+  day: 'dateFields',
+  hour: 'numberFields',
+  paymentMethod: 'enumFields',
+  mode: 'enumFields',
+  menuItem: 'stringFields',
+  category: 'stringFields',
+} as const;
 
 @Injectable()
 export class SalesReportService {
@@ -111,15 +119,21 @@ export class SalesReportService {
     );
 
     const lang = toLanguage(I18nContext.current()?.lang);
+    const withKey = (
+      type: (typeof KEY_FILTER_TYPES)[typeof groupBy],
+      fields: readonly string[],
+    ) => (KEY_FILTER_TYPES[groupBy] === type ? [...fields, 'key'] : fields);
     const page = pageReportRows(rows, query, {
       values: ({ key, name, ...amounts }) => ({
         ...amounts,
         key: groupBy === 'hour' ? Number(key) : key,
         name: localize(name, lang),
       }),
-      stringFields: SALES_REPORT_STRING_FILTER_FIELDS,
-      numberFields: SALES_REPORT_NUMBER_FILTER_FIELDS,
-      textFields: SALES_REPORT_STRING_FILTER_FIELDS,
+      stringFields: withKey('stringFields', ['name']),
+      dateFields: withKey('dateFields', []),
+      enumFields: withKey('enumFields', []),
+      numberFields: withKey('numberFields', SALES_REPORT_NUMBER_FILTER_FIELDS),
+      textFields: ['name'],
     });
 
     return { groupBy, ...page, totals };

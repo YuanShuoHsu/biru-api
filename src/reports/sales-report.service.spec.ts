@@ -590,6 +590,85 @@ describe('SalesReportService', () => {
       expect(await keys('asc')).toEqual(['9', '10']);
       expect(await keys('desc')).toEqual(['10', '9']);
     });
+
+    const groupKeys = async (
+      groupBy: SalesReportPageQueryDto['groupBy'],
+      query: Partial<SalesReportPageQueryDto>,
+    ) =>
+      (
+        await service.getSalesReport('biru', { ...range, groupBy, ...query })
+      ).rows.map(({ key }) => key);
+
+    it('依日分組時 key 依店家時區日期篩選，跨月與跨午夜的邊界落在正確的一天', async () => {
+      const dayKeys = (
+        filterOperator: SalesReportPageQueryDto['filterOperator'],
+        filterValue: string,
+      ) =>
+        groupKeys('day', { filterField: 'key', filterOperator, filterValue });
+
+      expect(await dayKeys('is', '2026-10-01')).toEqual(['2026-10-01']);
+      expect(await dayKeys('not', '2026-10-01')).toEqual([
+        '2026-09-30',
+        '2026-10-02',
+      ]);
+      expect(await dayKeys('before', '2026-10-01')).toEqual(['2026-09-30']);
+      expect(await dayKeys('onOrBefore', '2026-09-30')).toEqual(['2026-09-30']);
+      expect(await dayKeys('after', '2026-09-30')).toEqual([
+        '2026-10-01',
+        '2026-10-02',
+      ]);
+      expect(await dayKeys('onOrAfter', '2026-10-02')).toEqual(['2026-10-02']);
+      expect(await dayKeys('isEmpty', '')).toEqual([]);
+      expect(await dayKeys('contains', '2026-10-01')).toHaveLength(3);
+    });
+
+    it('依小時分組時 key 依數值篩選', async () => {
+      const hourKeys = (
+        filterOperator: SalesReportPageQueryDto['filterOperator'],
+        filterValue: string,
+      ) =>
+        groupKeys('hour', { filterField: 'key', filterOperator, filterValue });
+
+      expect(await hourKeys('>=', '10')).toEqual(['10', '11', '23']);
+      expect(await hourKeys('=', '0')).toEqual(['0']);
+      expect(await hourKeys('isAnyOf', '0,23')).toEqual(['0', '23']);
+    });
+
+    it('依付款方式或點餐方式分組時 key 依列舉值篩選', async () => {
+      expect(
+        await groupKeys('paymentMethod', {
+          filterField: 'key',
+          filterOperator: 'is',
+          filterValue: 'Cash',
+        }),
+      ).toEqual(['Cash']);
+      expect(
+        await groupKeys('mode', {
+          filterField: 'key',
+          filterOperator: 'not',
+          filterValue: 'counter',
+        }),
+      ).toEqual(['pickup']);
+      expect(
+        await groupKeys('mode', {
+          filterField: 'key',
+          filterOperator: 'contains',
+          filterValue: 'pick',
+        }),
+      ).toEqual(['pickup', 'counter']);
+    });
+
+    it('快速搜尋只比對顯示的名稱，不比對 key', async () => {
+      expect(
+        (await itemKeys({ quickFilterValue: 'gone' }, 'zh-TW')).keys,
+      ).toEqual([]);
+      expect(
+        (await itemKeys({ quickFilterValue: '已下架' }, 'zh-TW')).keys,
+      ).toEqual(['gone']);
+      expect(
+        await groupKeys('paymentMethod', { quickFilterValue: 'Cash' }),
+      ).toEqual([]);
+    });
   });
 
   it('依品項目前所屬的菜單分類分組，找不到分類的歸為未分類', async () => {
