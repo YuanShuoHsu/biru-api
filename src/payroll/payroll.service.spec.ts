@@ -273,18 +273,51 @@ describe('Drafting a payslip', () => {
 describe('Estimating payslips for the break-even report', () => {
   const estimateSetup = (snapshot: () => Promise<unknown>) => {
     const update = vi.fn();
+    const leaveTypes = [{ id: 'leave-type' }];
+    const where = () => Object.assign([], { orderBy: () => leaveTypes });
     const transaction = vi.fn(
       async <T>(fn: (tx: unknown) => Promise<T>, _config?: unknown) =>
-        fn({ select: vi.fn(() => ({ from: () => ({ where: () => [] }) })) }),
+        fn({ select: vi.fn(() => ({ from: () => ({ where }) })) }),
     );
+    const ruleSet = { rules: taiwan2026, unconfirmed: [] };
+    const resolve = vi.fn(() => Promise.resolve(ruleSet));
     const service = new PayrollService(
       { transaction, insert: vi.fn(), update } as unknown as DrizzleDB,
-      {} as PayrollRulesService,
+      { resolve } as unknown as PayrollRulesService,
       {} as PayrollEarningsService,
     );
-    Object.defineProperty(service, 'snapshot', { value: vi.fn(snapshot) });
-    return { service, transaction, update };
+    const snapshotFn = vi.fn((..._args: unknown[]) => snapshot());
+    Object.defineProperty(service, 'snapshot', { value: snapshotFn });
+    return {
+      leaveTypes,
+      resolve,
+      ruleSet,
+      service,
+      snapshot: snapshotFn,
+      transaction,
+      update,
+    };
   };
+
+  it('loads the leave types and rule set once for every employee', async () => {
+    const { leaveTypes, resolve, ruleSet, service, snapshot } = estimateSetup(
+      () => Promise.resolve(row.snapshot),
+    );
+
+    await service.estimateSnapshots('org', '2026-02', ['first', 'second']);
+
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(resolve).toHaveBeenCalledWith(expect.anything(), '2026-02');
+    expect(snapshot).toHaveBeenCalledTimes(2);
+    for (const call of snapshot.mock.calls) {
+      const preloaded = call.at(-1) as {
+        leaveTypes: unknown;
+        ruleSet: unknown;
+      };
+      expect(preloaded.leaveTypes).toBe(leaveTypes);
+      expect(preloaded.ruleSet).toBe(ruleSet);
+    }
+  });
 
   it('computes each employee in a read-only transaction and writes nothing', async () => {
     const { service, transaction, update } = estimateSetup(() =>
