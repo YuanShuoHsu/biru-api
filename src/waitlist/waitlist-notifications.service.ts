@@ -72,7 +72,7 @@ export class WaitlistNotificationsService {
         .leftJoin(
           user,
           and(
-            sql`lower(${user.email}) = lower(${waitlistTicket.email})`,
+            eq(user.email, sql`lower(${waitlistTicket.email})`),
             eq(user.emailVerified, true),
           ),
         )

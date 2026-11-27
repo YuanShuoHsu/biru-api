@@ -129,6 +129,14 @@ describe('CouponsService 領券、發券與優惠券異動同時發生', () => {
     await expect(db.query.userCoupon.findMany()).resolves.toEqual([]);
   });
 
+  it('發放時 email 大小寫與前後空白不同仍找到會員', async () => {
+    await service.grant('summer', '  Member@Example.COM ', 'admin');
+
+    await expect(db.query.userCoupon.findMany()).resolves.toMatchObject([
+      { userId: 'member' },
+    ]);
+  });
+
   it('發放時剛設了總量上限且已發完回 usedUp', async () => {
     await service.claim('summer', 'other');
     await changedAfterLookup({ totalLimit: 1 });
