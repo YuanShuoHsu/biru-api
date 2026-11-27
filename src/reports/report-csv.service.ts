@@ -14,11 +14,7 @@ import type { ReportRangeQueryDto } from './dto/report-range-query.dto.js';
 import type { SalesReportQueryDto } from './dto/sales-report.dto.js';
 import { InventoryReportService } from './inventory-report.service.js';
 import { PersonnelCostReportService } from './personnel-cost-report.service.js';
-import {
-  SalesReportService,
-  UNCATEGORIZED_KEY,
-  isItemGroupBy,
-} from './sales-report.service.js';
+import { SalesReportService, isItemGroupBy } from './sales-report.service.js';
 
 type CsvCell = string | number | null | undefined;
 export type CsvColumn = keyof I18nTranslations['common']['reports']['csv'];
@@ -73,9 +69,7 @@ export class ReportCsvService {
           );
         case 'menuItem':
         case 'category':
-          return key === UNCATEGORIZED_KEY
-            ? t('uncategorized')
-            : (localize(name, lang) ?? key);
+          return localize(name, lang) ?? key;
         case 'hour':
           return `${key.padStart(2, '0')}:00`;
         default:

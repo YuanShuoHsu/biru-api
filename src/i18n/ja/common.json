@@ -504,7 +504,6 @@
       "standardCost": "標準原価",
       "theoreticalConsumption": "理論消費量",
       "total": "合計",
-      "uncategorized": "未分類",
       "unit": "単位",
       "unitCost": "単位原価",
       "variance": "差異",
@@ -531,6 +530,7 @@
     },
     "rangeInvalid": "終了日時は開始日時より後にしてください。",
     "rangeTooLong": "レポートの期間は最大 366 日です。",
+    "uncategorized": "未分類",
     "units": {
       "GRM": "グラム",
       "H87": "個",

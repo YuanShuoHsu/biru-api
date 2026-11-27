@@ -576,7 +576,6 @@ export type I18nTranslations = {
                 "standardCost": string;
                 "theoreticalConsumption": string;
                 "total": string;
-                "uncategorized": string;
                 "unit": string;
                 "unitCost": string;
                 "variance": string;
@@ -603,6 +602,7 @@ export type I18nTranslations = {
             };
             "rangeInvalid": string;
             "rangeTooLong": string;
+            "uncategorized": string;
             "units": {
                 "GRM": string;
                 "H87": string;

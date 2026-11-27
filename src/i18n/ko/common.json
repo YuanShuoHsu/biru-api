@@ -504,7 +504,6 @@
       "standardCost": "표준원가",
       "theoreticalConsumption": "이론 소모량",
       "total": "합계",
-      "uncategorized": "미분류",
       "unit": "단위",
       "unitCost": "단위 원가",
       "variance": "차이",
@@ -531,6 +530,7 @@
     },
     "rangeInvalid": "종료 시간은 시작 시간보다 늦어야 합니다.",
     "rangeTooLong": "보고서 기간은 최대 366일입니다.",
+    "uncategorized": "미분류",
     "units": {
       "GRM": "그램",
       "H87": "개",

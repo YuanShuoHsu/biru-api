@@ -127,7 +127,7 @@ export class SalesReportRowDto extends SalesReportTotalsDto {
 
   @ApiPropertyOptional({
     description:
-      '僅 menuItem／category：目前的品項或分類名稱；品項已刪除時為最近一次訂單快照的名稱（以預設語系為 key 存放，快照當時未必是該語系的文字），未分類為 null',
+      '僅 menuItem／category：目前的品項或分類名稱；品項已刪除時為最近一次訂單快照的名稱（以預設語系為 key 存放，快照當時未必是該語系的文字），未分類為各語系的「未分類」',
     type: LocalizedTextDto,
     nullable: true,
   })

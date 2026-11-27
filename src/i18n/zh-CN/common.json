@@ -504,7 +504,6 @@
       "standardCost": "标准成本",
       "theoreticalConsumption": "理论耗用",
       "total": "合计",
-      "uncategorized": "未分类",
       "unit": "单位",
       "unitCost": "单位成本",
       "variance": "差异",
@@ -531,6 +530,7 @@
     },
     "rangeInvalid": "结束时间必须晚于开始时间。",
     "rangeTooLong": "报表区间最多 366 天。",
+    "uncategorized": "未分类",
     "units": {
       "GRM": "克",
       "H87": "个",
