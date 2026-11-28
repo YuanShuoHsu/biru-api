@@ -9,6 +9,7 @@ import {
   eq,
   ilike,
   inArray,
+  notExists,
   notInArray,
   type SQL,
   sql,
@@ -41,6 +42,7 @@ import {
   type StoreOrderReviewListResponseDto,
   type StoreOrderReviewPaginationQueryDto,
 } from './dto/store-order-review.dto.js';
+import { isGuestPersonalDataExpired } from './guest-personal-data.js';
 import { isValidOrderAccessToken } from './order-access-token.js';
 import { badRequestError, notFoundError } from './order-errors.js';
 import { type OrderViewer, OrdersService } from './orders.service.js';
@@ -63,7 +65,7 @@ const toResponse = (
   ),
 });
 
-const storeReviewColumns = {
+const storeReviewColumns = (now: Date) => ({
   id: orderReview.id,
   orderId: orderReview.orderId,
   orderNumber: order.orderNumber,
@@ -74,7 +76,8 @@ const storeReviewColumns = {
   repliedAt: orderReview.repliedAt,
   createdAt: orderReview.createdAt,
   updatedAt: orderReview.updatedAt,
-};
+  canReply: sql<boolean>`(${isGuestPersonalDataExpired(now)}) IS NOT TRUE`,
+});
 
 @Injectable()
 export class OrderReviewsService {
@@ -280,7 +283,7 @@ export class OrderReviewsService {
 
     const [rows, [{ total }]] = await Promise.all([
       this.db
-        .select(storeReviewColumns)
+        .select(storeReviewColumns(new Date()))
         .from(orderReview)
         .innerJoin(order, eq(order.id, orderReview.orderId))
         .where(where)
@@ -303,18 +306,21 @@ export class OrderReviewsService {
     repliedBy: string,
     reply: string,
   ): Promise<StoreOrderReviewDto> {
-    return this.setReply(organizationId, reviewId, {
-      reply,
-      repliedAt: new Date(),
-      repliedBy,
-    });
+    const now = new Date();
+    return this.setReply(
+      organizationId,
+      reviewId,
+      now,
+      { reply, repliedAt: now, repliedBy },
+      isGuestPersonalDataExpired(now),
+    );
   }
 
   async removeReply(
     organizationId: string,
     reviewId: string,
   ): Promise<StoreOrderReviewDto> {
-    return this.setReply(organizationId, reviewId, {
+    return this.setReply(organizationId, reviewId, new Date(), {
       reply: null,
       repliedAt: null,
       repliedBy: null,
@@ -324,25 +330,47 @@ export class OrderReviewsService {
   private async setReply(
     organizationId: string,
     reviewId: string,
+    now: Date,
     values: Pick<
       typeof orderReview.$inferInsert,
       'reply' | 'repliedAt' | 'repliedBy'
     >,
+    refusedOrder?: SQL,
   ): Promise<StoreOrderReviewDto> {
+    const isReview = and(
+      eq(orderReview.id, reviewId),
+      eq(orderReview.organizationId, organizationId),
+    );
     const [updated] = await this.db
       .update(orderReview)
       .set(values)
       .where(
         and(
-          eq(orderReview.id, reviewId),
-          eq(orderReview.organizationId, organizationId),
+          isReview,
+          refusedOrder &&
+            notExists(
+              this.db
+                .select({ id: order.id })
+                .from(order)
+                .where(and(eq(order.id, orderReview.orderId), refusedOrder)),
+            ),
         ),
       )
       .returning({ id: orderReview.id });
-    if (!updated) throw notFoundError('orderReviewNotFound');
+    if (!updated) {
+      const [review] = refusedOrder
+        ? await this.db
+            .select({ id: orderReview.id })
+            .from(orderReview)
+            .where(isReview)
+        : [];
+      throw review
+        ? badRequestError('orderReviewReplyExpired')
+        : notFoundError('orderReviewNotFound');
+    }
 
     const rows = await this.db
-      .select(storeReviewColumns)
+      .select(storeReviewColumns(now))
       .from(orderReview)
       .innerJoin(order, eq(order.id, orderReview.orderId))
       .where(eq(orderReview.id, updated.id));

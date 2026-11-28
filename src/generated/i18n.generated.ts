@@ -452,6 +452,7 @@ export type I18nTranslations = {
             "orderQrSessionNotFound": string;
             "orderReviewLocked": string;
             "orderReviewNotFound": string;
+            "orderReviewReplyExpired": string;
             "orderTotalTooLarge": string;
             "paymentAttemptsExhausted": string;
             "pickupOutsideOpeningHours": string;

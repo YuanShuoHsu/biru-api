@@ -36,6 +36,7 @@ export const orderErrorCodes = [
   'orderQrSessionNotFound',
   'orderReviewLocked',
   'orderReviewNotFound',
+  'orderReviewReplyExpired',
   'orderTotalTooLarge',
   'paymentAttemptsExhausted',
   'pickupOutsideOpeningHours',

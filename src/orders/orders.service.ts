@@ -39,12 +39,7 @@ import type { Invoice, InvoicePrintJob } from '../db/schema/invoices.js';
 import { invoice, invoicePrintJob } from '../db/schema/invoices.js';
 import { orderReview } from '../db/schema/order-reviews.js';
 import type { OrderStatus, PaymentMethod } from '../db/schema/orders.js';
-import {
-  ORDER_ENDED_STATUSES,
-  ORDER_FLOW_STATUSES,
-  order,
-  orderItem,
-} from '../db/schema/orders.js';
+import { ORDER_FLOW_STATUSES, order, orderItem } from '../db/schema/orders.js';
 import type { Organization } from '../db/schema/organizations.js';
 import { member, organization } from '../db/schema/organizations.js';
 import type { OrderTicketJob, Printer } from '../db/schema/printers.js';
@@ -59,7 +54,6 @@ import {
   ADMIN_BOARD_COLUMN_LIMIT,
   ADMIN_BOARD_DONE_COLUMN_LIMIT,
 } from '../common/constants/board.js';
-import { PERSONAL_DATA_RETENTION_MS } from '../common/constants/personal-data.js';
 import {
   STORE_UTC_OFFSET,
   STORE_UTC_OFFSET_MS,
@@ -160,6 +154,11 @@ import type { UserOrderPaginationQueryDto } from './dto/user-order-pagination-qu
 import { isValidOrderAccessToken } from './order-access-token.js';
 import { OrderPricingService } from './order-pricing.service.js';
 import { isCountedOrder } from './counted-orders.js';
+import {
+  isEndedGuestOrder,
+  maskedCustomerName,
+  personalDataCutoff,
+} from './guest-personal-data.js';
 import { isProblemAwaitingRecheck } from './problem-recheck.js';
 import {
   IN_FLIGHT_ORDER_TICKET_STATUSES,
@@ -1839,15 +1838,12 @@ export class OrdersService {
 
   async erasePersonalData(): Promise<number> {
     const now = new Date();
-    const cutoff = new Date(now.getTime() - PERSONAL_DATA_RETENTION_MS);
-    const maskedName = sql`left(${order.customer}->>'name', 1) || '**'`;
     const isDue = and(
-      isNull(order.userId),
-      inArray(order.orderStatus, [...ORDER_ENDED_STATUSES]),
-      lt(order.updatedAt, cutoff),
+      isEndedGuestOrder,
+      lt(order.updatedAt, personalDataCutoff(now)),
       or(
         sql`${order.customer} - 'name' <> '{}'::jsonb`,
-        sql`${order.customer}->>'name' IS DISTINCT FROM ${maskedName}`,
+        sql`${order.customer}->>'name' IS DISTINCT FROM ${maskedCustomerName}`,
         exists(
           this.db
             .select({ id: orderReview.id })
@@ -1916,7 +1912,7 @@ export class OrdersService {
         const rows = await tx
           .update(order)
           .set({
-            customer: sql`jsonb_build_object('name', ${maskedName})`,
+            customer: sql`jsonb_build_object('name', ${maskedCustomerName})`,
             idempotencyFingerprint: null,
           })
           .where(inArray(order.id, ids))

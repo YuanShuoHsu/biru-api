@@ -32,12 +32,18 @@ describe('OrderReviewsService (store)', () => {
          ('org', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
          ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段');
        insert into "user" (id, name, first_name, email, lang) values
-         ('staff', 'Staff', 'Staff', 'staff@example.com', 'zh-TW');
+         ('staff', 'Staff', 'Staff', 'staff@example.com', 'zh-TW'),
+         ('amy', 'Amy', 'Amy', 'amy@example.com', 'zh-TW');
        insert into "order" (id, customer, mode, order_number, confirmation_number, order_status, payment_method, seller_id, subtotal) values
          ('o1', '{}', 'pickup', '1', 'A001', 'OrderDelivered', 'Cash', 'org', 100),
          ('o2', '{}', 'pickup', '2', null, 'OrderDelivered', 'Cash', 'org', 100),
          ('o3', '{}', 'pickup', '3', null, 'OrderDelivered', 'Cash', 'org', 100),
          ('x1', '{}', 'pickup', '1', null, 'OrderDelivered', 'Cash', 'other', 100);
+       insert into "order" (id, customer, mode, order_number, order_status, payment_method, seller_id, subtotal, user_id, updated_at) values
+         ('old-guest', '{"name":"王小明","email":"ming@example.com"}', 'pickup', '4', 'OrderDelivered', 'Cash', 'other', 100, null, now() - interval '31 days'),
+         ('erased-guest', '{"name":"王**"}', 'pickup', '5', 'OrderDelivered', 'Cash', 'other', 100, null, now()),
+         ('old-member', '{"name":"Amy"}', 'pickup', '6', 'OrderDelivered', 'Cash', 'other', 100, 'amy', now() - interval '1 year'),
+         ('old-open-guest', '{"name":"王小明"}', 'pickup', '7', 'OrderProcessing', 'Cash', 'other', 100, null, now() - interval '31 days');
        insert into order_item (id, menu_item_id, menu_item_name, order_id, order_quantity, unit_price) values
          ('o1-latte', 'm1', 'Latte', 'o1', 1, 50),
          ('o1-mocha', 'm2', 'Mocha', 'o1', 1, 50);
@@ -45,7 +51,11 @@ describe('OrderReviewsService (store)', () => {
          ('r1', 'o1', 'org', 5, '很好喝', null, null, null, '2026-11-01 02:00:00'),
          ('r2', 'o2', 'org', 2, '太甜', '下次少糖', now(), 'staff', '2026-11-10 02:00:00'),
          ('r3', 'o3', 'org', 4, null, null, null, null, '2026-11-20 02:00:00'),
-         ('rx', 'x1', 'other', 1, '其他店', null, null, null, '2026-11-15 02:00:00');
+         ('rx', 'x1', 'other', 1, '其他店', null, null, null, '2026-11-15 02:00:00'),
+         ('r-old-guest', 'old-guest', 'other', 3, '普通', '謝謝', now(), 'staff', '2026-10-01 02:00:00'),
+         ('r-erased-guest', 'erased-guest', 'other', 3, null, null, null, null, '2026-10-02 02:00:00'),
+         ('r-old-member', 'old-member', 'other', 3, '普通', null, null, null, '2026-10-03 02:00:00'),
+         ('r-old-open-guest', 'old-open-guest', 'other', 3, '普通', null, null, null, '2026-10-04 02:00:00');
        insert into order_review_item (id, review_id, order_item_id, liked) values
          ('r1-latte', 'r1', 'o1-latte', true),
          ('r1-mocha', 'r1', 'o1-mocha', false);`,
@@ -81,6 +91,7 @@ describe('OrderReviewsService (store)', () => {
       repliedAt: null,
       createdAt: expect.any(Date),
       updatedAt: expect.any(Date),
+      canReply: true,
     });
   });
 
@@ -183,6 +194,65 @@ describe('OrderReviewsService (store)', () => {
       `select reply from order_review where id = 'rx'`,
     );
     expect(rows).toEqual([{ reply: null }]);
+  });
+
+  it.each([
+    ['past the personal data retention period', 'r-old-guest'],
+    ['already de-identified', 'r-erased-guest'],
+  ])(
+    'refuses to reply to a review of a guest order %s, since the reply would be erased',
+    async (_, reviewId) => {
+      const { rows: before } = await client.query(
+        `select reply from order_review where id = $1`,
+        [reviewId],
+      );
+
+      await expect(
+        service.reply('other', reviewId, 'staff', '謝謝'),
+      ).rejects.toMatchObject({
+        status: 400,
+        response: { code: 'orderReviewReplyExpired' },
+      });
+
+      const { rows } = await client.query(
+        `select reply from order_review where id = $1`,
+        [reviewId],
+      );
+      expect(rows).toEqual(before);
+    },
+  );
+
+  it.each([
+    ['a member order however old', 'r-old-member'],
+    ['a guest order that has not ended', 'r-old-open-guest'],
+  ])('replies to a review of %s', async (_, reviewId) => {
+    await expect(
+      service.reply('other', reviewId, 'staff', '謝謝'),
+    ).resolves.toMatchObject({ id: reviewId, reply: '謝謝', canReply: true });
+  });
+
+  it('still removes the reply on a guest order past the retention period', async () => {
+    await expect(
+      service.removeReply('other', 'r-old-guest'),
+    ).resolves.toMatchObject({
+      id: 'r-old-guest',
+      reply: null,
+      canReply: false,
+    });
+  });
+
+  it('tells whether each review can still be replied to', async () => {
+    const { data } = await service.listForOrganization('other');
+
+    expect(
+      Object.fromEntries(data.map(({ id, canReply }) => [id, canReply])),
+    ).toEqual({
+      rx: true,
+      'r-old-guest': false,
+      'r-erased-guest': false,
+      'r-old-member': true,
+      'r-old-open-guest': true,
+    });
   });
 
   it.each([

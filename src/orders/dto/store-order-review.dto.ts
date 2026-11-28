@@ -98,6 +98,11 @@ export class StoreOrderReviewDto {
   createdAt: Date;
 
   updatedAt: Date;
+
+  @ApiProperty({
+    description: 'false 時新增或修改回覆會以 orderReviewReplyExpired 拒絕',
+  })
+  canReply: boolean;
 }
 
 export class StoreOrderReviewListResponseDto {
