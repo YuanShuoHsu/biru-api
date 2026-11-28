@@ -663,14 +663,28 @@ describe('PointsService.findAllForOrganization', () => {
       ).toEqual([{ orderId: 'o1', points: 10 }]);
     });
 
-    it('訪客與未付款的訂單不入點', async () => {
+    it('訪客、未付款、已取消、不滿 1 點與啟用前付款的訂單不入點', async () => {
       await addPaidOrder('guest', ORG, null);
       await addPaidOrder('unpaid', ORG, 'amy', {
         orderStatus: 'OrderPaymentDue',
         paymentDate: null,
       });
 
-      for (const id of ['guest', 'unpaid'])
+      await addPaidOrder('cancelled', ORG, 'amy', {
+        orderStatus: 'OrderCancelled',
+      });
+      await addPaidOrder('small', ORG, 'amy', { unitPrice: '9' });
+      await addPaidOrder('beforeEnabled', ORG, 'amy', {
+        paymentDate: '2025-12-01',
+      });
+
+      for (const id of [
+        'guest',
+        'unpaid',
+        'cancelled',
+        'small',
+        'beforeEnabled',
+      ])
         await db.transaction((tx) =>
           service.earnForOrder(tx as unknown as DrizzleDB, id),
         );
