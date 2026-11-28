@@ -114,14 +114,14 @@ export class BreakEvenReportService {
   ) {}
 
   async getBreakEvenReport(
-    organizationSlug: string,
+    organizationId: string,
     query: BreakEvenReportPageQueryDto,
     now = new Date(),
   ): Promise<BreakEvenReportResponseDto> {
     const { month } = query;
     const org = await this.db.query.organization.findFirst({
-      where: eq(organization.slug, organizationSlug),
-      columns: { id: true, openingHours: true },
+      where: eq(organization.id, organizationId),
+      columns: { openingHours: true },
     });
     if (!org) throw organizationNotFoundError();
 
@@ -139,14 +139,14 @@ export class BreakEvenReportService {
       windowItems,
       windowFees,
     ] = await Promise.all([
-      this.openDaysOf(org.id, org.openingHours, start, end, now),
-      this.fixedCostsOf(org.id, month),
-      this.personnelOf(org.id, month),
-      this.salesReportService.orderRows(org.id, start, end),
-      this.itemsOf(org.id, start, end),
-      this.paymentFeesOf(org.id, start, end),
-      this.itemsOf(org.id, rateSince, rateUntil),
-      this.paymentFeesOf(org.id, rateSince, rateUntil),
+      this.openDaysOf(organizationId, org.openingHours, start, end, now),
+      this.fixedCostsOf(organizationId, month),
+      this.personnelOf(organizationId, month),
+      this.salesReportService.orderRows(organizationId, start, end),
+      this.itemsOf(organizationId, start, end),
+      this.paymentFeesOf(organizationId, start, end),
+      this.itemsOf(organizationId, rateSince, rateUntil),
+      this.paymentFeesOf(organizationId, rateSince, rateUntil),
     ]);
 
     const personnelCost: BreakEvenPersonnelDto =
@@ -189,7 +189,7 @@ export class BreakEvenReportService {
     );
 
     const { costOfGoodsSoldRate, costRateSource } = await this.costRateOf(
-      org.id,
+      organizationId,
       windowItems,
     );
     const paymentFeeRate =

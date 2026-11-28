@@ -19,7 +19,6 @@ import {
 } from '../db/schema/enums.js';
 import { menuItem, menuSection } from '../db/schema/menus.js';
 import { order, orderItem } from '../db/schema/orders.js';
-import { organization } from '../db/schema/organizations.js';
 import { refund } from '../db/schema/refunds.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
@@ -27,7 +26,6 @@ import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
 import { toLanguage } from '../common/utils/language.js';
-import { organizationNotFoundError } from '../common/utils/organizations.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import { localize } from '../menus/menus-public.service.js';
 import {
@@ -85,21 +83,15 @@ export class SalesReportService {
   ) {}
 
   async getSalesReport(
-    organizationSlug: string,
+    organizationId: string,
     query: SalesReportPageQueryDto,
   ): Promise<SalesReportResponseDto> {
     const { groupBy } = query;
     const { since, until } = parseReportRange(query);
 
-    const org = await this.db.query.organization.findFirst({
-      where: eq(organization.slug, organizationSlug),
-      columns: { id: true },
-    });
-    if (!org) throw organizationNotFoundError();
-
     const rows = isItemGroupBy(groupBy)
-      ? await this.itemRows(org.id, since, until, groupBy)
-      : await this.orderRows(org.id, since, until, groupBy);
+      ? await this.itemRows(organizationId, since, until, groupBy)
+      : await this.orderRows(organizationId, since, until, groupBy);
     rows.sort((a, b) => {
       switch (groupBy) {
         case 'day':
@@ -112,7 +104,7 @@ export class SalesReportService {
     });
 
     const totalRows = isItemGroupBy(groupBy)
-      ? await this.orderRows(org.id, since, until)
+      ? await this.orderRows(organizationId, since, until)
       : rows;
     const totals = totalRows.reduce<SalesReportTotalsDto>(
       (sum, row) => ({

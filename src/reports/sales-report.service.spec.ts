@@ -319,7 +319,7 @@ describe('SalesReportService', () => {
 
   it('依店家時區日期分組，退款依退款日歸期並從淨額扣除，只計本店的計入訂單', async () => {
     await expect(
-      service.getSalesReport('biru', { ...range, groupBy: 'day' }),
+      service.getSalesReport('org', { ...range, groupBy: 'day' }),
     ).resolves.toEqual({
       groupBy: 'day',
       rows: [
@@ -354,7 +354,7 @@ describe('SalesReportService', () => {
   });
 
   it('依店家時區小時分組並由小到大排序', async () => {
-    const { rows } = await service.getSalesReport('biru', {
+    const { rows } = await service.getSalesReport('org', {
       ...range,
       groupBy: 'hour',
     });
@@ -370,7 +370,7 @@ describe('SalesReportService', () => {
   });
 
   it('依付款方式分組時退款歸到原訂單的付款方式，依營收由大到小排序', async () => {
-    const { rows } = await service.getSalesReport('biru', {
+    const { rows } = await service.getSalesReport('org', {
       ...range,
       groupBy: 'paymentMethod',
     });
@@ -396,7 +396,7 @@ describe('SalesReportService', () => {
   });
 
   it('依點餐方式分組', async () => {
-    const { rows } = await service.getSalesReport('biru', {
+    const { rows } = await service.getSalesReport('org', {
       ...range,
       groupBy: 'mode',
     });
@@ -647,7 +647,7 @@ describe('SalesReportService', () => {
       query: Partial<SalesReportPageQueryDto>,
     ) =>
       (
-        await service.getSalesReport('biru', { ...range, groupBy, ...query })
+        await service.getSalesReport('org', { ...range, groupBy, ...query })
       ).rows.map(({ key }) => key);
 
     it('依日分組時 key 依店家時區日期篩選，跨月的邊界落在正確的一天', async () => {
@@ -855,7 +855,7 @@ describe('SalesReportService', () => {
 
   it('結束時間不晚於起始時間時拒絕', async () => {
     await expect(
-      service.getSalesReport('biru', {
+      service.getSalesReport('org', {
         since: range.since,
         until: range.since,
         groupBy: 'day',
@@ -868,7 +868,7 @@ describe('SalesReportService', () => {
 
   it('區間超過 366 天時拒絕', async () => {
     await expect(
-      service.getSalesReport('biru', {
+      service.getSalesReport('org', {
         since: '2026-01-01T00:00:00+08:00',
         until: '2027-01-03T00:00:00+08:00',
         groupBy: 'mode',
@@ -876,15 +876,6 @@ describe('SalesReportService', () => {
     ).rejects.toMatchObject({
       status: 400,
       response: { code: 'rangeTooLong' },
-    });
-  });
-
-  it('門市不存在時回 404 並帶 organizationNotFound', async () => {
-    await expect(
-      service.getSalesReport('missing', { ...range, groupBy: 'day' }),
-    ).rejects.toMatchObject({
-      status: 404,
-      response: { code: 'organizationNotFound' },
     });
   });
 });

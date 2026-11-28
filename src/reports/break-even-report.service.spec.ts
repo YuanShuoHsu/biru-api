@@ -161,7 +161,7 @@ describe('BreakEvenReportService', () => {
   });
 
   it('uses the latest fixed cost of each category in force for the month and the personnel estimate without payslips', async () => {
-    const report = await service.getBreakEvenReport('biru', october, now);
+    const report = await service.getBreakEvenReport('org', october, now);
 
     expect(report.personnel).toEqual({
       source: 'estimate',
@@ -188,7 +188,7 @@ describe('BreakEvenReportService', () => {
   });
 
   it('splits the business tax out of the month revenue and charges the recipes and the recorded payment fees', async () => {
-    const report = await service.getBreakEvenReport('biru', october, now);
+    const report = await service.getBreakEvenReport('org', october, now);
 
     expect(report).toMatchObject({
       revenue: 525,
@@ -229,7 +229,7 @@ describe('BreakEvenReportService', () => {
 
   it('takes the cost and fee rates from the 90 days of sales up to now and the after-tax target', async () => {
     const report = await service.getBreakEvenReport(
-      'biru',
+      'org',
       {
         month: '2026-10',
         targetProfit: '50000',
@@ -300,7 +300,7 @@ describe('BreakEvenReportService', () => {
       { employeeId: 'e3', snapshot: null },
     ]);
 
-    const report = await service.getBreakEvenReport('biru', october, now);
+    const report = await service.getBreakEvenReport('org', october, now);
 
     expect(payroll.estimateSnapshots).toHaveBeenCalledWith('org', '2026-10', [
       'e2',

@@ -1,11 +1,13 @@
-import { Controller, Get, Param, Query, StreamableFile } from '@nestjs/common';
+import { Controller, Get, Query, StreamableFile } from '@nestjs/common';
 import {
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiProduces,
   ApiTags,
 } from '@nestjs/swagger';
 
+import { OrganizationId } from '../menus/decorators/organization-id.decorator.js';
 import { HasPermission } from '../menus/decorators/permission.decorator.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
 
@@ -42,6 +44,7 @@ const csvFile = (csv: string, filename: string) =>
   });
 
 @ApiTags('reports')
+@ApiParam({ name: 'organizationSlug', type: String })
 @Controller('organizations/:organizationSlug/reports')
 export class ReportsController {
   constructor(
@@ -57,10 +60,10 @@ export class ReportsController {
   @ApiOperation({ summary: '查詢銷售報表' })
   @ApiOkResponse({ type: SalesReportResponseDto })
   findSales(
-    @Param('organizationSlug') organizationSlug: string,
+    @OrganizationId() organizationId: string,
     @Query() query: SalesReportPageQueryDto,
   ): Promise<SalesReportResponseDto> {
-    return this.salesReportService.getSalesReport(organizationSlug, query);
+    return this.salesReportService.getSalesReport(organizationId, query);
   }
 
   @Get('sales/export.csv')
@@ -69,11 +72,11 @@ export class ReportsController {
   @ApiProduces('text/csv')
   @ApiOkResponse({ schema: { type: 'string' } })
   exportSales(
-    @Param('organizationSlug') organizationSlug: string,
+    @OrganizationId() organizationId: string,
     @Query() query: SalesReportQueryDto,
   ): Promise<StreamableFile> {
     return this.reportCsvService
-      .sales(organizationSlug, query)
+      .sales(organizationId, query)
       .then((csv) => csvFile(csv, 'sales-report.csv'));
   }
 
@@ -82,12 +85,12 @@ export class ReportsController {
   @ApiOperation({ summary: '查詢庫存報表' })
   @ApiOkResponse({ type: InventoryReportResponseDto })
   findInventory(
-    @Param('organizationSlug') organizationSlug: string,
+    @OrganizationId() organizationId: string,
     @Query() query: InventoryReportPageQueryDto,
     @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
   ): Promise<InventoryReportResponseDto> {
     return this.inventoryReportService.getInventoryReport(
-      organizationSlug,
+      organizationId,
       query,
       canReadPurchasing,
     );
@@ -99,12 +102,12 @@ export class ReportsController {
   @ApiProduces('text/csv')
   @ApiOkResponse({ schema: { type: 'string' } })
   exportInventory(
-    @Param('organizationSlug') organizationSlug: string,
+    @OrganizationId() organizationId: string,
     @Query() query: ReportRangeQueryDto,
     @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
   ): Promise<StreamableFile> {
     return this.reportCsvService
-      .inventory(organizationSlug, query, canReadPurchasing)
+      .inventory(organizationId, query, canReadPurchasing)
       .then((csv) => csvFile(csv, 'inventory-report.csv'));
   }
   @Get('personnel')
@@ -112,11 +115,11 @@ export class ReportsController {
   @ApiOperation({ summary: '查詢人事成本報表' })
   @ApiOkResponse({ type: PersonnelCostReportResponseDto })
   findPersonnel(
-    @Param('organizationSlug') organizationSlug: string,
+    @OrganizationId() organizationId: string,
     @Query() query: PersonnelCostReportPageQueryDto,
   ): Promise<PersonnelCostReportResponseDto> {
     return this.personnelCostReportService.getPersonnelCostReport(
-      organizationSlug,
+      organizationId,
       query,
     );
   }
@@ -127,11 +130,11 @@ export class ReportsController {
   @ApiProduces('text/csv')
   @ApiOkResponse({ schema: { type: 'string' } })
   exportPersonnel(
-    @Param('organizationSlug') organizationSlug: string,
+    @OrganizationId() organizationId: string,
     @Query() query: PersonnelCostReportQueryDto,
   ): Promise<StreamableFile> {
     return this.reportCsvService
-      .personnel(organizationSlug, query.month)
+      .personnel(organizationId, query.month)
       .then((csv) => csvFile(csv, 'personnel-report.csv'));
   }
 
@@ -142,11 +145,11 @@ export class ReportsController {
   })
   @ApiOkResponse({ type: BreakEvenReportResponseDto })
   findBreakEven(
-    @Param('organizationSlug') organizationSlug: string,
+    @OrganizationId() organizationId: string,
     @Query() query: BreakEvenReportPageQueryDto,
   ): Promise<BreakEvenReportResponseDto> {
     return this.breakEvenReportService.getBreakEvenReport(
-      organizationSlug,
+      organizationId,
       query,
     );
   }
@@ -157,11 +160,11 @@ export class ReportsController {
   @ApiProduces('text/csv')
   @ApiOkResponse({ schema: { type: 'string' } })
   exportBreakEven(
-    @Param('organizationSlug') organizationSlug: string,
+    @OrganizationId() organizationId: string,
     @Query() query: BreakEvenReportQueryDto,
   ): Promise<StreamableFile> {
     return this.reportCsvService
-      .breakEven(organizationSlug, query)
+      .breakEven(organizationId, query)
       .then((csv) => csvFile(csv, 'break-even-report.csv'));
   }
 }

@@ -137,7 +137,7 @@ describe('InventoryReportService', () => {
   afterAll(() => client.close());
 
   it('區間前的異動計入期初，區間後的異動不影響期末；照配方出餐時只有盤點調減形成差異，未付款訂單與部分退款不造成差異', async () => {
-    const { rows } = await service.getInventoryReport('biru', range);
+    const { rows } = await service.getInventoryReport('org', range);
 
     expect(rows).toEqual([
       row('milk', 'MLT', {
@@ -169,7 +169,7 @@ describe('InventoryReportService', () => {
   });
 
   it('取消回補落在區間內時，耗用與理論耗用一起減回', async () => {
-    const { rows } = await service.getInventoryReport('biru', {
+    const { rows } = await service.getInventoryReport('org', {
       since: '2026-10-04T00:00:00+08:00',
       until: '2026-10-06T00:00:00+08:00',
     });
@@ -196,7 +196,7 @@ describe('InventoryReportService', () => {
   });
 
   it('區間內沒有異動時期初等於期末，其餘為 0', async () => {
-    const { rows } = await service.getInventoryReport('biru', {
+    const { rows } = await service.getInventoryReport('org', {
       since: '2026-10-10T00:00:00+08:00',
       until: '2026-10-11T00:00:00+08:00',
     });
@@ -229,7 +229,7 @@ describe('InventoryReportService', () => {
       canReadPurchasing = true,
     ) => {
       const report = await service.getInventoryReport(
-        'biru',
+        'org',
         { ...range, ...query },
         canReadPurchasing,
       );
@@ -334,7 +334,7 @@ describe('InventoryReportService', () => {
        values ('water', 'org', '{"zh-TW":"water"}', 'MLT', true)`,
     );
 
-    const { rows } = await service.getInventoryReport('biru', range);
+    const { rows } = await service.getInventoryReport('org', range);
 
     expect(rows.map(({ ingredientId }) => ingredientId)).not.toContain('water');
   });
@@ -351,7 +351,7 @@ describe('InventoryReportService', () => {
          ('tomato-loss', 'tomato', 'org', -10, null, '2026-10-20T03:00:00Z'::timestamptz at time zone 'UTC');`,
     );
 
-    const { rows } = await service.getInventoryReport('biru', {
+    const { rows } = await service.getInventoryReport('org', {
       since: '2026-10-20T00:00:00+08:00',
       until: '2026-10-21T00:00:00+08:00',
     });
@@ -401,7 +401,7 @@ describe('InventoryReportService', () => {
 
     it('報廢另列為報廢量與成本，不算進調整與實際耗用，差異只剩盤點調減；成品報廢的多筆異動算一次，依原因彙總和明細一樣不含不限量的食材', async () => {
       const { rows, wasteByReason } = await service.getInventoryReport(
-        'biru',
+        'org',
         day,
         true,
       );
@@ -436,7 +436,7 @@ describe('InventoryReportService', () => {
 
     it('沒有 purchasing 權限時不回傳報廢成本', async () => {
       const { rows, wasteByReason } = await service.getInventoryReport(
-        'biru',
+        'org',
         day,
         false,
       );
@@ -450,7 +450,7 @@ describe('InventoryReportService', () => {
     });
 
     it('每個食材的期末等於期初加入庫減耗用減報廢加調整，實際耗用等於期初加入庫減報廢減期末', async () => {
-      const { rows } = await service.getInventoryReport('biru', {
+      const { rows } = await service.getInventoryReport('org', {
         since: '2026-09-25T00:00:00+08:00',
         until: '2026-10-24T00:00:00+08:00',
       });
@@ -516,7 +516,7 @@ describe('InventoryReportService', () => {
       'flavored',
     );
 
-    const { rows } = await service.getInventoryReport('biru', {
+    const { rows } = await service.getInventoryReport('org', {
       since: '2026-10-25T00:00:00+08:00',
       until: '2026-10-26T00:00:00+08:00',
     });
@@ -534,7 +534,7 @@ describe('InventoryReportService', () => {
 
   it('結束時間不晚於起始時間時拒絕', async () => {
     await expect(
-      service.getInventoryReport('biru', {
+      service.getInventoryReport('org', {
         since: range.until,
         until: range.since,
       }),
@@ -546,22 +546,13 @@ describe('InventoryReportService', () => {
 
   it('區間超過 366 天時拒絕', async () => {
     await expect(
-      service.getInventoryReport('biru', {
+      service.getInventoryReport('org', {
         since: '2025-01-01T00:00:00+08:00',
         until: '2026-01-03T00:00:00+08:00',
       }),
     ).rejects.toMatchObject({
       status: 400,
       response: { code: 'rangeTooLong' },
-    });
-  });
-
-  it('門市不存在時回 404 並帶 organizationNotFound', async () => {
-    await expect(
-      service.getInventoryReport('missing', range),
-    ).rejects.toMatchObject({
-      status: 404,
-      response: { code: 'organizationNotFound' },
     });
   });
 });
