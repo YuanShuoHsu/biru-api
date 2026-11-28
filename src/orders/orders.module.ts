@@ -26,8 +26,10 @@ import { OrderTicketService } from './order-ticket.service.js';
 import { OrdersController } from './orders.controller.js';
 import { OrdersService } from './orders.service.js';
 import { PrepEstimateService } from './prep-estimate.service.js';
+import { PurchasedTodayService } from './purchased-today.service.js';
 import { UserFrequentItemsController } from './user-frequent-items.controller.js';
 import { UserOrdersController } from './user-orders.controller.js';
+import { UserPurchasedTodayController } from './user-purchased-today.controller.js';
 
 @Module({
   imports: [
@@ -50,6 +52,7 @@ import { UserOrdersController } from './user-orders.controller.js';
     OrdersController,
     UserFrequentItemsController,
     UserOrdersController,
+    UserPurchasedTodayController,
   ],
   providers: [
     FrequentItemsService,
@@ -62,6 +65,7 @@ import { UserOrdersController } from './user-orders.controller.js';
     OrderTicketService,
     OrdersService,
     PrepEstimateService,
+    PurchasedTodayService,
   ],
   exports: [
     MenuItemSalesService,

@@ -11,9 +11,11 @@ import type { I18nTranslations } from '../generated/i18n.generated.js';
 export const orderErrorCodes = [
   'cashUnavailableForMode',
   'cupAlreadyReceived',
+  'eligibleQuantityExceeded',
   'idempotencyConflict',
   'inStoreQrCodeRequired',
   'invalidTable',
+  'memberEligibleQuantityExceeded',
   'menuChanged',
   'menuItemInsufficientStock',
   'menuItemOptionsInvalid',

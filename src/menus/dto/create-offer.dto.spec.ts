@@ -38,6 +38,21 @@ describe('CreateOfferDto', () => {
     ).toEqual([]);
   });
 
+  it('accepts a purchase limit with a whole maxValue', async () => {
+    expect(
+      await errorsOf({ price: '100', eligibleQuantity: { maxValue: 2 } }),
+    ).toEqual([]);
+  });
+
+  it.each([0, 1.5, 10000, undefined])(
+    'rejects a purchase limit maxValue of %s',
+    async (maxValue) => {
+      expect(
+        await errorsOf({ price: '100', eligibleQuantity: { maxValue } }),
+      ).toEqual(['eligibleQuantity.maxValue']);
+    },
+  );
+
   it('rejects a negative stock level', async () => {
     expect(
       await errorsOf({ price: '100', inventoryLevel: { value: -1 } }),

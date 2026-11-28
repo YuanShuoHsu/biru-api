@@ -19,11 +19,13 @@ import {
   menu,
   menuItem,
   offer,
+  type EligibleQuantity,
   type Offer,
   type QuantitativeValue,
 } from '../db/schema/menus.js';
 import { order } from '../db/schema/orders.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { badRequestError } from '../menus/menu-errors.js';
 
 type Tx = Pick<DrizzleDB, 'select' | 'update'>;
 
@@ -32,7 +34,7 @@ const BUSINESS_DAY_START_MS = 4 * 60 * 60 * 1000;
 export const businessDay = (time: number): string =>
   platformDateString(new Date(time - BUSINESS_DAY_START_MS));
 
-const businessDayStart = (time: number): Date =>
+export const businessDayStart = (time: number): Date =>
   new Date(
     platformMidnight(time - BUSINESS_DAY_START_MS) + BUSINESS_DAY_START_MS,
   );
@@ -92,27 +94,43 @@ export const dailyLimitChanges = async (
   offerId: string | undefined,
   {
     dailyLimit,
+    eligibleQuantity,
     inventoryLevel,
   }: {
     dailyLimit?: number | null;
+    eligibleQuantity?: EligibleQuantity | null;
     inventoryLevel?: QuantitativeValue | null;
   },
 ): Promise<
   Partial<Pick<Offer, 'dailyLimit' | 'dailyLimitResetOn' | 'inventoryLevel'>>
 > => {
-  if (dailyLimit === undefined) return {};
+  if (dailyLimit === undefined && eligibleQuantity === undefined) return {};
 
   const [current] = offerId
     ? await tx
         .select({
           dailyLimit: offer.dailyLimit,
+          eligibleQuantity: offer.eligibleQuantity,
           inventoryLevel: offer.inventoryLevel,
         })
         .from(offer)
         .where(eq(offer.id, offerId))
         .for('update')
     : [];
-  if (dailyLimit === (current?.dailyLimit ?? null)) return {};
+  const nextDailyLimit =
+    dailyLimit === undefined ? (current?.dailyLimit ?? null) : dailyLimit;
+  const maxValue = (
+    eligibleQuantity === undefined
+      ? current?.eligibleQuantity
+      : eligibleQuantity
+  )?.maxValue;
+  if (
+    maxValue !== undefined &&
+    (nextDailyLimit === null || maxValue > nextDailyLimit)
+  )
+    throw badRequestError('eligibleQuantityExceedsDailyLimit');
+  if (dailyLimit === undefined || dailyLimit === (current?.dailyLimit ?? null))
+    return {};
   if (dailyLimit === null) return { dailyLimit, dailyLimitResetOn: null };
 
   const [{ sold }] = offerId

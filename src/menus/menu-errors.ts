@@ -14,6 +14,7 @@ export const menuErrorCodes = [
   'addOnSelf',
   'addOnTargetAttached',
   'addOnTargetRequired',
+  'eligibleQuantityExceedsDailyLimit',
   'fixedSweetnessLevelRequired',
   'menuItemModifierGroupNotFound',
   'menuItemNotFound',

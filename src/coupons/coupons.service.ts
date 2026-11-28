@@ -1521,6 +1521,8 @@ export class CouponsService {
       org.id,
       dto.items,
       dto.mode,
+      null,
+      userId,
     );
 
     const { coupon: found, discount } = await this.getApplicableCoupon(

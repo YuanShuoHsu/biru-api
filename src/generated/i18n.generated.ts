@@ -353,6 +353,7 @@ export type I18nTranslations = {
             "addOnSelf": string;
             "addOnTargetAttached": string;
             "addOnTargetRequired": string;
+            "eligibleQuantityExceedsDailyLimit": string;
             "fixedSweetnessLevelRequired": string;
             "menuItemModifierGroupNotFound": string;
             "menuItemNotFound": string;
@@ -426,9 +427,11 @@ export type I18nTranslations = {
         "orders": {
             "cashUnavailableForMode": string;
             "cupAlreadyReceived": string;
+            "eligibleQuantityExceeded": string;
             "idempotencyConflict": string;
             "inStoreQrCodeRequired": string;
             "invalidTable": string;
+            "memberEligibleQuantityExceeded": string;
             "menuChanged": string;
             "menuItemInsufficientStock": string;
             "menuItemOptionsInvalid": string;

@@ -11,6 +11,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
+import { EligibleQuantityDto } from './create-offer.dto.js';
 import { UpdateItemAvailabilityDto } from './update-item-availability.dto.js';
 
 class OfferInventoryLevelValueDto {
@@ -46,4 +47,15 @@ export class UpdateOfferAvailabilityDto extends UpdateItemAvailabilityDto {
   @Min(1)
   @Max(9999)
   dailyLimit?: number | null;
+
+  @ApiPropertyOptional({
+    type: EligibleQuantityDto,
+    description:
+      '限購；只有設了每日限量才可設，且不得大於每日限量。null 代表不限購；需 menu:update 才能改',
+    nullable: true,
+  })
+  @IsOptional()
+  @Type(() => EligibleQuantityDto)
+  @ValidateNested()
+  eligibleQuantity?: EligibleQuantityDto | null;
 }

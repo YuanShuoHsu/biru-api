@@ -79,6 +79,14 @@ export class QuantitativeValueDto {
   value?: number;
 }
 
+export class EligibleQuantityDto {
+  @ApiProperty({ description: '最多可買份數', example: 2 })
+  @IsInt()
+  @Min(1)
+  @Max(9999)
+  maxValue: number;
+}
+
 export class CreateOfferDto {
   @ApiProperty({ example: '150.00' })
   @Matches(/^\d{1,8}(\.\d{1,2})?$/)
@@ -137,6 +145,17 @@ export class CreateOfferDto {
   @Min(1)
   @Max(9999)
   dailyLimit?: number | null;
+
+  @ApiPropertyOptional({
+    type: EligibleQuantityDto,
+    description:
+      '限購；登入會員以同門市同營業日累計，未登入以每筆訂單計。只有設了每日限量才可設，且不得大於每日限量。null 代表不限購',
+    nullable: true,
+  })
+  @IsOptional()
+  @Type(() => EligibleQuantityDto)
+  @ValidateNested()
+  eligibleQuantity?: EligibleQuantityDto | null;
 
   @ApiPropertyOptional({ type: PriceSpecificationDto, nullable: true })
   @IsOptional()

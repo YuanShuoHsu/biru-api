@@ -19,6 +19,7 @@ import {
 import { orderModeEnum, type OrderMode } from '../../db/schema/orders.js';
 
 import {
+  EligibleQuantityDto,
   PriceSpecificationDto,
   QuantitativeValueDto,
 } from './create-offer.dto.js';
@@ -55,8 +56,19 @@ class OrderMenuOfferResponseDto {
   @ApiPropertyOptional({ type: QuantitativeValueDto })
   inventoryLevel: QuantitativeValueDto | null;
 
-  @ApiPropertyOptional({ description: '每日限量；null 代表非每日限量' })
+  @ApiPropertyOptional({
+    description: '每日限量；null 代表非每日限量',
+    nullable: true,
+    type: Number,
+  })
   dailyLimit: number | null;
+
+  @ApiPropertyOptional({
+    type: EligibleQuantityDto,
+    description: '限購；null 代表不限購',
+    nullable: true,
+  })
+  eligibleQuantity: EligibleQuantityDto | null;
 
   @ApiPropertyOptional({ type: PriceSpecificationDto })
   priceSpecification: PriceSpecificationDto | null;

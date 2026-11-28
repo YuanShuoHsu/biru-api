@@ -620,6 +620,7 @@ export class OrdersService {
       sharedCartOrder?.items ?? dto.items ?? [],
       dto.mode,
       pickupTime ?? new Date(),
+      userId,
     );
 
     if (pickupTime) {
@@ -675,6 +676,13 @@ export class OrdersService {
         if (duplicate) return duplicate;
 
         if (sharedCartOrder) await claimSharedCartOrder(tx, sharedCartOrder);
+        if (userId)
+          await this.orderPricingService.assertMemberEligibleQuantities(
+            tx,
+            org.id,
+            orderItemsData,
+            userId,
+          );
 
         const pickupDayStart = startOfDay(pickupTime ?? undefined);
         const [{ value: pickupDayCount }] = await tx

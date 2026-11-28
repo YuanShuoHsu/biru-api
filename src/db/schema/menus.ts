@@ -192,9 +192,12 @@ export type MenuItem = typeof menuItem.$inferSelect;
 
 // https://schema.org/QuantitativeValue
 export interface QuantitativeValue {
+  maxValue?: number;
   unitText?: string;
   value?: number;
 }
+
+export type EligibleQuantity = Required<Pick<QuantitativeValue, 'maxValue'>>;
 
 // https://schema.org/PriceSpecification
 export interface PriceSpecification {
@@ -223,6 +226,8 @@ export const offer = pgTable(
     inventoryLevel: jsonb('inventory_level').$type<QuantitativeValue>(),
     dailyLimit: integer('daily_limit'),
     dailyLimitResetOn: date('daily_limit_reset_on'),
+    // https://schema.org/eligibleQuantity
+    eligibleQuantity: jsonb('eligible_quantity').$type<EligibleQuantity>(),
     priceSpecification: jsonb(
       'price_specification',
     ).$type<PriceSpecification>(),
