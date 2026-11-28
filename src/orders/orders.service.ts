@@ -876,7 +876,7 @@ export class OrdersService {
     });
     if (rows.length > ORDER_EXPORT_MAX_ROWS)
       throw badRequestError('orderExportTooLarge', {
-        max: ORDER_EXPORT_MAX_ROWS,
+        max: ORDER_EXPORT_MAX_ROWS.toLocaleString('en'),
       });
 
     await this.db.insert(auditLog).values({
