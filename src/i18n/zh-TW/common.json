@@ -379,6 +379,8 @@
     "orderQrSecretNeverRotated": "QR code 尚未更換過，沒有可還原的舊版",
     "orderQrSessionNotFound": "點餐連線已失效，請重新掃描 QR code",
     "orderReviewLocked": "回饋只能在首次送出後 7 天內修改",
+    "orderReviewNotFound": "找不到這則回饋",
+    "orderReviewReplyExpired": "這筆訪客訂單已超過個資保存期限，回覆會被清除，無法再回覆",
     "orderTotalTooLarge": "訂單金額超過上限，請減少品項或分開下單",
     "paymentAttemptsExhausted": "這張訂單的付款次數已達上限，請洽詢門市，或等待訂單逾時自動取消",
     "pickupOutsideOpeningHours": "這個取餐時間不在門市營業時間內，請重新選擇",

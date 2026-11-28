@@ -379,6 +379,8 @@
     "orderQrSecretNeverRotated": "The QR codes have never been regenerated, so there is no previous version to restore.",
     "orderQrSessionNotFound": "Your ordering session has expired. Please scan the QR code again.",
     "orderReviewLocked": "Feedback can only be changed within 7 days of first sending it.",
+    "orderReviewNotFound": "This feedback could not be found.",
+    "orderReviewReplyExpired": "This guest order is past its personal data retention period, so a reply would be erased and can no longer be sent.",
     "orderTotalTooLarge": "The order total exceeds the limit. Please remove some items or split it into separate orders.",
     "paymentAttemptsExhausted": "This order has reached its limit of payment attempts. Please contact the store, or wait for the order to be cancelled automatically when its payment deadline passes.",
     "pickupOutsideOpeningHours": "This pickup time is outside the store's opening hours. Please choose another time.",
