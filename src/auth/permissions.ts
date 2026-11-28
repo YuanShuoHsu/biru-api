@@ -31,6 +31,7 @@ const statement = {
   purchasing: ['create', 'update', 'delete', 'read'],
   refund: ['create'],
   revenue: ['read'],
+  review: ['read', 'reply'],
   shift: ['create', 'update', 'read'],
   shiftType: ['create', 'update', 'delete'],
   waitlist: ['read', 'update'],
@@ -64,6 +65,7 @@ export const owner = ac.newRole({
   purchasing: ['create', 'update', 'delete', 'read'],
   refund: ['create'],
   revenue: ['read'],
+  review: ['read', 'reply'],
   shift: ['create', 'update', 'read'],
   shiftType: ['create', 'update', 'delete'],
   waitlist: ['read', 'update'],
@@ -90,6 +92,7 @@ export const admin = ac.newRole({
   purchasing: ['create', 'update', 'delete', 'read'],
   refund: ['create'],
   revenue: ['read'],
+  review: ['read', 'reply'],
   shift: ['create', 'update', 'read'],
   shiftType: ['create', 'update', 'delete'],
   waitlist: ['read', 'update'],
@@ -107,6 +110,7 @@ export const member = ac.newRole({
   menu: ['read'],
   order: ['read', 'update'],
   refund: ['create'],
+  review: ['read'],
   waitlist: ['read', 'update'],
 });
 

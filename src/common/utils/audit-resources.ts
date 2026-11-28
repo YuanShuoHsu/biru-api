@@ -40,6 +40,7 @@ import {
   offer,
 } from '../../db/schema/menus.js';
 import { operatingCost } from '../../db/schema/operating-costs.js';
+import { orderReview } from '../../db/schema/order-reviews.js';
 import { order, orderItem } from '../../db/schema/orders.js';
 import {
   invitation,
@@ -109,6 +110,7 @@ export const AUDIT_TABLES: Record<AuditResource, AuditableTable> = {
   checklistTemplate,
   cashDevice,
   operatingCost,
+  orderReview,
 };
 
 export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
@@ -515,6 +517,11 @@ export const resolveAuditLabels = async (
                   : null,
               ancestorIds: [],
             },
+          ];
+        case 'orderReview':
+          return [
+            resourceId,
+            { resourceLabel: null, ancestorIds: compact(asId(row.orderId)) },
           ];
         case 'invoice':
           return [

@@ -193,4 +193,35 @@ describe('OrdersService.erasePersonalData', () => {
     expect(likes).toEqual([{ liked: true }]);
     expect(await service.erasePersonalData()).toBe(0);
   });
+
+  it('strips the store reply from the review audit log of an erased guest order, and leaves other reviews alone', async () => {
+    await client.exec(
+      `insert into "order" (id, customer, mode, order_number, order_status, payment_method, seller_id, subtotal, user_id, updated_at) values
+         ('erased-replied', '{"name":"王**"}', 'pickup', '12', 'OrderDelivered', 'Cash', 'org', 100, null, now() - interval '31 days');
+       insert into order_review (id, order_id, organization_id, rating, reply, replied_at) values
+         ('review-replied', 'erased-replied', 'org', 5, '謝謝王先生', now());
+       insert into audit_log (id, actor_name, actor_email, organization_id, resource, resource_id, action, changes, created_at) values
+         ('audit-reply', 'Owner', 'owner@example.com', 'org', 'orderReview', 'review-replied', 'update', '{"reply":{"before":null,"after":"謝謝王先生"},"repliedBy":{"before":null,"after":"amy"}}', now()),
+         ('audit-reply-member', 'Owner', 'owner@example.com', 'org', 'orderReview', 'review-member', 'update', '{"reply":{"before":null,"after":"謝謝"}}', now());`,
+    );
+
+    expect(await service.erasePersonalData()).toBe(1);
+
+    const { rows } = await client.query<{
+      id: string;
+      changes: Record<string, unknown>;
+    }>(
+      `select id, changes from audit_log where resource = 'orderReview' order by id`,
+    );
+    expect(rows).toEqual([
+      {
+        id: 'audit-reply',
+        changes: { repliedBy: { before: null, after: 'amy' } },
+      },
+      {
+        id: 'audit-reply-member',
+        changes: { reply: { before: null, after: '謝謝' } },
+      },
+    ]);
+  });
 });

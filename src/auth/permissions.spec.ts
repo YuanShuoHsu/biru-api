@@ -65,3 +65,15 @@ describe('operating cost permissions', () => {
       );
   });
 });
+
+describe('order review permissions', () => {
+  it.each([
+    ['owner', true, true],
+    ['admin', true, true],
+    ['member', true, false],
+    ['user', false, false],
+  ])('%s can read reviews: %s, reply to them: %s', (role, read, reply) => {
+    expect(isAuthorized(role, { review: ['read'] })).toBe(read);
+    expect(isAuthorized(role, { review: ['reply'] })).toBe(reply);
+  });
+});

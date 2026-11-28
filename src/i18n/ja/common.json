@@ -379,6 +379,7 @@
     "orderQrSecretNeverRotated": "QR コードはまだ再発行されていないため、元に戻せる以前のバージョンはありません",
     "orderQrSessionNotFound": "注文セッションの有効期限が切れました。QR コードをもう一度読み取ってください",
     "orderReviewLocked": "フィードバックは初回送信から 7 日以内のみ修正できます",
+    "orderReviewNotFound": "このフィードバックが見つかりません",
     "orderTotalTooLarge": "注文金額が上限を超えています。商品を減らすか、注文を分けてください",
     "paymentAttemptsExhausted": "この注文はお支払いの試行回数が上限に達しました。店舗にお問い合わせいただくか、お支払い期限を過ぎて注文が自動キャンセルされるまでお待ちください",
     "pickupOutsideOpeningHours": "この受取時間は店舗の営業時間外です。別の時間を選択してください",

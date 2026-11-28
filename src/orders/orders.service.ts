@@ -1942,6 +1942,22 @@ export class OrdersService {
             ),
           );
 
+        await tx
+          .update(auditLog)
+          .set({ changes: sql`${auditLog.changes} - 'reply'` })
+          .where(
+            and(
+              eq(auditLog.resource, 'orderReview'),
+              inArray(
+                auditLog.resourceId,
+                tx
+                  .select({ id: orderReview.id })
+                  .from(orderReview)
+                  .where(inArray(orderReview.orderId, ids)),
+              ),
+            ),
+          );
+
         return rows.length;
       });
 

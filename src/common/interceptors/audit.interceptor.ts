@@ -289,7 +289,7 @@ export class AuditInterceptor implements NestInterceptor {
     for (const [index, target] of targets.entries()) {
       const before = befores[index];
       const after =
-        action === 'delete'
+        (target.action ?? action) === 'delete'
           ? new Map<string, SnapshotRow>()
           : await this.snapshot(
               target,

@@ -379,6 +379,7 @@
     "orderQrSecretNeverRotated": "二维码尚未更换过，没有可还原的旧版",
     "orderQrSessionNotFound": "点餐会话已失效，请重新扫描二维码",
     "orderReviewLocked": "反馈只能在首次送出后 7 天内修改",
+    "orderReviewNotFound": "找不到这则反馈",
     "orderTotalTooLarge": "订单金额超过上限，请减少品项或分开下单",
     "paymentAttemptsExhausted": "这张订单的付款次数已达上限，请咨询门店，或等待订单超时自动取消",
     "pickupOutsideOpeningHours": "这个取餐时间不在门店营业时间内，请重新选择",

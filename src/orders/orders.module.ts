@@ -17,6 +17,7 @@ import { OrderPickupNotificationsService } from './order-pickup-notifications.se
 import { OrderPricingModule } from './order-pricing.module.js';
 import { OrderQrController } from './order-qr.controller.js';
 import { OrderQrService } from './order-qr.service.js';
+import { OrderReviewRepliesController } from './order-review-replies.controller.js';
 import { OrderReviewsController } from './order-reviews.controller.js';
 import { OrderReviewsService } from './order-reviews.service.js';
 import { OrderStatsController } from './order-stats.controller.js';
@@ -46,6 +47,7 @@ import { UserPurchasedTodayController } from './user-purchased-today.controller.
     MenuItemSalesController,
     OrderModesController,
     OrderQrController,
+    OrderReviewRepliesController,
     OrderReviewsController,
     OrderStatsController,
     OrderTicketPrintersController,
