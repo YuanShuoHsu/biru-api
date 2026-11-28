@@ -372,6 +372,7 @@
     "notAwaitingPayment": "此订单已超过付款期限或状态已变更，无法付款",
     "notOwnCupItem": "这个品项不是自备杯",
     "onlinePaymentNotRequired": "这笔订单不需要在线付款",
+    "orderExportTooLarge": "符合条件的订单超过 {max} 笔，请缩小筛选范围（例如创建时间）后再导出",
     "orderItemNotFound": "这笔订单里找不到这个品项",
     "orderItemRefunded": "这个品项已全数退款",
     "orderNotDelivered": "订单完成后才能填写反馈",

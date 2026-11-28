@@ -372,6 +372,7 @@
     "notAwaitingPayment": "此訂單已超過付款期限或狀態已變更，無法付款",
     "notOwnCupItem": "這個品項不是自備杯",
     "onlinePaymentNotRequired": "這筆訂單不需要線上付款",
+    "orderExportTooLarge": "符合條件的訂單超過 {max} 筆，請縮小篩選範圍（例如建立時間）後再匯出",
     "orderItemNotFound": "這筆訂單裡找不到這個品項",
     "orderItemRefunded": "這個品項已全數退款",
     "orderNotDelivered": "訂單完成後才能填寫回饋",

@@ -28,6 +28,7 @@ export const orderErrorCodes = [
   'notAwaitingPayment',
   'notOwnCupItem',
   'onlinePaymentNotRequired',
+  'orderExportTooLarge',
   'orderItemNotFound',
   'orderItemRefunded',
   'orderNotDelivered',
