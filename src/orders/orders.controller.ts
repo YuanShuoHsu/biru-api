@@ -160,7 +160,7 @@ export class OrdersController {
   }
 
   @Get('export.csv')
-  @Roles({ order: ['read'] }, 'organizationSlug')
+  @Roles({ order: ['export'] }, 'organizationSlug')
   @ApiOperation({ summary: '匯出訂單列表 CSV' })
   @ApiProduces('text/csv')
   @ApiOkResponse({ schema: { type: 'string' } })

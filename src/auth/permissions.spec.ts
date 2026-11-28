@@ -77,3 +77,14 @@ describe('order review permissions', () => {
     expect(isAuthorized(role, { review: ['reply'] })).toBe(reply);
   });
 });
+
+describe('order export permissions', () => {
+  it.each([
+    ['owner', true],
+    ['admin', true],
+    ['member', false],
+    ['user', false],
+  ])('%s can export orders: %s', (role, expected) => {
+    expect(isAuthorized(role, { order: ['export'] })).toBe(expected);
+  });
+});
