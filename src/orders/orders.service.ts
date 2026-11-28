@@ -59,6 +59,7 @@ import {
   STORE_UTC_OFFSET_MS,
 } from '../common/constants/timezone.js';
 
+import { redactAuditFields } from '../attendance/attendance-audit.js';
 import { isAuthorized } from '../auth/permissions.js';
 import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
 import { toLanguage } from '../common/utils/language.js';
@@ -141,6 +142,7 @@ import {
   ORDER_ENUM_FILTER_FIELDS,
   ORDER_NUMBER_FILTER_FIELDS,
   ORDER_STRING_FILTER_FIELDS,
+  type OrderExportQueryDto,
   type OrderPaginationQueryDto,
 } from './dto/order-pagination-query.dto.js';
 import type {
@@ -375,6 +377,12 @@ const refundedQuantitiesOf = (
 
 const PUBLIC_BOARD_LEAD_MS = 60 * 60 * 1000;
 const ADMIN_BOARD_LEAD_MS = 24 * 60 * 60 * 1000;
+
+const CUSTOMER_FILTER_FIELDS = new Set<string>([
+  'customerName',
+  'customerTelephone',
+  'customerEmail',
+]);
 
 const ORDER_SORT_NULLS: Partial<Record<string, NullsAs>> = {
   confirmationNumber: 'last',
@@ -818,10 +826,87 @@ export class OrdersService {
     query: OrderPaginationQueryDto = {},
   ): Promise<{ data: AdminOrderResponseDto[]; total: number }> {
     const org = await this.getOrgBySlug(organizationSlug);
+    const { limit = 10, offset = 0 } = query;
+    const { orderBy, where } = this.listQuery(org.id, query);
 
+    const [data, [{ total }]] = await Promise.all([
+      this.db.query.order.findMany({
+        where,
+        orderBy,
+        limit,
+        offset,
+        with: ADMIN_ORDER_RELATIONS,
+      }),
+      this.db.select({ total: count() }).from(order).where(where),
+    ]);
+
+    return {
+      data: data.map(toAdminOrderWithInvoice),
+      total,
+    };
+  }
+
+  async exportOrders(
+    organizationSlug: string,
+    query: OrderExportQueryDto,
+    actor: { id: string; name: string; email: string },
+  ) {
+    const org = await this.getOrgBySlug(organizationSlug);
+    const { orderBy, where } = this.listQuery(org.id, query);
+    const rows = await this.db.query.order.findMany({
+      where,
+      orderBy,
+      columns: {
+        orderNumber: true,
+        createdAt: true,
+        mode: true,
+        tableNumber: true,
+        orderStatus: true,
+        paymentMethod: true,
+        paymentDate: true,
+        pickupTime: true,
+        subtotal: true,
+        discount: true,
+        total: true,
+        customer: true,
+      },
+    });
+
+    await this.db.insert(auditLog).values({
+      id: randomUUID(),
+      actorId: actor.id,
+      actorName: actor.name,
+      actorEmail: actor.email,
+      organizationId: org.id,
+      resource: 'order',
+      resourceId: org.id,
+      resourceLabel: org.name,
+      ancestorIds: [],
+      action: 'export',
+      changes: Object.fromEntries(
+        Object.entries({
+          ...redactAuditFields(
+            Object.fromEntries(Object.entries(query)),
+            new Set([
+              'quickFilterValue',
+              ...(query.filterField &&
+              CUSTOMER_FILTER_FIELDS.has(query.filterField)
+                ? ['filterValue']
+                : []),
+            ]),
+          ),
+          rowCount: rows.length,
+        })
+          .filter(([, value]) => value !== undefined)
+          .map(([field, value]) => [field, { before: null, after: value }]),
+      ),
+    });
+
+    return rows;
+  }
+
+  private listQuery(organizationId: string, query: OrderExportQueryDto) {
     const {
-      limit = 10,
-      offset = 0,
       filterField,
       filterOperator,
       filterValue,
@@ -874,7 +959,7 @@ export class OrdersService {
           : [desc(order.createdAt)];
 
     const where = and(
-      eq(order.sellerId, org.id),
+      eq(order.sellerId, organizationId),
       filterField && filterOperator
         ? buildFilterCondition(
             filterField,
@@ -907,21 +992,7 @@ export class OrdersService {
       }),
     );
 
-    const [data, [{ total }]] = await Promise.all([
-      this.db.query.order.findMany({
-        where,
-        orderBy,
-        limit,
-        offset,
-        with: ADMIN_ORDER_RELATIONS,
-      }),
-      this.db.select({ total: count() }).from(order).where(where),
-    ]);
-
-    return {
-      data: data.map(toAdminOrderWithInvoice),
-      total,
-    };
+    return { orderBy, where };
   }
 
   async listUserOrders(

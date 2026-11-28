@@ -1,4 +1,4 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
 import { Transform, Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
@@ -119,3 +119,8 @@ export class OrderPaginationQueryDto {
   @IsIn(SORT_DIRECTIONS)
   sortDirection?: SortDirection;
 }
+
+export class OrderExportQueryDto extends OmitType(OrderPaginationQueryDto, [
+  'limit',
+  'offset',
+] as const) {}

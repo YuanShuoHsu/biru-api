@@ -12,6 +12,7 @@ import { FrequentItemsService } from './frequent-items.service.js';
 import { MenuItemSalesController } from './menu-item-sales.controller.js';
 import { MenuItemSalesService } from './menu-item-sales.service.js';
 import { OrderModesController } from './order-modes.controller.js';
+import { OrderCsvService } from './order-csv.service.js';
 import { OrderNotificationsService } from './order-notifications.service.js';
 import { OrderPickupNotificationsService } from './order-pickup-notifications.service.js';
 import { OrderPricingModule } from './order-pricing.module.js';
@@ -59,6 +60,7 @@ import { UserPurchasedTodayController } from './user-purchased-today.controller.
   providers: [
     FrequentItemsService,
     MenuItemSalesService,
+    OrderCsvService,
     OrderNotificationsService,
     OrderPickupNotificationsService,
     OrderQrService,
