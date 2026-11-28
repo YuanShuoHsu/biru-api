@@ -168,6 +168,9 @@ describe('DeletedRecordsService.list', () => {
         deletedAt: new Date('2026-09-30T02:00:00Z'),
       },
     ]);
+    await db.execute(
+      sql`insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('org1', '北投門市', 'beitou', now(), 'TW', '桃園市', '大園區', '中正東路一段'), ('org2', '大安門市', 'daan', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
+    );
   }, 60_000);
 
   afterAll(async () => {
@@ -207,10 +210,6 @@ describe('DeletedRecordsService.list', () => {
   });
 
   it('平台視角的快速搜尋比對門市名稱', async () => {
-    await db.execute(
-      sql`insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('org2', '大安門市', 'daan', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
-    );
-
     const result = await service.list({ quickFilterValue: '大安' });
 
     expect(ids(result)).toEqual([3]);
@@ -218,16 +217,14 @@ describe('DeletedRecordsService.list', () => {
   });
 
   it('店家視角的快速搜尋不比對門市名稱', async () => {
-    await db.execute(
-      sql`insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('org1', '北投門市', 'beitou', now(), 'TW', '桃園市', '大園區', '中正東路一段') on conflict (id) do nothing`,
-    );
+    const scope = { organizationId: 'org1', role: 'owner', closed: false };
 
-    const result = await service.list(
-      { quickFilterValue: '北投' },
-      { organizationId: 'org1', role: 'owner', closed: false },
-    );
-
-    expect(ids(result)).toEqual([]);
+    expect(
+      ids(await service.list({ quickFilterValue: '北區' }, scope)),
+    ).toEqual([2]);
+    expect(
+      ids(await service.list({ quickFilterValue: '北投' }, scope)),
+    ).toEqual([]);
   });
 
   it('依資料類型篩選並依刪除時間排序', async () => {
