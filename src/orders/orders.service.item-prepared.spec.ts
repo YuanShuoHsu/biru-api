@@ -39,7 +39,7 @@ describe('OrdersService.setOrderItemPrepared', () => {
       eventEmitter,
       {} as never,
       {} as never,
-      {} as never,
+      { withdrawUnusedEarn: vi.fn() } as never,
     );
 
     await client.exec(

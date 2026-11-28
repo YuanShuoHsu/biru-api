@@ -1264,7 +1264,7 @@ export class OrdersService {
   }
 
   private async runTransition(
-    tx: Pick<DrizzleDB, 'insert' | 'select' | 'update'>,
+    tx: Pick<DrizzleDB, 'delete' | 'insert' | 'select' | 'update'>,
     rule: OrderTransitionRule,
     orderIds: string[],
     extra: { set?: PgUpdateSetSource<typeof order>; where?: SQL } = {},
@@ -1307,6 +1307,11 @@ export class OrdersService {
 
       if (rule.withdrawsOrderTicket)
         await this.orderTicketService.withdrawOrder(tx, id);
+
+      if (rule.recordsPayment) await this.pointsService.earnForOrder(tx, id);
+
+      if (rule.withdrawsPoints)
+        await this.pointsService.withdrawUnusedEarn(tx, id);
 
       if (rule.restoresCoupon && discountCode)
         await this.couponsService.restore(tx, {
