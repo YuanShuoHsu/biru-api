@@ -16,6 +16,7 @@ import {
   isNull,
   lt,
   ne,
+  notExists,
   notInArray,
   or,
   sql,
@@ -214,11 +215,46 @@ export class PointsService {
     private readonly mails: MailsService,
   ) {}
 
-  // Lazy 入點：已付款且未取消的訂單補入 earn；已取消訂單的點數收回
-  private async syncEarned(
-    scope: { userId: string } | { organizationId: string },
+  async earnForOrder(
+    tx: Pick<DrizzleDB, 'insert' | 'select' | 'update'>,
+    orderId: string,
   ): Promise<void> {
-    const unrecorded = await this.db
+    const [earn] = await this.unrecordedEarns(tx, { orderId });
+    if (!earn) return;
+
+    await tx.insert(pointTransaction).values(earn).onConflictDoNothing();
+    await this.settleDebts(tx, earn.userId);
+  }
+
+  async withdrawUnusedEarn(
+    tx: Pick<DrizzleDB, 'delete' | 'select'>,
+    orderId: string,
+  ): Promise<void> {
+    const revoked = alias(pointTransaction, 'revoked');
+
+    await tx.delete(pointTransaction).where(
+      and(
+        eq(pointTransaction.orderId, orderId),
+        eq(pointTransaction.type, 'earn'),
+        eq(pointTransaction.remainingPoints, pointTransaction.points),
+        notExists(
+          tx
+            .select({ id: revoked.id })
+            .from(revoked)
+            .where(
+              and(eq(revoked.orderId, orderId), eq(revoked.type, 'revoke')),
+            ),
+        ),
+      ),
+    );
+  }
+
+  private async unrecordedEarns(
+    db: Pick<DrizzleDB, 'select'>,
+    scope:
+      { userId: string } | { organizationId: string } | { orderId: string },
+  ) {
+    const unrecorded = await db
       .select({
         amountPerPoint: EARN_AMOUNT_PER_POINT,
         discount: order.discount,
@@ -243,7 +279,9 @@ export class PointsService {
           'userId' in scope
             ? eq(order.userId, scope.userId)
             : and(
-                eq(order.sellerId, scope.organizationId),
+                'orderId' in scope
+                  ? eq(order.id, scope.orderId)
+                  : eq(order.sellerId, scope.organizationId),
                 isNotNull(order.userId),
               ),
           isNotNull(order.paymentDate),
@@ -254,7 +292,7 @@ export class PointsService {
       )
       .groupBy(order.id, pointSetting.id);
 
-    const earns = unrecorded.flatMap((row) => {
+    return unrecorded.flatMap((row) => {
       const points = earnedPoints(
         row.subtotal,
         row.discount,
@@ -275,6 +313,13 @@ export class PointsService {
         },
       ];
     });
+  }
+
+  // Lazy 入點：已付款且未取消的訂單補入 earn；已取消訂單的點數收回
+  private async syncEarned(
+    scope: { userId: string } | { organizationId: string },
+  ): Promise<void> {
+    const earns = await this.unrecordedEarns(this.db, scope);
     if (earns.length > 0) {
       await this.db
         .insert(pointTransaction)

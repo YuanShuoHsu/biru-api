@@ -35,6 +35,7 @@ export interface OrderTransitionRule {
   triggers: readonly OrderTransitionTrigger[];
   where?: () => SQL;
   withdrawsOrderTicket?: boolean;
+  withdrawsPoints?: boolean;
 }
 
 // 製作中與可取餐的訂單吧台還在處理，工作單才有意義
@@ -91,6 +92,7 @@ export const ORDER_TRANSITIONS: OrderTransitionRule[] = [
     toStatus: 'OrderPaymentDue',
     triggers: ['admin'],
     withdrawsOrderTicket: true,
+    withdrawsPoints: true,
   },
   {
     direction: 'revert',

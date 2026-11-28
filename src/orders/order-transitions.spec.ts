@@ -123,6 +123,7 @@ describe('訂單狀態轉換規則表', () => {
       amountPerPoint: null,
       paymentDate: null,
     });
+    expect(rule?.withdrawsPoints).toBe(true);
   });
 
   it('製作完成記下出餐時間，退回製作中清除，從已取餐退回保留原值', () => {
@@ -244,6 +245,7 @@ const createService = ({
     resetDailyLimits: vi.fn().mockResolvedValue(undefined),
   };
   const orderTickets = { enqueueOrder: vi.fn(), withdrawOrder: vi.fn() };
+  const points = { earnForOrder: vi.fn(), withdrawUnusedEarn: vi.fn() };
   const eventEmitter = new EventEmitter2();
   const emit = vi.spyOn(eventEmitter, 'emit');
 
@@ -254,6 +256,7 @@ const createService = ({
     inventory,
     menuStock,
     orderTickets,
+    points,
     service: new OrdersService(
       db as unknown as DrizzleDB,
       couponsService as unknown as CouponsService,
@@ -264,7 +267,7 @@ const createService = ({
       eventEmitter,
       menuStock as unknown as MenuStockService,
       {} as PrepEstimateService,
-      {} as PointsService,
+      points as unknown as PointsService,
     ),
     sets,
   };
@@ -315,8 +318,8 @@ describe('OrdersService.applyTransitions', () => {
     });
   });
 
-  it('現金收款會送出已付款事件並排工作單', async () => {
-    const { emit, orderTickets, sets, service } = createService({
+  it('現金收款會送出已付款事件、排工作單並在同一交易入點', async () => {
+    const { emit, orderTickets, points, sets, service } = createService({
       current: unpaid,
       updated: [{ ...unpaid, orderStatus: 'OrderProcessing' }],
     });
@@ -334,15 +337,16 @@ describe('OrdersService.applyTransitions', () => {
       'o1',
       'org',
     );
+    expect(points.earnForOrder).toHaveBeenCalledWith(expect.anything(), 'o1');
   });
 
-  it('退回待付款會撤下還沒送出的工作單，不再排新的', async () => {
+  it('退回待付款會撤下還沒送出的工作單與還沒用到的點數，不再排新的', async () => {
     const processing: OrderRow = {
       ...unpaid,
       items: [{ id: 'i1', preparedAt: new Date() }],
       orderStatus: 'OrderProcessing',
     };
-    const { orderTickets, service } = createService({
+    const { orderTickets, points, service } = createService({
       current: processing,
       updated: [{ ...processing, orderStatus: 'OrderPaymentDue' }],
     });
@@ -354,6 +358,11 @@ describe('OrdersService.applyTransitions', () => {
       'o1',
     );
     expect(orderTickets.enqueueOrder).not.toHaveBeenCalled();
+    expect(points.withdrawUnusedEarn).toHaveBeenCalledWith(
+      expect.anything(),
+      'o1',
+    );
+    expect(points.earnForOrder).not.toHaveBeenCalled();
   });
 
   it('店員標為可取餐時寫入出餐時間', async () => {
@@ -435,8 +444,8 @@ describe('OrdersService.recordPaymentResult', () => {
     expect(sets).toEqual([]);
   });
 
-  it('付款成功轉製作中、送出已付款事件並排工作單', async () => {
-    const { emit, orderTickets, service, sets } = createService({
+  it('付款成功轉製作中、送出已付款事件、排工作單並在同一交易入點', async () => {
+    const { emit, orderTickets, points, service, sets } = createService({
       current: pending,
       updated: [{ ...pending, orderStatus: 'OrderProcessing' }],
     });
@@ -455,6 +464,7 @@ describe('OrdersService.recordPaymentResult', () => {
       'o1',
       'org',
     );
+    expect(points.earnForOrder).toHaveBeenCalledWith(expect.anything(), 'o1');
   });
 
   it('付款成功時把綠界回報的交易服務金額記在這次付款嘗試上', async () => {
@@ -487,8 +497,8 @@ describe('OrdersService.recordPaymentResult', () => {
     );
   });
 
-  it('付款失敗轉異常並還券、還庫存', async () => {
-    const { inventory, service } = createService({
+  it('付款失敗轉異常並還券、還庫存，不入點', async () => {
+    const { inventory, points, service } = createService({
       current: pending,
       updated: [
         { ...pending, discountCode: 'SAVE10', orderStatus: 'OrderProblem' },
@@ -499,6 +509,7 @@ describe('OrdersService.recordPaymentResult', () => {
       service.recordPaymentResult(paymentBody({ RtnCode: '10100058' })),
     ).resolves.toBe('handled');
     expect(inventory.restoreAll).toHaveBeenCalledWith('o1', expect.anything());
+    expect(points.earnForOrder).not.toHaveBeenCalled();
   });
 
   it('付款失敗只記下綠界交易編號，不寫入付款憑據', async () => {

@@ -641,6 +641,139 @@ describe('PointsService.findAllForOrganization', () => {
     expect((await service.findAllForOrganization('biru')).total).toBe(1);
   });
 
+  describe('earnForOrder', () => {
+    it('只為這筆已付款的會員訂單入點，重複呼叫不重複入點', async () => {
+      await addPaidOrder('o1', ORG, 'amy');
+      await addPaidOrder('o2', ORG, 'amy');
+
+      await db.transaction((tx) =>
+        service.earnForOrder(tx as unknown as DrizzleDB, 'o1'),
+      );
+      await db.transaction((tx) =>
+        service.earnForOrder(tx as unknown as DrizzleDB, 'o1'),
+      );
+
+      expect(
+        await db
+          .select({
+            orderId: pointTransaction.orderId,
+            points: pointTransaction.points,
+          })
+          .from(pointTransaction),
+      ).toEqual([{ orderId: 'o1', points: 10 }]);
+    });
+
+    it('訪客、未付款、已取消、不滿 1 點與啟用前付款的訂單不入點', async () => {
+      await addPaidOrder('guest', ORG, null);
+      await addPaidOrder('unpaid', ORG, 'amy', {
+        orderStatus: 'OrderPaymentDue',
+        paymentDate: null,
+      });
+
+      await addPaidOrder('cancelled', ORG, 'amy', {
+        orderStatus: 'OrderCancelled',
+      });
+      await addPaidOrder('small', ORG, 'amy', { unitPrice: '9' });
+      await addPaidOrder('beforeEnabled', ORG, 'amy', {
+        paymentDate: '2025-12-01',
+      });
+
+      for (const id of [
+        'guest',
+        'unpaid',
+        'cancelled',
+        'small',
+        'beforeEnabled',
+      ])
+        await db.transaction((tx) =>
+          service.earnForOrder(tx as unknown as DrizzleDB, id),
+        );
+
+      expect(await db.select().from(pointTransaction)).toEqual([]);
+    });
+
+    it('入點後先抵扣會員的欠點', async () => {
+      await db.insert(pointTransaction).values({
+        id: 'debt',
+        points: -3,
+        remainingPoints: -3,
+        type: 'revoke',
+        userId: 'amy',
+      });
+      await addPaidOrder('o1', ORG, 'amy');
+
+      await db.transaction((tx) =>
+        service.earnForOrder(tx as unknown as DrizzleDB, 'o1'),
+      );
+
+      const rows = await db
+        .select({
+          id: pointTransaction.id,
+          remainingPoints: pointTransaction.remainingPoints,
+          type: pointTransaction.type,
+        })
+        .from(pointTransaction);
+      expect(rows).toEqual(
+        expect.arrayContaining([
+          { id: 'debt', remainingPoints: 0, type: 'revoke' },
+          expect.objectContaining({ remainingPoints: 7, type: 'earn' }),
+        ]),
+      );
+    });
+  });
+
+  describe('withdrawUnusedEarn', () => {
+    it('移除還沒用到的入點，已用掉一部分或已有收回的保留', async () => {
+      for (const id of ['unused', 'used', 'revoked'])
+        await addPaidOrder(id, ORG, 'amy');
+      await db.insert(pointTransaction).values([
+        {
+          id: 'unused',
+          orderId: 'unused',
+          points: 10,
+          remainingPoints: 10,
+          type: 'earn',
+          userId: 'amy',
+        },
+        {
+          id: 'used',
+          orderId: 'used',
+          points: 10,
+          remainingPoints: 4,
+          type: 'earn',
+          userId: 'amy',
+        },
+        {
+          id: 'revoked',
+          orderId: 'revoked',
+          points: 10,
+          remainingPoints: 10,
+          type: 'earn',
+          userId: 'amy',
+        },
+        {
+          id: 'revoke',
+          orderId: 'revoked',
+          points: -5,
+          remainingPoints: 0,
+          type: 'revoke',
+          userId: 'amy',
+        },
+      ]);
+
+      for (const id of ['unused', 'used', 'revoked'])
+        await db.transaction((tx) =>
+          service.withdrawUnusedEarn(tx as unknown as DrizzleDB, id),
+        );
+
+      expect(
+        (await db.select({ id: pointTransaction.id }).from(pointTransaction))
+          .map(({ id }) => id)
+          .sort(),
+      ).toEqual(['revoke', 'revoked', 'used']);
+    });
+  });
+
   it('訪客、已取消與點數停用時的未付款訂單沒有預估點數', async () => {
     await addPaidOrder('guest', ORG, null);
     await addPaidOrder('cancelled', ORG, 'amy', {
