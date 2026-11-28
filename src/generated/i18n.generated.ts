@@ -41,6 +41,7 @@ export type I18nTranslations = {
         "PHONE_NUMBER_ALREADY_EXISTS": string;
         "PLATFORM_ADMIN_MEMBER_PROTECTED": string;
         "SESSION_EXPIRED": string;
+        "SESSION_NOT_FRESH": string;
         "TEAM_NOT_FOUND": string;
         "TOKEN_EXPIRED": string;
         "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE": string;
