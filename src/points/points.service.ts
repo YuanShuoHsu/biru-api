@@ -828,7 +828,7 @@ export class PointsService {
       organizationSlug,
     );
 
-    await this.syncEarned({ organizationId });
+    if (offset === 0) await this.syncEarned({ organizationId });
 
     const fieldMap: Record<string, Column | SQL> = {
       userEmail: user.email,

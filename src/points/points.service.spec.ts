@@ -632,6 +632,15 @@ describe('PointsService.findAllForOrganization', () => {
     );
   });
 
+  it('只有第一頁會補入點數，換頁不會重掃整店訂單', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
+
+    expect(
+      (await service.findAllForOrganization('biru', { offset: 10 })).total,
+    ).toBe(0);
+    expect((await service.findAllForOrganization('biru')).total).toBe(1);
+  });
+
   it('訪客、已取消與點數停用時的未付款訂單沒有預估點數', async () => {
     await addPaidOrder('guest', ORG, null);
     await addPaidOrder('cancelled', ORG, 'amy', {
