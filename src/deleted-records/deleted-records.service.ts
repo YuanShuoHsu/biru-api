@@ -426,6 +426,9 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
           ),
           ilike(sql`l.user_name`, `%${escapeLike(value)}%`),
           ilike(sql`l.deleted_by`, `%${escapeLike(value)}%`),
+          ...(scope
+            ? []
+            : [ilike(sql`l.organization_name`, `%${escapeLike(value)}%`)]),
         ],
       }),
     );
