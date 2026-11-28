@@ -372,6 +372,62 @@ describe('CashDevicesService', () => {
       ).resolves.toMatchObject({ data: [{ id: older.id }], total: 2 });
     });
 
+    it('紀錄列表可依類型與發生時間篩選、排序', async () => {
+      const device = await service.create('biru', { name: '櫃台' });
+      const refilled = await refill(device.id);
+      const collected = await service.collect('biru', device.id, 'staff', {
+        idempotencyKey: OTHER_KEY,
+        reportedAmount: 100,
+        depositedAmount: 100,
+      });
+      await client.query(
+        `update cash_device_event set occurred_at = '2026-11-01 02:00:00' where id = $1`,
+        [refilled.id],
+      );
+      await client.query(
+        `update cash_device_event set occurred_at = '2026-11-02 02:00:00' where id = $1`,
+        [collected.id],
+      );
+
+      await expect(
+        service.findEvents('biru', device.id, {
+          filterField: 'type',
+          filterOperator: 'is',
+          filterValue: 'refill',
+        }),
+      ).resolves.toMatchObject({ data: [{ id: refilled.id }], total: 1 });
+      await expect(
+        service.findEvents('biru', device.id, {
+          filterField: 'type',
+          filterOperator: 'is',
+          filterValue: 'unknown',
+        }),
+      ).resolves.toMatchObject({ data: [], total: 0 });
+      await expect(
+        service.findEvents('biru', device.id, {
+          filterField: 'occurredAt',
+          filterOperator: 'is',
+          filterValue: '2026-11-02',
+        }),
+      ).resolves.toMatchObject({ data: [{ id: collected.id }], total: 1 });
+      await expect(
+        service.findEvents('biru', device.id, {
+          sortBy: 'occurredAt',
+          sortDirection: 'asc',
+        }),
+      ).resolves.toMatchObject({
+        data: [{ id: refilled.id }, { id: collected.id }],
+      });
+      await expect(
+        service.findEvents('biru', device.id, {
+          sortBy: 'type',
+          sortDirection: 'desc',
+        }),
+      ).resolves.toMatchObject({
+        data: [{ id: refilled.id }, { id: collected.id }],
+      });
+    });
+
     it('補幣寫一筆機台的異動紀錄，重送不再寫', async () => {
       const device = await service.create('biru', { name: '櫃台' });
       const interceptor = new AuditInterceptor(

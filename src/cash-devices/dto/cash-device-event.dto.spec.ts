@@ -2,6 +2,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate, type ValidationError } from 'class-validator';
 
 import {
+  CashDeviceEventQueryDto,
   CreateCashDeviceCollectionDto,
   CreateCashDeviceRefillDto,
 } from './cash-device-event.dto.js';
@@ -83,5 +84,30 @@ describe('CreateCashDeviceCollectionDto', () => {
         ...amounts,
       }),
     ).toEqual([path]);
+  });
+});
+
+describe('CashDeviceEventQueryDto', () => {
+  it('accepts filtering and sorting by type and occurredAt', async () => {
+    expect(
+      await errorsOf(CashDeviceEventQueryDto, {
+        limit: '10',
+        offset: '0',
+        filterField: 'type',
+        filterOperator: 'is',
+        filterValue: 'refill',
+        sortBy: 'occurredAt',
+        sortDirection: 'asc',
+      }),
+    ).toEqual([]);
+  });
+
+  it.each([
+    [{ filterField: 'note' }, 'filterField'],
+    [{ sortBy: 'amount' }, 'sortBy'],
+    [{ quickFilterValue: '補幣' }, 'quickFilterValue'],
+    [{ quickFilterEnums: ['type:refill'] }, 'quickFilterEnums'],
+  ])('rejects %j', async (fields, path) => {
+    expect(await errorsOf(CashDeviceEventQueryDto, fields)).toEqual([path]);
   });
 });

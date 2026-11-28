@@ -1,7 +1,8 @@
 import { Transform, Type } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional, PickType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
 import {
+  IsIn,
   IsInt,
   IsObject,
   IsOptional,
@@ -71,10 +72,40 @@ export class CreateCashDeviceCollectionDto extends CashDeviceEventInputDto {
   depositedAmount: number;
 }
 
-export class CashDeviceEventQueryDto extends PickType(PaginationQueryDto, [
-  'limit',
-  'offset',
-] as const) {}
+export const CASH_DEVICE_EVENT_ENUM_FILTER_FIELDS = ['type'] as const;
+export const CASH_DEVICE_EVENT_DATE_FILTER_FIELDS = ['occurredAt'] as const;
+const CASH_DEVICE_EVENT_FILTER_FIELDS = [
+  ...CASH_DEVICE_EVENT_ENUM_FILTER_FIELDS,
+  ...CASH_DEVICE_EVENT_DATE_FILTER_FIELDS,
+] as const;
+
+type CashDeviceEventFilterField =
+  (typeof CASH_DEVICE_EVENT_FILTER_FIELDS)[number];
+
+const CASH_DEVICE_EVENT_SORT_FIELDS = CASH_DEVICE_EVENT_FILTER_FIELDS;
+
+type CashDeviceEventSortField = (typeof CASH_DEVICE_EVENT_SORT_FIELDS)[number];
+
+export class CashDeviceEventQueryDto extends OmitType(PaginationQueryDto, [
+  'quickFilterValue',
+  'quickFilterEnums',
+] as const) {
+  @ApiPropertyOptional({
+    enum: CASH_DEVICE_EVENT_FILTER_FIELDS,
+    enumName: 'CashDeviceEventFilterField',
+  })
+  @IsOptional()
+  @IsIn(CASH_DEVICE_EVENT_FILTER_FIELDS)
+  filterField?: CashDeviceEventFilterField;
+
+  @ApiPropertyOptional({
+    enum: CASH_DEVICE_EVENT_SORT_FIELDS,
+    enumName: 'CashDeviceEventSortField',
+  })
+  @IsOptional()
+  @IsIn(CASH_DEVICE_EVENT_SORT_FIELDS)
+  sortBy?: CashDeviceEventSortField;
+}
 
 export class CashDeviceEventResponseDto {
   @ApiProperty() id: string;

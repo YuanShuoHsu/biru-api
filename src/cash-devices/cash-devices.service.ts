@@ -5,9 +5,9 @@ import {
   and,
   asc,
   count,
-  desc,
   eq,
   ilike,
+  sql,
   type Column,
   type SQL,
 } from 'drizzle-orm';
@@ -42,12 +42,14 @@ import {
   CASH_DEVICE_STRING_FILTER_FIELDS,
   CashDevicePaginationQueryDto,
 } from './dto/cash-device-pagination-query.dto.js';
-import type {
-  CashDeviceEventListResponseDto,
-  CashDeviceEventQueryDto,
-  CashDeviceEventResponseDto,
-  CreateCashDeviceCollectionDto,
-  CreateCashDeviceRefillDto,
+import {
+  CASH_DEVICE_EVENT_DATE_FILTER_FIELDS,
+  CASH_DEVICE_EVENT_ENUM_FILTER_FIELDS,
+  type CashDeviceEventListResponseDto,
+  type CashDeviceEventQueryDto,
+  type CashDeviceEventResponseDto,
+  type CreateCashDeviceCollectionDto,
+  type CreateCashDeviceRefillDto,
 } from './dto/cash-device-event.dto.js';
 import type {
   CashDeviceListResponseDto,
@@ -231,18 +233,48 @@ export class CashDevicesService {
   async findEvents(
     organizationId: string,
     deviceId: string,
-    { limit = 10, offset = 0 }: CashDeviceEventQueryDto,
+    {
+      limit = 10,
+      offset = 0,
+      filterField,
+      filterOperator,
+      filterValue,
+      sortBy,
+      sortDirection = 'desc',
+    }: CashDeviceEventQueryDto = {},
   ): Promise<CashDeviceEventListResponseDto> {
     await this.findOne(organizationId, deviceId);
-    const where = eq(cashDeviceEvent.deviceId, deviceId);
+
+    const fieldMap: Record<string, Column | SQL> = {
+      type: sql`${cashDeviceEvent.type}::text`,
+      occurredAt: cashDeviceEvent.occurredAt,
+    };
+
+    const tiebreakers = [
+      orderByDirection(cashDeviceEvent.occurredAt, sortDirection),
+      orderByDirection(cashDeviceEvent.id, sortDirection),
+    ];
+    const orderBy = sortBy
+      ? [orderByDirection(fieldMap[sortBy], sortDirection), ...tiebreakers]
+      : tiebreakers;
+
+    const where = and(
+      eq(cashDeviceEvent.deviceId, deviceId),
+      filterField && filterOperator
+        ? buildFilterCondition(
+            filterField,
+            filterOperator,
+            filterValue,
+            fieldMap,
+            [],
+            CASH_DEVICE_EVENT_DATE_FILTER_FIELDS,
+            CASH_DEVICE_EVENT_ENUM_FILTER_FIELDS,
+          )
+        : undefined,
+    );
 
     const [rows, [{ total }]] = await Promise.all([
-      this.db.query.cashDeviceEvent.findMany({
-        where,
-        orderBy: [desc(cashDeviceEvent.occurredAt), desc(cashDeviceEvent.id)],
-        limit,
-        offset,
-      }),
+      this.db.query.cashDeviceEvent.findMany({ where, orderBy, limit, offset }),
       this.db.select({ total: count() }).from(cashDeviceEvent).where(where),
     ]);
 
