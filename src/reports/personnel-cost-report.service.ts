@@ -3,15 +3,12 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, eq, gt, isNull, lt, or } from 'drizzle-orm';
 
 import { attendanceEmployee } from '../db/schema/attendance.js';
-import { organization } from '../db/schema/organizations.js';
 import {
   type PayrollSnapshot,
   payrollStatement,
 } from '../db/schema/payroll.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
-
-import { organizationNotFoundError } from '../common/utils/organizations.js';
 
 import { payrollPeriod } from '../payroll/payroll-calculation.js';
 
@@ -82,17 +79,11 @@ export class PersonnelCostReportService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   async getPersonnelCostReport(
-    organizationSlug: string,
+    organizationId: string,
     query: PersonnelCostReportPageQueryDto,
   ): Promise<PersonnelCostReportResponseDto> {
     const { month } = query;
-    const org = await this.db.query.organization.findFirst({
-      where: eq(organization.slug, organizationSlug),
-      columns: { id: true },
-    });
-    if (!org) throw organizationNotFoundError();
-
-    const { statements, employees } = await this.monthOf(org.id, month);
+    const { statements, employees } = await this.monthOf(organizationId, month);
 
     const groups = new Map<string | null, Accumulator>();
     const totals = emptyAccumulator();

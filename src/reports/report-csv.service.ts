@@ -44,11 +44,11 @@ export class ReportCsvService {
   ) {}
 
   async sales(
-    organizationSlug: string,
+    organizationId: string,
     query: SalesReportQueryDto,
   ): Promise<string> {
     const { groupBy, rows, totals } =
-      await this.salesReportService.getSalesReport(organizationSlug, query);
+      await this.salesReportService.getSalesReport(organizationId, query);
     const lang = toLanguage(I18nContext.current()?.lang);
     const t = (key: CsvColumn) =>
       this.i18n.t(`common.reports.csv.${key}`, { lang });
@@ -109,12 +109,12 @@ export class ReportCsvService {
   }
 
   async inventory(
-    organizationSlug: string,
+    organizationId: string,
     query: ReportRangeQueryDto,
     canReadPurchasing: boolean,
   ): Promise<string> {
     const { rows } = await this.inventoryReportService.getInventoryReport(
-      organizationSlug,
+      organizationId,
       query,
       canReadPurchasing,
     );
@@ -143,10 +143,10 @@ export class ReportCsvService {
       ]),
     ]);
   }
-  async personnel(organizationSlug: string, month: string): Promise<string> {
+  async personnel(organizationId: string, month: string): Promise<string> {
     const { rows, totals } =
       await this.personnelCostReportService.getPersonnelCostReport(
-        organizationSlug,
+        organizationId,
         { month },
       );
     const lang = toLanguage(I18nContext.current()?.lang);
@@ -180,12 +180,12 @@ export class ReportCsvService {
   }
 
   async breakEven(
-    organizationSlug: string,
+    organizationId: string,
     query: BreakEvenReportQueryDto,
   ): Promise<string> {
     const { costOfGoodsSold, rows } =
       await this.breakEvenReportService.getBreakEvenReport(
-        organizationSlug,
+        organizationId,
         query,
       );
     const lang = toLanguage(I18nContext.current()?.lang);

@@ -98,13 +98,13 @@ describe('ReportCsvService', () => {
     });
 
     await expect(
-      service.sales('biru', { ...range, groupBy: 'mode' }),
+      service.sales('org', { ...range, groupBy: 'mode' }),
     ).resolves.toBe(
       '\uFEFF點餐方式,訂單數,營收,折扣,退款,淨額\r\n' +
         '內用,3,300,10,50,250\r\n' +
         '合計,3,300,10,50,250\r\n',
     );
-    expect(salesReportService.getSalesReport).toHaveBeenCalledWith('biru', {
+    expect(salesReportService.getSalesReport).toHaveBeenCalledWith('org', {
       ...range,
       groupBy: 'mode',
     });
@@ -135,14 +135,14 @@ describe('ReportCsvService', () => {
       ],
     });
 
-    await expect(service.breakEven('biru', { month: '2026-10' })).resolves.toBe(
+    await expect(service.breakEven('org', { month: '2026-10' })).resolves.toBe(
       '\uFEFF品項,份數,未稅營收,標準成本,毛利,毛利率\r\n' +
         '拿鐵,3,300,80,220,0.7333\r\n' +
         '蛋糕,2,200,,,\r\n' +
         '合計,5,500,80,,\r\n',
     );
     expect(breakEvenReportService.getBreakEvenReport).toHaveBeenCalledWith(
-      'biru',
+      'org',
       { month: '2026-10' },
     );
   });
@@ -158,7 +158,7 @@ describe('ReportCsvService', () => {
     });
 
     await expect(
-      service.sales('biru', { ...range, groupBy: 'hour' }),
+      service.sales('org', { ...range, groupBy: 'hour' }),
     ).resolves.toBe(
       '\uFEFF小時,訂單數,營收,折扣,退款,淨額\r\n' +
         '09:00,3,300,10,50,250\r\n' +
@@ -178,7 +178,7 @@ describe('ReportCsvService', () => {
     });
 
     await expect(
-      service.sales('biru', { ...range, groupBy: 'paymentMethod' }),
+      service.sales('org', { ...range, groupBy: 'paymentMethod' }),
     ).resolves.toBe(
       '\uFEFF付款方式,訂單數,營收,折扣,退款,淨額\r\n' +
         '信用卡,3,300,10,50,250\r\n' +
@@ -210,7 +210,7 @@ describe('ReportCsvService', () => {
     });
 
     await expect(
-      service.sales('biru', { ...range, groupBy: 'category' }),
+      service.sales('org', { ...range, groupBy: 'category' }),
     ).resolves.toBe(
       '\uFEFF分類,訂單數,份數,退款份數,營收,折扣,退款,淨額\r\n' +
         '咖啡,3,4,1,300,10,50,250\r\n' +
@@ -243,12 +243,12 @@ describe('ReportCsvService', () => {
       ],
     });
 
-    await expect(service.inventory('biru', range, true)).resolves.toBe(
+    await expect(service.inventory('org', range, true)).resolves.toBe(
       '\uFEFF食材,單位,期初,入庫,耗用,報廢,報廢成本,調整,期末,理論耗用,實際耗用,差異\r\n' +
         '牛奶,毫升,1000.000,500.000,300.000,50.000,2.50,-20.000,1130.000,280.000,320.000,40.000\r\n',
     );
     expect(inventoryReportService.getInventoryReport).toHaveBeenCalledWith(
-      'biru',
+      'org',
       range,
       true,
     );
@@ -260,7 +260,7 @@ describe('ReportCsvService', () => {
       wasteByReason: [{ reason: 'expired', occurrences: 2, cost: null }],
     });
 
-    await expect(service.inventory('biru', range, false)).resolves.toBe(
+    await expect(service.inventory('org', range, false)).resolves.toBe(
       '\uFEFF食材,單位,期初,入庫,耗用,報廢,調整,期末,理論耗用,實際耗用,差異\r\n' +
         '牛奶,毫升,1000.000,500.000,300.000,50.000,-20.000,1130.000,280.000,320.000,40.000\r\n',
     );

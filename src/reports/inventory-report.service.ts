@@ -13,13 +13,11 @@ import {
   type WasteReason,
 } from '../db/schema/inventory.js';
 import { orderItem } from '../db/schema/orders.js';
-import { organization } from '../db/schema/organizations.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
 import { toLanguage } from '../common/utils/language.js';
 import { localizedTextSql } from '../common/utils/localized-text.js';
-import { organizationNotFoundError } from '../common/utils/organizations.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import { localize } from '../menus/menus-public.service.js';
 
@@ -38,18 +36,12 @@ export class InventoryReportService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   async getInventoryReport(
-    organizationSlug: string,
+    organizationId: string,
     query: InventoryReportPageQueryDto,
     canReadPurchasing = true,
   ): Promise<InventoryReportResponseDto> {
     const { since, until } = parseReportRange(query);
     const lang = toLanguage(I18nContext.current()?.lang);
-
-    const org = await this.db.query.organization.findFirst({
-      where: eq(organization.slug, organizationSlug),
-      columns: { id: true },
-    });
-    if (!org) throw organizationNotFoundError();
 
     const inPeriod = and(
       gte(inventoryTransaction.createdAt, utcTimestampParam(since)),
@@ -103,7 +95,7 @@ export class InventoryReportService {
           -SUM(${quantity}) FILTER (WHERE ${and(inPeriod, isBatch, sql`${quantity} < 0`)}) AS batch_consumed
         FROM ${inventoryTransaction}
         WHERE ${and(
-          eq(inventoryTransaction.organizationId, org.id),
+          eq(inventoryTransaction.organizationId, organizationId),
           gte(inventoryTransaction.createdAt, utcTimestampParam(since)),
         )}
         GROUP BY 1
@@ -117,7 +109,7 @@ export class InventoryReportService {
             COUNT(*) FILTER (WHERE ${quantity} > 0) AS restores
           FROM ${inventoryTransaction}
           WHERE ${and(
-            eq(inventoryTransaction.organizationId, org.id),
+            eq(inventoryTransaction.organizationId, organizationId),
             inPeriod,
             isOrder,
           )}
@@ -151,7 +143,7 @@ export class InventoryReportService {
         FROM sold
         JOIN ${recipe} ON ${recipe.menuItemId} = sold.menu_item_id OR ${recipe.modifierId} = sold.modifier_id
         JOIN ${recipeIngredient} ON ${recipeIngredient.recipeId} = ${recipe.id}
-        WHERE ${eq(recipe.organizationId, org.id)}
+        WHERE ${eq(recipe.organizationId, organizationId)}
         GROUP BY 1
       )
       SELECT
@@ -171,7 +163,7 @@ export class InventoryReportService {
       FROM ${ingredient}
       LEFT JOIN movement ON movement.ingredient_id = ${ingredient.id}
       LEFT JOIN theoretical ON theoretical.ingredient_id = ${ingredient.id}
-      WHERE ${and(eq(ingredient.organizationId, org.id), eq(ingredient.unlimitedStock, false))}
+      WHERE ${and(eq(ingredient.organizationId, organizationId), eq(ingredient.unlimitedStock, false))}
       ORDER BY ${ingredient.sortOrder}, ${localizedTextSql(ingredient.name, lang)}, ${ingredient.id}
     `);
 
@@ -190,7 +182,7 @@ export class InventoryReportService {
       )
       .where(
         and(
-          eq(inventoryTransaction.organizationId, org.id),
+          eq(inventoryTransaction.organizationId, organizationId),
           eq(ingredient.unlimitedStock, false),
           inPeriod,
           isWaste,
