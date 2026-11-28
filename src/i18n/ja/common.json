@@ -372,6 +372,7 @@
     "notAwaitingPayment": "支払期限を過ぎたか、状態が変更されたため、この注文はお支払いできません",
     "notOwnCupItem": "この商品はマイカップの注文ではありません",
     "onlinePaymentNotRequired": "この注文はオンライン決済の必要がありません",
+    "orderExportTooLarge": "条件に一致する注文が {max} 件を超えています。絞り込み（作成日時など）を狭めてから再度エクスポートしてください",
     "orderItemNotFound": "この注文にその品目が見つかりません",
     "orderItemRefunded": "この品目は全数返金済みです",
     "orderNotDelivered": "フィードバックは注文の完了後にのみ送信できます",

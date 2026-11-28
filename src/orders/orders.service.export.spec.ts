@@ -7,7 +7,7 @@ import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import { OrdersService } from './orders.service.js';
+import { ORDER_EXPORT_MAX_ROWS, OrdersService } from './orders.service.js';
 
 const actor = { id: 'staff', name: 'Staff', email: 'staff@example.com' };
 
@@ -138,4 +138,35 @@ describe('OrdersService.exportOrders', () => {
       ]);
     },
   );
+
+  it('符合的訂單超過上限時拒絕匯出，也不寫 audit_log', async () => {
+    await client.exec(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
+         ('big', 'Big', 'big', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+       insert into "order" (id, customer, mode, order_number, order_status, payment_method, seller_id, subtotal, created_at, updated_at)
+         select 'big' || n, '{}', 'pickup', n::text, 'OrderDelivered', 'Cash', 'big', 100, now(), now()
+         from generate_series(1, ${ORDER_EXPORT_MAX_ROWS + 1}) as n;`,
+    );
+
+    await expect(service.exportOrders('big', {}, actor)).rejects.toMatchObject({
+      response: { code: 'orderExportTooLarge' },
+    });
+    await expect(
+      service.exportOrders(
+        'big',
+        {
+          filterField: 'orderNumber',
+          filterOperator: 'equals',
+          filterValue: '1',
+        },
+        actor,
+      ),
+    ).resolves.toHaveLength(1);
+    expect(
+      await db
+        .select()
+        .from(schema.auditLog)
+        .where(eq(schema.auditLog.resourceId, 'big')),
+    ).toHaveLength(1);
+  });
 });

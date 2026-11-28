@@ -378,6 +378,8 @@ const refundedQuantitiesOf = (
 const PUBLIC_BOARD_LEAD_MS = 60 * 60 * 1000;
 const ADMIN_BOARD_LEAD_MS = 24 * 60 * 60 * 1000;
 
+export const ORDER_EXPORT_MAX_ROWS = 10_000;
+
 const CUSTOMER_FILTER_FIELDS = new Set<string>([
   'customerName',
   'customerTelephone',
@@ -870,7 +872,12 @@ export class OrdersService {
         total: true,
         customer: true,
       },
+      limit: ORDER_EXPORT_MAX_ROWS + 1,
     });
+    if (rows.length > ORDER_EXPORT_MAX_ROWS)
+      throw badRequestError('orderExportTooLarge', {
+        max: ORDER_EXPORT_MAX_ROWS,
+      });
 
     await this.db.insert(auditLog).values({
       id: randomUUID(),

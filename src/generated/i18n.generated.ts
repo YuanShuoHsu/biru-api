@@ -445,6 +445,7 @@ export type I18nTranslations = {
             "notAwaitingPayment": string;
             "notOwnCupItem": string;
             "onlinePaymentNotRequired": string;
+            "orderExportTooLarge": string;
             "orderItemNotFound": string;
             "orderItemRefunded": string;
             "orderNotDelivered": string;

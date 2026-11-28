@@ -372,6 +372,7 @@
     "notAwaitingPayment": "This order can no longer be paid. The payment deadline may have passed or its status has changed.",
     "notOwnCupItem": "This item is not served in the customer's own cup",
     "onlinePaymentNotRequired": "This order does not need to be paid online.",
+    "orderExportTooLarge": "More than {max} orders match. Narrow the filters (for example, by created time) and export again.",
     "orderItemNotFound": "This item could not be found in the order.",
     "orderItemRefunded": "This item has been fully refunded.",
     "orderNotDelivered": "Feedback can only be left once the order is completed.",
